@@ -9,7 +9,8 @@
     "https://codeload.github.com/*",
     "https://latexonline.cc/*",
     "https://cdn.jsdelivr.net/*",
-    "https://pyscript.net/*"
+    "https://pyscript.net/*",
+    "<all_urls>"
   ],
   "content_scripts": [
     {

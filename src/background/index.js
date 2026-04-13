@@ -36,6 +36,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "bds-fetch-url") {
+    fetchPageContent(message.url)
+      .then((html) => {
+        sendResponse({ ok: true, html });
+      })
+      .catch((error) => {
+        sendResponse({
+          ok: false,
+          error: String(error && error.message ? error.message : error),
+        });
+      });
+    return true;
+  }
+
   return false;
 });
 
@@ -127,4 +141,15 @@ async function fetchGithubZip(url) {
 
   const bytes = new Uint8Array(arrayBuffer);
   return bytesToBase64(bytes);
+}
+
+async function fetchPageContent(url) {
+  if (!url) throw new Error("No URL provided.");
+
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    throw new Error(`Server returned ${resp.status} for ${url}`);
+  }
+
+  return await resp.text();
 }
