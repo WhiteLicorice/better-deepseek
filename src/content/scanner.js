@@ -6,6 +6,8 @@ import state from "./state.js";
 import { LONG_WORK_STALE_MS } from "../lib/constants.js";
 import { processMessageNode } from "./message-processor.svelte.js";
 import { enhanceCodeBlockDownloads } from "./files/code-blocks.js";
+import { mount } from "svelte";
+import AttachMenu from "./ui/AttachMenu.svelte";
 
 /**
  * Collect all message nodes from the chat DOM.
@@ -135,6 +137,45 @@ function scanPage() {
   for (const node of nodes) {
     processMessageNode(node);
   }
+
+  scanInputArea();
+}
+
+/**
+ * Scan for the chat text input area to inject custom attachment menu
+ */
+function scanInputArea() {
+  const fileInput = document.querySelector('input[type="file"][multiple]');
+  if (!fileInput) return;
+
+  const wrapper = fileInput.parentElement;
+  if (!wrapper || wrapper.hasAttribute("data-bds-attach-menu-mounted")) {
+    return;
+  }
+
+  const prevSibling = fileInput.previousElementSibling;
+  let nativeButton = null;
+  if (prevSibling && prevSibling.getAttribute("role") === "button") {
+    nativeButton = prevSibling;
+  } else {
+    nativeButton = wrapper.querySelector('div[role="button"][tabindex="0"]');
+  }
+
+  if (nativeButton) {
+    nativeButton.style.setProperty("display", "none", "important");
+  }
+
+  const mountPoint = document.createElement("div");
+  wrapper.insertBefore(mountPoint, fileInput);
+
+  mount(AttachMenu, {
+    target: mountPoint,
+    props: {
+      nativeInput: fileInput
+    }
+  });
+
+  wrapper.setAttribute("data-bds-attach-menu-mounted", "true");
 }
 
 /**
