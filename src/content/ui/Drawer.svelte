@@ -22,11 +22,11 @@
 
 <aside id="bds-drawer" class={open ? "bds-open" : "bds-closed"}>
   <div class="bds-drawer-header">
-    <h2>Better DeepSeek</h2>
+    <div class="ds-modal-content__title">Better DeepSeek</div>
     <button id="bds-close" type="button" onclick={onclose} aria-label="Close">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M14.1871 13.1265L13.1265 14.1872L1.81275 2.87347L2.87341 1.81281L14.1871 13.1265Z" fill="currentColor"></path>
+        <path d="M13.1265 1.81282L14.1871 2.87348L2.8734 14.1872L1.81274 13.1265L13.1265 1.81282Z" fill="currentColor"></path>
       </svg>
     </button>
   </div>

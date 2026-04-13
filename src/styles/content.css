@@ -26,7 +26,7 @@
 .dark #bds-root {
   --bds-bg-panel: #1e1f23;
   --bds-bg-elevated: #2a2b30;
-  --bds-bg-hover: #35363b;
+  --bds-bg-hover: rgba(255, 255, 255, 0.08); /* --ds-rgb-hover equivalent */
   --bds-bg-input: #2a2b30;
   --bds-border: #3a3b3f;
   --bds-border-hover: #4a4b50;
@@ -128,11 +128,12 @@
   margin-bottom: 24px;
 }
 
-.bds-drawer-header h2 {
+.ds-modal-content__title {
   margin: 0;
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.3px;
+  color: var(--bds-text-primary);
 }
 
 /* X close button */
@@ -152,13 +153,24 @@
 }
 
 #bds-close:hover {
-  background: var(--bds-bg-elevated);
+  background: var(--bds-bg-hover);
   color: var(--bds-text-primary);
 }
 
 #bds-close svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
+}
+
+.bds-icon-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  width: 16px;
+  height: 16px;
+  margin-right: 8px;
+  color: inherit;
 }
 
 /* ── Section Dividers ── */
