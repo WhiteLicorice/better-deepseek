@@ -1,14 +1,22 @@
 <script>
   import { onMount } from "svelte";
   import { pickFolderAndConcatenate } from "../files/folder-reader.js";
+  import { fetchGitHubRepo, parseGitHubUrl } from "../files/github-reader.js";
 
   // The native input[type="file"] reference passed from scanner
   export let nativeInput;
 
   let isOpen = false;
   let menuRef;
-  let dropdownRef;
   let dropdownStyle = "";
+
+  // GitHub dialog state
+  let showGithubDialog = false;
+  let githubUrl = "";
+  let githubStatus = "";
+  let githubLoading = false;
+  let githubError = "";
+  let dialogRef;
 
   function toggleMenu(e) {
     e.stopPropagation();
@@ -23,8 +31,6 @@
   function updatePosition() {
     if (!menuRef) return;
     const rect = menuRef.getBoundingClientRect();
-    // Position fixed to avoid overflow:hidden clipping
-    // Show above the button and aligned to the right since it's on the right side
     dropdownStyle = `bottom: calc(100vh - ${rect.top}px + 8px); right: calc(100vw - ${rect.right}px);`;
   }
 
@@ -45,13 +51,25 @@
 
   onMount(() => {
     document.addEventListener("click", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
     return () => {
       document.removeEventListener("click", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
     };
   });
 
   function handleClickOutside(e) {
     if (menuRef && !menuRef.contains(e.target)) {
+      if (dialogRef && dialogRef.contains(e.target)) return;
+      closeMenu();
+    }
+  }
+
+  function handleEscape(e) {
+    if (e.key === "Escape") {
+      if (showGithubDialog && !githubLoading) {
+        showGithubDialog = false;
+      }
       closeMenu();
     }
   }
@@ -69,22 +87,63 @@
 
     const fakeFile = await pickFolderAndConcatenate();
     if (fakeFile) {
-      const dt = new DataTransfer();
+      injectFile(fakeFile);
+    }
+  }
 
-      // Preserve any existing files DeepSeek might have already staged 
-      // (though DeepSeek usually reads them and clears the input, but just in case)
-      if (nativeInput.files) {
-        for (let i = 0; i < nativeInput.files.length; i++) {
-          dt.items.add(nativeInput.files[i]);
-        }
+  function handleGithubImport() {
+    closeMenu();
+    githubUrl = "";
+    githubStatus = "";
+    githubError = "";
+    githubLoading = false;
+    showGithubDialog = true;
+  }
+
+  async function submitGithubUrl() {
+    if (!githubUrl.trim() || githubLoading) return;
+
+    const parsed = parseGitHubUrl(githubUrl);
+    if (!parsed) {
+      githubError = "Invalid URL. Use: https://github.com/owner/repo or owner/repo";
+      return;
+    }
+
+    githubError = "";
+    githubLoading = true;
+
+    try {
+      const file = await fetchGitHubRepo(githubUrl, (status) => {
+        githubStatus = status;
+      });
+
+      if (file) {
+        showGithubDialog = false;
+        injectFile(file);
       }
-      
-      dt.items.add(fakeFile);
-      
-      // Assign and trigger change event
-      nativeInput.files = dt.files;
-      const event = new Event("change", { bubbles: true });
-      nativeInput.dispatchEvent(event);
+    } catch (err) {
+      githubError = err.message || "Failed to fetch repository.";
+    } finally {
+      githubLoading = false;
+    }
+  }
+
+  function injectFile(file) {
+    if (!nativeInput) return;
+    const dt = new DataTransfer();
+    if (nativeInput.files) {
+      for (let i = 0; i < nativeInput.files.length; i++) {
+        dt.items.add(nativeInput.files[i]);
+      }
+    }
+    dt.items.add(file);
+    nativeInput.files = dt.files;
+    nativeInput.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function handleDialogKeydown(e) {
+    if (e.key === "Enter" && !githubLoading) {
+      submitGithubUrl();
     }
   }
 </script>
@@ -98,6 +157,8 @@
   </button>
   
   {#if isOpen}
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
     <div class="bds-attach-dropdown" style={dropdownStyle} use:portal on:click|stopPropagation>
       <button class="bds-attach-item" on:click={handleUploadFile}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bds-item-icon"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
@@ -107,9 +168,70 @@
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bds-item-icon"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
         Klasör Yükle
       </button>
+      <div class="bds-attach-divider"></div>
+      <button class="bds-attach-item" on:click={handleGithubImport}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" class="bds-item-icon"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path></svg>
+        GitHub Repo
+      </button>
     </div>
   {/if}
 </div>
+
+{#if showGithubDialog}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="bds-github-overlay" use:portal on:click|self={() => { if (!githubLoading) showGithubDialog = false; }}>
+    <div class="bds-github-dialog" bind:this={dialogRef} on:click|stopPropagation on:keydown|stopPropagation>
+      <div class="bds-github-header">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" class="bds-github-logo"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"></path></svg>
+        <span>GitHub Repo Import</span>
+        {#if !githubLoading}
+          <button class="bds-github-close" on:click={() => showGithubDialog = false}>&times;</button>
+        {/if}
+      </div>
+
+      <div class="bds-github-body">
+        <input
+          class="bds-github-input"
+          type="text"
+          placeholder="https://github.com/owner/repo or owner/repo"
+          bind:value={githubUrl}
+          on:keydown={handleDialogKeydown}
+          disabled={githubLoading}
+          autofocus
+        />
+
+        {#if githubError}
+          <div class="bds-github-error">{githubError}</div>
+        {/if}
+
+        {#if githubStatus && githubLoading}
+          <div class="bds-github-status">
+            <div class="bds-spinner"></div>
+            <span>{githubStatus}</span>
+          </div>
+        {/if}
+      </div>
+
+      <div class="bds-github-footer">
+        <button
+          class="bds-github-btn bds-github-btn-cancel"
+          on:click={() => { if (!githubLoading) showGithubDialog = false; }}
+          disabled={githubLoading}
+        >
+          Kapat
+        </button>
+        <button
+          class="bds-github-btn bds-github-btn-import"
+          on:click={submitGithubUrl}
+          disabled={githubLoading || !githubUrl.trim()}
+        >
+          {githubLoading ? "Importing..." : "Import"}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .bds-attach-wrapper {
@@ -151,7 +273,7 @@
     padding: 6px;
     display: flex;
     flex-direction: column;
-    min-width: 150px;
+    min-width: 160px;
     z-index: 999999;
   }
 
@@ -168,6 +290,7 @@
     align-items: center;
     gap: 10px;
     transition: background-color 0.2s ease, color 0.2s ease;
+    white-space: nowrap;
   }
 
   .bds-attach-item:hover {
@@ -177,6 +300,163 @@
 
   .bds-item-icon {
     opacity: 0.8;
+    flex-shrink: 0;
+  }
+
+  .bds-attach-divider {
+    height: 1px;
+    background: var(--dsw-color-border-primary, #3d3d3d);
+    margin: 4px 6px;
+  }
+
+  /* ─── GitHub Dialog ─── */
+
+  .bds-github-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999999;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(2px);
+  }
+
+  .bds-github-dialog {
+    background: var(--dsw-color-bg-elevated, #1e1e1e);
+    border: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+    border-radius: 12px;
+    width: 440px;
+    max-width: 90vw;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+  }
+
+  .bds-github-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--dsw-color-border-primary, #333);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--dsw-alias-text, #e0e0e0);
+  }
+
+  .bds-github-logo {
+    opacity: 0.9;
+  }
+
+  .bds-github-close {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--dsw-alias-text, #999);
+    font-size: 20px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+  }
+
+  .bds-github-close:hover {
+    color: #fff;
+  }
+
+  .bds-github-body {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .bds-github-input {
+    background: var(--dsw-color-bg-primary, #141414);
+    border: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--dsw-alias-text, #e0e0e0);
+    outline: none;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+
+  .bds-github-input:focus {
+    border-color: var(--dsw-alias-brand-text, #4d6bfe);
+  }
+
+  .bds-github-input:disabled {
+    opacity: 0.6;
+  }
+
+  .bds-github-error {
+    color: #f87171;
+    font-size: 13px;
+    padding: 0 2px;
+  }
+
+  .bds-github-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--dsw-alias-brand-text, #4d6bfe);
+    padding: 0 2px;
+  }
+
+  .bds-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid transparent;
+    border-top-color: var(--dsw-alias-brand-text, #4d6bfe);
+    border-radius: 50%;
+    animation: bds-spin 0.6s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes bds-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .bds-github-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--dsw-color-border-primary, #333);
+  }
+
+  .bds-github-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+  }
+
+  .bds-github-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .bds-github-btn-cancel {
+    background: var(--dsw-color-bg-hover, #333);
+    color: var(--dsw-alias-text, #ccc);
+  }
+
+  .bds-github-btn-cancel:hover:not(:disabled) {
+    background: #444;
+  }
+
+  .bds-github-btn-import {
+    background: var(--dsw-alias-brand-text, #4d6bfe);
+    color: #fff;
+  }
+
+  .bds-github-btn-import:hover:not(:disabled) {
+    background: #3d5bde;
   }
 
   @media (prefers-color-scheme: light) {
