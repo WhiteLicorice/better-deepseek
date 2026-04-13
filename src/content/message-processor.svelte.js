@@ -21,6 +21,7 @@ import MessageOverlay from "./ui/MessageOverlay.svelte";
 
 const messageOverlays = new Map();
 const nodeStates = new WeakMap();
+const userMsgCleaned = new WeakSet();
 
 function getNodeState(node) {
   let s = nodeStates.get(node);
@@ -45,6 +46,13 @@ export function processMessageNode(node) {
   }
 
   const role = detectMessageRole(node);
+
+  // --- USER MESSAGE: strip <BetterDeepSeek> system prompt from view ---
+  if (role === "user") {
+    stripBdsTagsFromUserMessage(node);
+    return;
+  }
+
   const isLatestAssistant =
     role === "assistant" && isLatestAssistantMessage(node);
 
@@ -289,5 +297,38 @@ function toggleNodeHidden(el, hidden) {
     el.classList.add("bds-hidden-message");
   } else {
     el.classList.remove("bds-hidden-message");
+  }
+}
+
+/**
+ * Strip <BetterDeepSeek>...</BetterDeepSeek> blocks from user message DOM.
+ * Operates on the actual DOM text so the user never sees the injected system prompt.
+ */
+function stripBdsTagsFromUserMessage(node) {
+  if (userMsgCleaned.has(node)) return;
+
+  // Find the text container inside the user message bubble
+  const textContainer = node.querySelector('.fbb737a4') || node.querySelector('.ds-markdown');
+  if (!textContainer) return;
+
+  // Use textContent for detection — innerHTML has HTML-encoded angle brackets (&lt; &gt;)
+  const plainText = textContainer.textContent || '';
+  if (!/BetterDeepSeek>/i.test(plainText)) return;
+
+  // Mark as processed before modifying to prevent re-entry
+  userMsgCleaned.add(node);
+
+  // innerHTML has &lt;BetterDeepSeek&gt; (HTML-encoded), so match that form
+  const html = textContainer.innerHTML;
+  const cleaned = html.replace(
+    /&lt;BetterDeepSeek&gt;[\s\S]*?&lt;\/BetterDeepSeek&gt;/gi,
+    ''
+  ).trim();
+
+  if (cleaned) {
+    textContainer.innerHTML = cleaned;
+  } else {
+    // If the entire message was the system prompt, hide the whole bubble
+    node.style.display = 'none';
   }
 }
