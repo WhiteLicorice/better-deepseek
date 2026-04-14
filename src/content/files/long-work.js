@@ -35,7 +35,6 @@ export function finalizeLongWork(node) {
   const entries = Array.from(state.longWork.files.entries()).map(
     ([path, content]) => ({ path, content })
   );
-  state.longWork.files.clear();
 
   if (!entries.length) {
     if (state.ui) {

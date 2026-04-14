@@ -79,6 +79,7 @@ export function processMessageNode(node) {
   // IMMEDIATELY activate longWork state if tag is seen in latest assistant message
   if (isLatestAssistant && (parsed.longWorkOpen || (parsed.isStreamingTool && parsed.streamingTagName === 'long_work'))) {
     if (!state.longWork.active) {
+      state.longWork.files.clear();
       state.longWork.active = true;
       state.longWork.lastActivityAt = Date.now();
     }
@@ -132,28 +133,35 @@ export function processMessageNode(node) {
     const shouldFinalize =
       // LIVE: explicit close tag on latest assistant
       (parsed.longWorkClose && isLatestAssistant) ||
-      // LIVE: message settled while longWork was active (fallback if close tag missed)
-      (isSettled && stateData.isLongWorkActive && isLatestAssistant) ||
       // HISTORICAL: complete LONG_WORK block in a finished, non-latest message
-      (parsed.longWorkOpen && parsed.longWorkClose && !isGenerating && !isLatestAssistant);
+      (parsed.longWorkOpen && parsed.longWorkClose && !isLatestAssistant);
 
-    if (shouldFinalize && !stateData.longWorkClosed) {
-      stateData.longWorkClosed = true;
+    if (shouldFinalize) {
+      const filesToZip = isLatestAssistant && state.longWork.files.size > 0
+        ? Array.from(state.longWork.files.entries()).map(([path, content]) => ({ path, content }))
+        : parsed.createFiles.map(f => ({ path: f.fileName, content: f.content }));
 
-      if (isLatestAssistant) {
-        // Live finalization: use the global buffer
-        finalizeLongWork(node);
-      } else {
-        // Historical finalization: emit directly from this message's parsed files
-        const entries = parsed.createFiles.map(f => ({
-          path: f.fileName,
-          content: f.content
-        }));
-        if (entries.length > 0) {
-          emitZipForFiles(node, entries);
+      const fileHost = node.nextElementSibling?.querySelector('.bds-file-host');
+      const isMounted = fileHost && fileHost.querySelector('.bds-download-card');
+      
+      const needsEmit = !stateData.longWorkClosed || 
+                        stateData.lastFinalizedCount !== filesToZip.length || 
+                        !isMounted;
+
+      if (needsEmit && filesToZip.length > 0) {
+        stateData.longWorkClosed = true;
+        stateData.lastFinalizedCount = filesToZip.length;
+
+        emitZipForFiles(node, filesToZip);
+
+        if (isLatestAssistant) {
+          state.longWork.active = false;
+          state.longWork.lastActivityAt = 0;
+          // Do NOT clear state.longWork.files here! Let them persist 
+          // to handle any DOM re-renders until the next LONG_WORK starts.
         }
+        stateData.filesEmitted = true;
       }
-      stateData.filesEmitted = true;
     }
 
     // --- AUTO INTERFACES ---
@@ -225,9 +233,11 @@ export function processMessageNode(node) {
       stateData.hiddenByTags = false;
       node.classList.remove("bds-hidden-message");
       
-      const wrapper = node.nextElementSibling;
-      if (wrapper && wrapper.classList.contains("bds-host-wrapper")) {
-        wrapper.remove();
+      // NEVER remove the bds-host-wrapper, as it may contain bds-file-host (the ZIP card).
+      // Only clear the overlay sub-container.
+      const overlayHost = node.nextElementSibling?.querySelector(".bds-overlay-host");
+      if (overlayHost) {
+        overlayHost.innerHTML = "";
       }
     }
   }
@@ -239,7 +249,12 @@ export function processMessageNode(node) {
  */
 function isSystemGenerating() {
   // DeepSeek's Stop button usually has a square icon.
-  const stopButton = document.querySelector('.ds-icon-stop-circle, .ds-icon-stop, div[role="button"] svg path[d*="M3 3h10v10H3z"]');
+  const stopButton = document.querySelector(
+    '.ds-icon-stop-circle, ' +
+    '.ds-icon-stop, ' +
+    'div[role="button"] svg path[d*="M3 3h10v10H3z"], ' +
+    'div[role="button"] svg path[d*="M6 6h12v12H6z"]'
+  );
   return !!stopButton;
 }
 
@@ -251,15 +266,30 @@ function isMessageFinished(node) {
   const hasCursor = !!node.querySelector('.ds-cursor');
   const isCurrentlyStreamingClass = node.classList.contains('_streaming');
   
-  // If the system is no longer generating and no cursor is present, it's done.
-  // We also check for common footer buttons as a backup.
-  const hasFooterButtons = !!node.querySelector('div[role="button"] svg, .ds-icon-copy, .ds-icon-regenerate, .ds-icon-share');
+  // If we see a cursor or the active streaming class, it's NOT finished, regardless of buttons.
+  if (hasCursor || isCurrentlyStreamingClass) {
+    return false;
+  }
+
+  const generating = isSystemGenerating();
   
-  if (!isSystemGenerating() && !hasCursor && !isCurrentlyStreamingClass) {
+  // If the system is no longer generating globally, it's definitely done.
+  if (!generating) {
     return true;
   }
 
-  return hasFooterButtons && !hasCursor && !isCurrentlyStreamingClass;
+  // If the system IS generating, this specific message might still be finished
+  // (e.g. it's an earlier message in the session).
+  // We look for action buttons as a sign of completion.
+  const hasFooterButtons = !!node.querySelector('div[role="button"] svg, .ds-icon-copy, .ds-icon-regenerate, .ds-icon-share');
+  
+  // Backup check: if it's the latest message and the system is generating, it's usually NOT finished.
+  const isLatest = isLatestAssistantMessage(node);
+  if (isLatest && generating) {
+    return false;
+  }
+
+  return hasFooterButtons;
 }
 
 /**
@@ -283,12 +313,28 @@ function syncVisibilityState(node, isLatestAssistant, stateData) {
  * We specifically target .ds-markdown to keep the "Thinking" block visible.
  */
 function hideMessageNode(node, hidden) {
-  // Find all markdowns, but we only want to hide the ones that are NOT in the thinking block
-  const allMarkdowns = node.querySelectorAll('.ds-markdown');
-  const answerMarkdowns = Array.from(allMarkdowns).filter(el => !el.closest('.ds-think-content'));
+  // DeepSeek uses .ds-markdown for content. 
+  // We also try broader selectors to capture everything that might contain tags.
+  const contentSelectors = [
+    '.ds-markdown',
+    '.ds-message-content',
+    'div[class*="markdown"]',
+    'div[class*="content"]'
+  ];
 
-  if (answerMarkdowns.length === 0) {
-    // Fallback: If no markdown found yet, show/hide the whole node as a last resort
+  let foundElements = [];
+  for (const selector of contentSelectors) {
+    const elements = node.querySelectorAll(selector);
+    elements.forEach(el => {
+      // Ignore components that are inside think segments
+      if (!el.closest('.ds-think-content') && !el.closest('div[class*="think"]')) {
+        foundElements.push(el);
+      }
+    });
+  }
+
+  if (foundElements.length === 0) {
+    // Fallback: If no content container found yet, hide the whole node
     toggleNodeHidden(node, hidden);
     return;
   }
@@ -296,8 +342,9 @@ function hideMessageNode(node, hidden) {
   // Ensure main node is visible (so Thoughts and Overlay show up)
   toggleNodeHidden(node, false);
   
-  // Hide all markdowns that belong to the actual answer
-  answerMarkdowns.forEach(el => toggleNodeHidden(el, hidden));
+  // Hide all content blocks that belong to the actual answer
+  const uniqueElements = Array.from(new Set(foundElements));
+  uniqueElements.forEach(el => toggleNodeHidden(el, hidden));
 }
 
 function toggleNodeHidden(el, hidden) {

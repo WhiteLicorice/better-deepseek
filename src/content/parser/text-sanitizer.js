@@ -17,6 +17,11 @@ export function sanitizeVisibleText(text) {
     /<BDS:[A-Za-z0-9_]+[^>]*>[\s\S]*?<\/BDS:[A-Za-z0-9_]+>/gi,
     ""
   );
+  // Clean up any stray or unclosed tags
+  output = output.replace(/<BDS:[A-Za-z0-9_]+[^>]*>/gi, "");
+  output = output.replace(/<\/BDS:[A-Za-z0-9_]+>/gi, "");
+  output = output.replace(/<BetterDeepSeek>|<\/BetterDeepSeek>/gi, "");
+  
   output = output.replace(/<BDS:create_file[^>]*\/>/gi, "");
   output = output.replace(/<\/?BDS:LONG_WORK>/gi, "");
   output = output.replace(/Bds create file>[^\n]*/gi, "");
