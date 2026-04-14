@@ -373,12 +373,15 @@
   margin-top: 8px;
 }
 
-#bds-skill-upload {
+#bds-skill-upload,
+#bds-char-upload {
   font-size: 12px;
   color: var(--bds-text-secondary);
+  width: 100%;
 }
 
-#bds-skill-upload::file-selector-button {
+#bds-skill-upload::file-selector-button,
+#bds-char-upload::file-selector-button {
   border: 1px solid var(--bds-border);
   border-radius: 8px;
   background: var(--bds-bg-elevated);
@@ -391,7 +394,8 @@
   transition: all var(--bds-transition);
 }
 
-#bds-skill-upload::file-selector-button:hover {
+#bds-skill-upload::file-selector-button:hover,
+#bds-char-upload::file-selector-button:hover {
   background: var(--bds-bg-hover);
   border-color: var(--bds-border-hover);
 }
@@ -549,6 +553,38 @@
   transform: rotate(45deg);
 }
 
+/* ── Radio buttons (persona selection) ── */
+.bds-skill-item input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  border: 1.5px solid var(--bds-border);
+  border-radius: 50%;
+  background: var(--bds-bg-input);
+  cursor: pointer;
+  position: relative;
+  transition: all var(--bds-transition);
+  margin: 0;
+}
+
+.bds-skill-item input[type="radio"]:checked {
+  border-color: var(--bds-accent);
+}
+
+.bds-skill-item input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  background: var(--bds-accent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
 /* ══════════════════════════════════
    Host Wrappers (inline content)
    ══════════════════════════════════ */
@@ -572,3 +608,43 @@
   margin: 0;
   font-size: 13px;
 }
+
+/* ── Inline Editor ── */
+.bds-inline-editor {
+  display: grid;
+  gap: 12px;
+  background: var(--bds-bg-panel);
+  border: 1px solid var(--bds-accent);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 4px 0;
+  box-shadow: 0 4px 20px var(--bds-accent-glow);
+}
+
+.bds-inline-editor .bds-input {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--bds-border);
+  background: var(--bds-bg-input);
+  color: var(--bds-text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.bds-inline-editor .bds-input:focus {
+  border-color: var(--bds-accent);
+}
+
+.bds-inline-editor textarea {
+  min-height: 120px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.bds-inline-editor .bds-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+

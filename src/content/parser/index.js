@@ -31,6 +31,7 @@ export function parseBdsMessage(rawText) {
     renderableBlocks: [],
     createFiles: [],
     memoryWrites: [],
+    characterCreates: [],
     autoRequests: {
       webFetch: []
     },
@@ -85,6 +86,14 @@ export function parseBdsMessage(rawText) {
       if (parsedMemory) {
         result.memoryWrites.push(parsedMemory);
       }
+    }
+
+    if (name === "character_create") {
+      result.characterCreates.push({
+        name: attrs.name || "New Character",
+        usage: attrs.usage || attrs.kullanim_alani || "",
+        content: content
+      });
     }
   }
 

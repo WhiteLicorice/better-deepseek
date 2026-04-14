@@ -27,6 +27,7 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
       systemPrompt: "",
       skills: [],
       memories: [],
+      activeCharacter: null,
     },
     initializedConversations: new Set(),
     activeCompletionRequests: 0,

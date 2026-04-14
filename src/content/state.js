@@ -11,6 +11,7 @@ const state = {
   settings: { ...DEFAULT_SETTINGS },
   skills: [],
   memories: {},
+  characters: [],
   observer: null,
   scanTimer: 0,
   urlWatchTimer: 0,

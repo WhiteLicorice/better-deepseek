@@ -7,6 +7,11 @@
   let skills = $state([...appState.skills]);
   let fileInput = $state(null);
 
+  // Editing state
+  let editingId = $state(null);
+  let editingName = $state("");
+  let editingContent = $state("");
+
   export function refresh() {
     skills = [...appState.skills];
   }
@@ -106,6 +111,35 @@
       appState.ui.showToast("Skill removed.");
     }
   }
+
+  function startEdit(skill) {
+    editingId = skill.id;
+    editingName = skill.name;
+    editingContent = skill.content;
+  }
+
+  function cancelEdit() {
+    editingId = null;
+  }
+
+  async function saveEdit() {
+    const skill = appState.skills.find(s => s.id === editingId);
+    if (skill) {
+      skill.name = editingName;
+      skill.content = editingContent;
+      
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.skills]: appState.skills,
+      });
+      skills = [...appState.skills];
+      pushConfigToPage();
+      
+      if (appState.ui) {
+        appState.ui.showToast("Skill saved.");
+      }
+    }
+    editingId = null;
+  }
 </script>
 
 <div class="bds-section-title">
@@ -151,19 +185,43 @@
     <p class="bds-empty">No skills loaded.</p>
   {:else}
     {#each skills as skill (skill.id)}
-      <div class="bds-skill-item">
-        <label>
-          <input
-            type="checkbox"
-            checked={skill.active}
-            onchange={(e) => toggleSkill(skill.id, e.target.checked)}
+      {#if editingId === skill.id}
+        <div class="bds-inline-editor">
+          <input 
+            class="bds-input" 
+            bind:value={editingName} 
+            placeholder="Skill Name"
           />
-          <span>{skill.name}</span>
-        </label>
-        <button type="button" class="bds-btn-danger" onclick={() => deleteSkill(skill.id)}>
-          Delete
-        </button>
-      </div>
+          <textarea 
+            class="bds-input" 
+            bind:value={editingContent} 
+            placeholder="Skill persona/instructions..."
+          ></textarea>
+          <div class="bds-editor-actions">
+            <button type="button" class="bds-btn-outlined" onclick={cancelEdit}>Cancel</button>
+            <button type="button" class="bds-btn" onclick={saveEdit}>Save</button>
+          </div>
+        </div>
+      {:else}
+        <div class="bds-skill-item">
+          <label>
+            <input
+              type="checkbox"
+              checked={skill.active}
+              onchange={(e) => toggleSkill(skill.id, e.target.checked)}
+            />
+            <span>{skill.name}</span>
+          </label>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="bds-btn-outlined" style="font-size: 11px; padding: 4px 8px;" onclick={() => startEdit(skill)}>
+              Edit
+            </button>
+            <button type="button" class="bds-btn-danger" onclick={() => deleteSkill(skill.id)}>
+              Delete
+            </button>
+          </div>
+        </div>
+      {/if}
     {/each}
   {/if}
 </div>

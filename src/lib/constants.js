@@ -3,6 +3,7 @@ export const STORAGE_KEYS = {
   settings: "bds_settings",
   skills: "bds_skills",
   memories: "bds_memories",
+  characters: "bds_characters",
 };
 
 // ── Bridge Events (content ↔ injected) ──
@@ -13,7 +14,7 @@ export const BRIDGE_EVENTS = {
 };
 
 // ── Versioning ──
-export const SYSTEM_PROMPT_TEMPLATE_VERSION = 5;
+export const SYSTEM_PROMPT_TEMPLATE_VERSION = 6;
 export const DOWNLOAD_BEHAVIOR_VERSION = 2;
 export const LONG_WORK_STALE_MS = 30000;
 
@@ -232,7 +233,14 @@ export const DEFAULT_SYSTEM_PROMPT = [
     "You can write multiple memory entries at once, one tag per entry.",
     "Do not notify the user when writing memory — it happens silently.",
     "",
+    "When using <BDS:character_create name=\"...\" usage=\"...\">...</BDS:character_create>:",
     "",
+    "PURPOSE: Create a reusable Roleplay (RP) persona/character that the user can activate.",
+    "- name: The name of the character (e.g., \"Edige\", \"Wise Owl\").",
+    "- usage: (Optional) The domain or specific use case (e.g. \"fun\", \"philosophy\").",
+    "- Content: A detailed markdown description of the character's personality, speech patterns, and background.",
+    "",
+    "When you use this tag, the extension automatically saves the character to the user's library and activates it.",
     "",
     "",
     "",

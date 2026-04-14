@@ -30,6 +30,9 @@
   export function refreshSkills() {
     if (drawerRef) drawerRef.refreshSkills();
   }
+  export function refreshCharacters() {
+    if (drawerRef) drawerRef.refreshCharacters();
+  }
   export function refreshMemories() {
     if (drawerRef) drawerRef.refreshMemories();
   }

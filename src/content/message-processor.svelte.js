@@ -12,6 +12,7 @@ import {
 import { extractMessageRawText } from "./dom/message-text.js";
 import { parseBdsMessage } from "./parser/index.js";
 import { upsertMemories } from "./parser/memory-parser.js";
+import { upsertCharacters } from "./parser/character-parser.js";
 import { collectLongWorkFiles, finalizeLongWork, emitZipForFiles } from "./files/long-work.js";
 import { emitStandaloneFiles } from "./files/standalone.js";
 import { getOrCreateHost } from "./dom/host.js";
@@ -88,6 +89,10 @@ export function processMessageNode(node) {
 
   if (parsed.memoryWrites.length) {
     upsertMemories(parsed.memoryWrites);
+  }
+
+  if (parsed.characterCreates.length) {
+    upsertCharacters(parsed.characterCreates);
   }
 
   if (role === "assistant") {

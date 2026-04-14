@@ -34,6 +34,7 @@ export function pushConfigToPage() {
       value: item.value,
       importance: item.importance,
     })),
+    activeCharacter: state.characters.find(c => c.active) || null,
   };
 
   window.dispatchEvent(

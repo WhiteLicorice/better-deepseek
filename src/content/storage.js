@@ -20,6 +20,7 @@ export async function loadStateFromStorage() {
     STORAGE_KEYS.settings,
     STORAGE_KEYS.skills,
     STORAGE_KEYS.memories,
+    STORAGE_KEYS.characters,
   ]);
 
   const storedSettings = values[STORAGE_KEYS.settings] || {};
@@ -54,6 +55,7 @@ export async function loadStateFromStorage() {
 
   state.skills = normalizeSkills(values[STORAGE_KEYS.skills]);
   state.memories = normalizeMemories(values[STORAGE_KEYS.memories]);
+  state.characters = normalizeCharacters(values[STORAGE_KEYS.characters]);
 }
 
 function shouldUpgradeSystemPrompt(storedSettings) {
@@ -121,6 +123,22 @@ export function normalizeSkills(raw) {
       name: String(item && item.name ? item.name : "Skill"),
       content: String(item && item.content ? item.content : ""),
       active: item && typeof item.active === "boolean" ? item.active : true,
+    }))
+    .filter((item) => item.content.trim().length > 0);
+}
+
+export function normalizeCharacters(raw) {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .map((item) => ({
+      id: String(item && item.id ? item.id : makeId()),
+      name: String(item && item.name ? item.name : "Character"),
+      usage: String(item && item.usage ? item.usage : ""),
+      content: String(item && item.content ? item.content : ""),
+      active: item && typeof item.active === "boolean" ? item.active : false,
     }))
     .filter((item) => item.content.trim().length > 0);
 }
@@ -206,6 +224,15 @@ export function bindStorageChangeListener() {
       );
       if (state.ui) {
         state.ui.refreshMemories();
+      }
+    }
+
+    if (changes[STORAGE_KEYS.characters]) {
+      state.characters = normalizeCharacters(
+        changes[STORAGE_KEYS.characters].newValue
+      );
+      if (state.ui) {
+        state.ui.refreshCharacters();
       }
     }
 

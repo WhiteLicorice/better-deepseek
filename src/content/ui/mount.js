@@ -34,6 +34,7 @@ export function mountUi() {
     showToast: (message) => app.showToast(message),
     refreshSettings: () => app.refreshSettings(),
     refreshSkills: () => app.refreshSkills(),
+    refreshCharacters: () => app.refreshCharacters(),
     refreshMemories: () => app.refreshMemories(),
   };
 

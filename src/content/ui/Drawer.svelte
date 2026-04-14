@@ -1,16 +1,21 @@
 <script>
   import SettingsPanel from "./SettingsPanel.svelte";
+import CharacterList from "./CharacterList.svelte";
   import SkillList from "./SkillList.svelte";
   import MemoryList from "./MemoryList.svelte";
 
   let { open = false, onclose } = $props();
 
   let settingsRef = $state(null);
+  let charactersRef = $state(null);
   let skillsRef = $state(null);
   let memoryRef = $state(null);
 
   export function refreshSettings() {
     if (settingsRef) settingsRef.refresh();
+  }
+  export function refreshCharacters() {
+    if (charactersRef) charactersRef.refresh();
   }
   export function refreshSkills() {
     if (skillsRef) skillsRef.refresh();
@@ -35,7 +40,11 @@
 
   <hr />
 
-  <SkillList bind:this={skillsRef} />
+<SkillList bind:this={skillsRef} />
+
+  <hr />
+
+    <CharacterList bind:this={charactersRef} />
 
   <hr />
 

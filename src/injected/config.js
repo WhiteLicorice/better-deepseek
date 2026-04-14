@@ -25,6 +25,7 @@ export function normalizeConfig(config) {
     systemPrompt: String(config.systemPrompt || ""),
     skills,
     memories,
+    activeCharacter: config.activeCharacter || null,
   };
 }
 

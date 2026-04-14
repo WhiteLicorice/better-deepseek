@@ -33,7 +33,9 @@ export function mutatePayload(payload, state) {
         cleanText,
         conversationId,
         state,
-        forceSystemPrompt
+        forceSystemPrompt,
+        messages,
+        target
       );
 
       if (prefix) {
@@ -53,7 +55,7 @@ export function mutatePayload(payload, state) {
     const isFirstMessageEdit = payload.message_id === 1 || payload.parent_message_id === null;
     const forceSystemPrompt = isFirstMessageEdit || !state.initializedConversations.has(conversationId);
     
-    const prefix = buildHiddenPrefix(cleanText, conversationId, state, forceSystemPrompt);
+    const prefix = buildHiddenPrefix(cleanText, conversationId, state, forceSystemPrompt, null, null);
     if (prefix) {
       payload.prompt = `${prefix}\n\n${cleanText}`;
       changed = true;
@@ -201,7 +203,9 @@ export function buildHiddenPrefix(
   userPrompt,
   conversationId,
   state,
-  forceSystemPrompt = false
+  forceSystemPrompt = false,
+  messages = null,
+  excludeTarget = null
 ) {
   const blocks = [];
 
@@ -226,6 +230,19 @@ export function buildHiddenPrefix(
     blocks.push(memoryBlock);
   }
 
+  const activeChar = state.config.activeCharacter;
+  if (activeChar) {
+    const lastCharName = messages ? getLastCharacterInHistory(messages, excludeTarget) : null;
+    
+    // Only inject if it's the first persona in this context OR the character has changed
+    if (!lastCharName || lastCharName !== activeChar.name) {
+      const characterBlock = buildCharacterBlock(state);
+      if (characterBlock) {
+        blocks.push(characterBlock);
+      }
+    }
+  }
+
   return blocks.join("\n\n");
 }
 
@@ -241,7 +258,7 @@ export function buildSkillsBlock(state) {
     .map((skill) => `## ${skill.name}\n${skill.content.trim()}`)
     .join("\n\n");
 
-  return `<BDS:SKILLS>\n${skillsText}\n</BDS:SKILLS>`;
+  return `<BetterDeepSeek> <BDS:SKILLS>\n${skillsText}\n</BDS:SKILLS> </BetterDeepSeek>`;
 }
 
 /**
@@ -277,6 +294,45 @@ export function buildMemoryCallsBlock(userPrompt, state) {
 }
 
 /**
+ * Build the <BDS:RP> block from the active character.
+ */
+export function buildCharacterBlock(state) {
+  const char = state.config.activeCharacter;
+  if (!char || !char.content) {
+    return "";
+  }
+
+  let text = `Character Name: ${char.name}\n`;
+  if (char.usage) {
+    text += `Usage Domain: ${char.usage}\n`;
+  }
+  text += `---\n${char.content.trim()}`;
+
+  return `<BetterDeepSeek> <BDS:RP>\n${text}\n</BDS:RP> </BetterDeepSeek>`;
+}
+
+/**
+ * Scan history backwards to find the name of the last injected character.
+ */
+export function getLastCharacterInHistory(messages, excludeTarget = null) {
+  if (!Array.isArray(messages)) return null;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg === excludeTarget) continue;
+
+    const text = extractMessageText(msg);
+    if (!text.includes("<BDS:RP>")) continue;
+
+    const match = text.match(/Character Name:\s*(.*?)\n/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
+}
+
+/**
  * Strip previously injected BDS blocks from text to avoid duplication.
  */
 export function stripInjectedBlocks(text) {
@@ -290,5 +346,6 @@ export function stripInjectedBlocks(text) {
     /<BDS:memory_calls>[\s\S]*?<\/BDS:memory_calls>/gi,
     ""
   );
+  output = output.replace(/<BDS:RP>[\s\S]*?<\/BDS:RP>/gi, "");
   return output.trim();
 }
