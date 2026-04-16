@@ -2,6 +2,8 @@
 
 Better DeepSeek is a browser extension that enhances the DeepSeek chat interface with a powerful set of tools, persistent memory, and a customizable system prompt. It enables DeepSeek to generate files, run code, create presentations, and manage complex projects directly within the conversation, all while keeping your data local and private.
 
+> "Better DeepSeek" is an unofficial, independent, and community-driven open-source extension. It is NOT affiliated with, endorsed by, sponsored by, or officially connected to DeepSeek or DeepSeek AI in any way. All product names, logos, and brands are property of their respective owners.
+
 ## Features
 
 ### Hidden System Prompt
@@ -158,5 +160,5 @@ Use it at your own risk. Better DeepSeek is an independent project and is not af
 - [Readability](https://github.com/mozilla/readability)
 - [Turndown](https://github.com/mixmark-io/turndown)
 
-> "Better DeepSeek" is an unofficial, independent, and community-driven open-source extension. It is NOT affiliated with, endorsed by, sponsored by, or officially connected to DeepSeek or DeepSeek AI in any way. All product names, logos, and brands are property of their respective owners.**
+> "Better DeepSeek" is an unofficial, independent, and community-driven open-source extension. It is NOT affiliated with, endorsed by, sponsored by, or officially connected to DeepSeek or DeepSeek AI in any way. All product names, logos, and brands are property of their respective owners.
 
