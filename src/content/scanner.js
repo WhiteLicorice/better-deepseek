@@ -208,4 +208,16 @@ export function startUrlWatcher() {
     }
     scheduleScan();
   }, 1000);
+
+  // Focus/Visibility triggers to handle background-to-foreground transitions
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      scheduleScan();
+    }
+  });
+
+  window.addEventListener("focus", () => {
+    scheduleScan();
+  });
 }
+

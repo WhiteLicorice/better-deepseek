@@ -281,7 +281,7 @@
           on:click={submitGithubUrl}
           disabled={githubLoading || !githubUrl.trim()}
         >
-          {githubLoading ? "İçe Aktarılıyor..." : "İçe Aktar"}
+          {githubLoading ? "Fetching..." : "Fetch"}
         </button>
       </div>
     </div>
@@ -337,7 +337,7 @@
           on:click={submitWebUrl}
           disabled={webLoading || !webUrl.trim()}
         >
-          {webLoading ? "Aktarılıyor..." : "Aktar"}
+          {webLoading ? "Fetching..." : "Fetch"}
         </button>
       </div>
     </div>
