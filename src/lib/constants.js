@@ -11,6 +11,7 @@ export const BRIDGE_EVENTS = {
   configUpdate: "bds:config-update",
   requestConfig: "bds:request-config",
   networkState: "bds:network-state",
+  markVoiceMessage: "bds:mark-voice-message",
 };
 
 // ── Versioning ──

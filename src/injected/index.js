@@ -18,6 +18,7 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
     configUpdate: "bds:config-update",
     requestConfig: "bds:request-config",
     networkState: "bds:network-state",
+    markVoiceMessage: "bds:mark-voice-message",
   };
 
   const CHAT_COMPLETION_PATH = "/api/v0/chat/completion";
@@ -57,6 +58,7 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
     setLastChar: (id, name) => setInjectedCharacter(id, name),
     currentSessionChar: null, // memory cache for default ID transition
     activeCompletionRequests: 0,
+    isNextVoiceMessage: false,
   };
 
   // ── Guard against double-injection ──
@@ -69,6 +71,10 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
   window.addEventListener(EVENTS.configUpdate, (event) => {
     const nextConfig = event && event.detail ? event.detail : {};
     state.config = normalizeConfig(nextConfig);
+  });
+  
+  window.addEventListener(EVENTS.markVoiceMessage, () => {
+    state.isNextVoiceMessage = true;
   });
 
   // ── Request initial config ──

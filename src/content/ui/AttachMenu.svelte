@@ -4,6 +4,7 @@
   import { fetchGitHubRepo, parseGitHubUrl } from "../files/github-reader.js";
   import { fetchAndConvertWebPage } from "../files/web-reader.js";
   import appState from "../state.js";
+  import { BRIDGE_EVENTS } from "../../lib/constants.js";
 
   // The native input[type="file"] reference passed from scanner
   export let nativeInput;
@@ -106,6 +107,9 @@
   }
 
   function robustSend() {
+    // Notify the injected script that this is a voice message
+    window.dispatchEvent(new CustomEvent(BRIDGE_EVENTS.markVoiceMessage));
+
     let attempts = 0;
     const maxAttempts = 50;
 

@@ -269,7 +269,12 @@ export function buildHiddenPrefix(
       }
     }
   }
-
+  
+  if (state.isNextVoiceMessage) {
+    blocks.push(`<BetterDeepSeek>User send this message using voice recorder tool.</BetterDeepSeek>`);
+    state.isNextVoiceMessage = false;
+  }
+  
   return blocks.join("\n\n");
 }
 
