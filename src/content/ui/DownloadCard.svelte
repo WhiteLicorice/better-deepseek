@@ -30,7 +30,7 @@
 </article>
 
 <style>
-  /* Temel Değişkenler (Light Mod) */
+  /* Basic Variables (Light Mode) */
   .bds-download-card {
     --bg-color: #ffffff;
     --border-color: #e5e7eb;
@@ -53,7 +53,7 @@
     transition: all 0.2s ease;
   }
 
-  /* Dark Mod Ayarları */
+  /* Dark Mode Settings */
   :global(.dark) .bds-download-card {
     --bg-color: #18181b;
     --border-color: #27272a;
@@ -101,7 +101,7 @@
     margin: 0;
     font-size: 12px;
     font-weight: 500;
-    text-transform: uppercase; /* ZIP yazısını görseldeki gibi yapar */
+    text-transform: uppercase; /* Makes ZIP text uppercase as in common UI patterns */
     color: var(--desc-color);
   }
 

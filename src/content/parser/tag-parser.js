@@ -109,8 +109,13 @@ export function stripMarkdownViewerControls(text) {
   while (output !== previous) {
     previous = output;
 
+    // TODO: This logic currently only handles Turkish and English UI labels.
+    // In the future, a more robust/generalized approach for stripping 
+    // AI-generated UI controls should be implemented.
     output = output.replace(
       new RegExp(
+        // Strip DeepSeek's UI buttons (Copy/Download) that sometimes get captured
+        // Support both Turkish (Kopyala/İndir) and English (Copy/Download) UI
         `^\\s*${languagePattern}\\s*(?:\\r?\\n|\\s+)(?:Kopyala|Copy)\\s*(?:\\r?\\n|\\s+)(?:İndir|Download)\\s*(?:\\r?\\n)*`,
         "i"
       ),
@@ -118,7 +123,8 @@ export function stripMarkdownViewerControls(text) {
     );
 
     output = output.replace(
-      /^\s*(?:Kopyala|Copy)\s*(?:\r?\n|\s+)(?:İndir|Download)\s*(?:\r?\n)*/i,
+      // Support matching buttons without preceding language name
+      /^\s*(?:Kopyala|Copy)\s*(?:\r?\n|\s+)(?:İndir|Download)\s*(?:\r?\\n)*/i,
       ""
     );
   }

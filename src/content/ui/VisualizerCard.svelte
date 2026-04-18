@@ -32,7 +32,7 @@
     margin: 10px 0;
     font-family: inherit;
     color: #000;
-    /* Card boyutu sabitleniyor ve dışarı taşma engelleniyor */
+    /* Fix card size and prevent overflow */
     height: 600px; 
     display: flex;
     flex-direction: column;
@@ -43,7 +43,7 @@
     margin-bottom: 8px;
     border-bottom: 1px solid #000;
     padding-bottom: 4px;
-    flex-shrink: 0; /* Header'ın sıkışmasını engeller */
+    flex-shrink: 0; /* Prevents the header from shrinking */
   }
 
   .bds-visualizer-header h4 {
@@ -62,20 +62,20 @@
   }
 
   .bds-visualizer-body {
-    flex-grow: 1; /* Kalan tüm alanı body kaplar */
+    flex-grow: 1; /* Body occupies the remaining space */
     overflow: hidden;
   }
 
   .bds-visualizer-frame {
     width: 100%;
-    height: 100%; /* Body'nin tamamını doldurur */
+    height: 100%; /* Fills the entire body */
     border: 1px solid #000;
     background: #fff;
     display: block;
-    overflow: hidden; /* Scroll oluşmasını engeller */
+    overflow: hidden; /* Prevents scrolling */
   }
 
-  /* Iframe içindeki scrollbar'ı CSS ile gizleme (bazı tarayıcılar için) */
+  /* Hide internal iframe scrollbar with CSS (for some browsers) */
   .bds-visualizer-frame::-webkit-scrollbar {
     display: none;
   }

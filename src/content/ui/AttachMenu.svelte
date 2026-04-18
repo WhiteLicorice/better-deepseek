@@ -279,7 +279,7 @@
     try {
       new URL(webUrl); // Basic validation
     } catch {
-      webError = "Lütfen geçerli bir URL girin (http/https dahil).";
+      webError = "Please enter a valid URL (including http/https).";
       return;
     }
 
@@ -296,7 +296,7 @@
         injectFile(file);
       }
     } catch (err) {
-      webError = err.message || "Sayfa içeriği alınamadı.";
+      webError = err.message || "Could not fetch page content.";
     } finally {
       webLoading = false;
     }
@@ -324,7 +324,7 @@
 </script>
 
 <div class="bds-attach-wrapper" bind:this={menuRef}>
-  <button class="bds-plus-btn" on:click={toggleMenu} title="Gelişmiş Yükleme">
+  <button class="bds-plus-btn" on:click={toggleMenu} title="Advanced Upload">
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="12" y1="5" x2="12" y2="19"></line>
       <line x1="5" y1="12" x2="19" y2="12"></line>
