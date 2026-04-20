@@ -62,7 +62,8 @@ export function parseBdsMessage(rawText, isSettled = false) {
     memoryWrites: [],
     characterCreates: [],
     autoRequests: {
-      webFetch: []
+      webFetch: [],
+      githubFetch: []
     },
     visibleText: text,
   };
@@ -131,6 +132,14 @@ export function parseBdsMessage(rawText, isSettled = false) {
      const cleanUrl = String(match[1] || "").trim();
      if (cleanUrl) {
        result.autoRequests.webFetch.push(cleanUrl);
+     }
+  }
+
+  const autoGitHubFetchRegex = /<BDS:AUTO:REQUEST_GITHUB_FETCH>([\s\S]*?)<\/BDS:AUTO:REQUEST_GITHUB_FETCH>/gi;
+  while ((match = autoGitHubFetchRegex.exec(text)) !== null) {
+     const cleanUrl = String(match[1] || "").trim();
+     if (cleanUrl) {
+       result.autoRequests.githubFetch.push(cleanUrl);
      }
   }
 

@@ -4,9 +4,11 @@
  */
 
 import { fetchAndConvertWebPage } from "./files/web-reader.js";
+import { fetchGitHubRepo } from "./files/github-reader.js";
 
 // Keep track of already processing/processed URLs globally so we don't spam
 const processedWebFetches = new Set();
+const processedGitHubFetches = new Set();
 
 export async function handleAutoWebFetch(url) {
   if (processedWebFetches.has(url)) return;
@@ -28,6 +30,28 @@ export async function handleAutoWebFetch(url) {
     const errorBlob = new Blob([`Failed to fetch ${url}:\n\n${err.message}`], { type: "text/plain" });
     const errorFile = new File([errorBlob], `error_${url.replace(/[^a-zA-Z0-9]/g, "_")}.txt`, { type: "text/plain" });
     injectFileAndSend(errorFile, `<BetterDeepSeek>\n[BDS:AUTO] Web fetch failed for ${url}\n</BetterDeepSeek>`);
+  }
+}
+
+export async function handleAutoGitHubFetch(repoUrl) {
+  if (processedGitHubFetches.has(repoUrl)) return;
+  processedGitHubFetches.add(repoUrl);
+
+  console.log(`[BDS:AUTO] Starting automatic GitHub fetch for: ${repoUrl}`);
+
+  try {
+    const file = await fetchGitHubRepo(repoUrl, (status) => {
+      console.log(`[BDS:AUTO] GitHub Fetch Status: ${status}`);
+    });
+
+    if (file) {
+      injectFileAndSend(file, `<BetterDeepSeek>\n[BDS:AUTO] GitHub Fetch Result for: ${repoUrl}\n</BetterDeepSeek>`);
+    }
+  } catch (err) {
+    console.error("[BDS:AUTO] GitHub Fetch Failed:", err);
+    const errorBlob = new Blob([`Failed to fetch GitHub repo ${repoUrl}:\n\n${err.message}`], { type: "text/plain" });
+    const errorFile = new File([errorBlob], `github_error_${repoUrl.replace(/[^a-zA-Z0-9]/g, "_")}.txt`, { type: "text/plain" });
+    injectFileAndSend(errorFile, `<BetterDeepSeek>\n[BDS:AUTO] GitHub fetch failed for ${repoUrl}\n</BetterDeepSeek>`);
   }
 }
 

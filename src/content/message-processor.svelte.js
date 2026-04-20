@@ -17,7 +17,7 @@ import { upsertCharacters } from "./parser/character-parser.js";
 import { collectLongWorkFiles, finalizeLongWork, emitZipForFiles } from "./files/long-work.js";
 import { emitStandaloneFiles } from "./files/standalone.js";
 import { getOrCreateHost } from "./dom/host.js";
-import { handleAutoWebFetch } from "./auto.js";
+import { handleAutoWebFetch, handleAutoGitHubFetch } from "./auto.js";
 
 import { mount, unmount } from "svelte";
 import MessageOverlay from "./ui/MessageOverlay.svelte";
@@ -192,14 +192,25 @@ export function processMessageNode(node) {
     // --- AUTO INTERFACES ---
     // Only trigger auto-requests if this is the absolute latest message in the entire chat.
     // This prevents redundant historical triggers on page refresh.
-    if (isSettled && parsed.autoRequests.webFetch.length > 0 && isAbsoluteLastMessage(node)) {
+    if (isSettled && (parsed.autoRequests.webFetch.length > 0 || parsed.autoRequests.githubFetch.length > 0) && isAbsoluteLastMessage(node)) {
       if (!stateData.autoWebFetchesHandled) {
         stateData.autoWebFetchesHandled = new Set();
       }
+      if (!stateData.autoGitHubFetchesHandled) {
+        stateData.autoGitHubFetchesHandled = new Set();
+      }
+
       for (const url of parsed.autoRequests.webFetch) {
         if (!stateData.autoWebFetchesHandled.has(url)) {
           stateData.autoWebFetchesHandled.add(url);
           handleAutoWebFetch(url);
+        }
+      }
+
+      for (const repoUrl of parsed.autoRequests.githubFetch) {
+        if (!stateData.autoGitHubFetchesHandled.has(repoUrl)) {
+          stateData.autoGitHubFetchesHandled.add(repoUrl);
+          handleAutoGitHubFetch(repoUrl);
         }
       }
     }
