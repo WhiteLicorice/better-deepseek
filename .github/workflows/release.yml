@@ -28,13 +28,15 @@ jobs:
       - name: Build extension
         run: npm run build
 
-      - name: Zip extension
+      - name: Rename and Prepare Artifacts
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            zip -r "better-deepseek-latest.zip" dist/
+            mv better-deepseek-chrome.zip better-deepseek-chrome-latest.zip
+            mv better-deepseek-firefox.zip better-deepseek-firefox-latest.zip
           else
-            zip -r "better-deepseek-v${VERSION}.zip" dist/
+            mv better-deepseek-chrome.zip better-deepseek-chrome-v${VERSION}.zip
+            mv better-deepseek-firefox.zip better-deepseek-firefox-v${VERSION}.zip
           fi
 
       - name: Update Latest Release
@@ -44,7 +46,9 @@ jobs:
           tag_name: latest
           name: Latest Build
           body: "This release contains the latest automated build from the main branch. It is updated on every commit."
-          files: better-deepseek-latest.zip
+          files: |
+            better-deepseek-chrome-latest.zip
+            better-deepseek-firefox-latest.zip
           prerelease: true
           make_latest: true
         env:
@@ -54,7 +58,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: better-deepseek-v*.zip
+          files: |
+            better-deepseek-chrome-v*.zip
+            better-deepseek-firefox-v*.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

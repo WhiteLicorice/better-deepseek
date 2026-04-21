@@ -1,13 +1,21 @@
-"use strict";
-
-/**
- * Background service worker.
- */
+import { fetchTranscript } from "youtube-transcript";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !message.type) return false;
 
-
+  if (message.type === "bds-get-youtube-transcript") {
+    fetchTranscript(message.videoId)
+      .then((transcript) => {
+        sendResponse({ ok: true, transcript });
+      })
+      .catch((error) => {
+        sendResponse({
+          ok: false,
+          error: String(error && error.message ? error.message : error),
+        });
+      });
+    return true;
+  }
 
   if (message.type === "bds-fetch-github-zip") {
     fetchGithubZip(message.url)
@@ -24,7 +32,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "bds-fetch-url") {
-    fetchPageContent(message.url)
+    fetchPageContent(message.url, message.options)
       .then((html) => {
         sendResponse({ ok: true, html });
       })
@@ -74,10 +82,19 @@ async function fetchGithubZip(url) {
   return bytesToBase64(bytes);
 }
 
-async function fetchPageContent(url) {
+async function fetchPageContent(url, options = {}) {
   if (!url) throw new Error("No URL provided.");
 
-  const resp = await fetch(url);
+  const fetchOptions = {
+    method: options.method || 'GET',
+    headers: options.headers || {},
+  };
+
+  if (options.body) {
+    fetchOptions.body = options.body;
+  }
+
+  const resp = await fetch(url, fetchOptions);
   if (!resp.ok) {
     throw new Error(`Server returned ${resp.status} for ${url}`);
   }

@@ -17,7 +17,7 @@ import { parseMemoryWrite } from "./memory-parser.js";
 import { sanitizeVisibleText } from "./text-sanitizer.js";
 
 // Tool renderers that have visual cards
-const RENDERABLE_TOOLS = new Set(["html", "latex", "run_python_embed", "visualizer", "pptx", "excel", "docx"]);
+const RENDERABLE_TOOLS = new Set(["html", "latex", "visualizer", "pptx", "excel", "docx"]);
 
 /**
  * Parse a raw message text for all BDS tags.
@@ -63,7 +63,9 @@ export function parseBdsMessage(rawText, isSettled = false) {
     characterCreates: [],
     autoRequests: {
       webFetch: [],
-      githubFetch: []
+      githubFetch: [],
+      twitterFetch: [],
+      youtubeFetch: []
     },
     visibleText: text,
   };
@@ -140,6 +142,22 @@ export function parseBdsMessage(rawText, isSettled = false) {
      const cleanUrl = String(match[1] || "").trim();
      if (cleanUrl) {
        result.autoRequests.githubFetch.push(cleanUrl);
+     }
+  }
+
+  const autoTwitterFetchRegex = /<BDS:AUTO:REQUEST_TWITTER_FETCH>([\s\S]*?)<\/BDS:AUTO:REQUEST_TWITTER_FETCH>/gi;
+  while ((match = autoTwitterFetchRegex.exec(text)) !== null) {
+     const cleanUrl = String(match[1] || "").trim();
+     if (cleanUrl) {
+       result.autoRequests.twitterFetch.push(cleanUrl);
+     }
+  }
+
+  const autoYouTubeFetchRegex = /<BDS:AUTO:REQUEST_YOUTUBE_FETCH>([\s\S]*?)<\/BDS:AUTO:REQUEST_YOUTUBE_FETCH>/gi;
+  while ((match = autoYouTubeFetchRegex.exec(text)) !== null) {
+     const cleanUrl = String(match[1] || "").trim();
+     if (cleanUrl) {
+       result.autoRequests.youtubeFetch.push(cleanUrl);
      }
   }
 

@@ -1,7 +1,7 @@
 # Better DeepSeek
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/aabiopennjmopfippagcalmkdjlepdhh?style=for-the-badge&color=blue&logo=google-chrome&logoColor=white)](https://chromewebstore.google.com/detail/better-deepseek/aabiopennjmopfippagcalmkdjlepdhh)
-[![Latest Build](https://img.shields.io/github/v/release/EdgeTypE/better-deepseek?include_prereleases&label=Latest%20Build&style=for-the-badge&color=orange)](https://github.com/EdgeTypE/better-deepseek/releases/tag/latest)
+[![Latest Build](https://img.shields.io/github/package-json/v/EdgeTypE/better-deepseek?label=Latest%20Build&style=for-the-badge&color=orange)](https://github.com/EdgeTypE/better-deepseek/releases/tag/latest)
 [![License](https://img.shields.io/github/license/EdgeTypE/better-deepseek?style=for-the-badge&color=green)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/EdgeTypE/better-deepseek?style=for-the-badge&color=gold)](https://github.com/EdgeTypE/better-deepseek/stargazers)
 
@@ -19,7 +19,6 @@ Better DeepSeek introduces a set of special tags that DeepSeek can use to produc
 
 - `<BDS:HTML>...</BDS:HTML>` – Render a full HTML document in a preview card.
 - `<BDS:VISUALIZER>...</BDS:VISUALIZER>` – Create high-contrast, monochrome simulations and interactive diagrams using a built-in UI kit.
-- `<BDS:run_python_embed>...</BDS:run_python_embed>` – Execute Python code in the browser (via Pyodide) and display the output.
 - `<BDS:create_file fileName="path/to/file.ext">...</BDS:create_file>` – Generate a downloadable file with the specified name and content.
 - `<BDS:pptx>...</BDS:pptx>` – Generate a PowerPoint presentation using the PptxGenJS library.
 - `<BDS:excel>...</BDS:excel>` – Generate an Excel spreadsheet using SheetJS.
@@ -96,11 +95,22 @@ If you prefer to build from source or contribute to development:
    ```bash
    npm run build
    ```
-   This will create a `dist` folder with the unpacked extension.
-4. Load the extension in Chrome:
-   - Open Chrome and navigate to `chrome://extensions`.
-   - Enable "Developer mode" (toggle in the top right).
-   - Click "Load unpacked" and select the `dist` folder.
+   This will create a `dist-chrome` and `dist-firefox` folder with the unpacked extension.
+
+4. Load the extension in your browser:
+
+   1. **Chrome**:
+      1. Open Chrome and go to `chrome://extensions`.
+      2. Enable "Developer mode" (top-right toggle).
+      3. Click "Load unpacked" and select the `dist-chrome` folder.
+
+   2. **Firefox**:
+      1. Open Firefox and go to `about:debugging`.
+      2. Click "This Firefox".
+      3. Click "Load Temporary Add-on".
+      4. Select the `better-deepseek-firefox.zip` file.
+
+      *Note: Firefox build is experimental.*
 
 The extension should now appear in your extensions list and be active on `chat.deepseek.com`.
 

@@ -5,8 +5,6 @@
 import { simpleHash } from "../../lib/utils/hash.js";
 import { getOrCreateHost } from "../dom/host.js";
 import { buildHtmlPreviewCard } from "./html-preview.js";
-
-import { buildPythonCard } from "./python-runner.js";
 import { buildVisualizerCard } from "./visualizer.js";
 import { buildPptxCard } from "./pptx-generator.js";
 
@@ -17,7 +15,6 @@ import { buildPptxCard } from "./pptx-generator.js";
 const TOOL_RENDERERS = {
   html: (content) => buildHtmlPreviewCard(content),
 
-  run_python_embed: (content) => buildPythonCard(content),
   visualizer: (content) => buildVisualizerCard(content),
   pptx: (content) => buildPptxCard(content),
 };

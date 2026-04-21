@@ -5,10 +5,14 @@
 
 import { fetchAndConvertWebPage } from "./files/web-reader.js";
 import { fetchGitHubRepo } from "./files/github-reader.js";
+import { fetchTwitterTweet } from "./files/twitter-reader.js";
+import { fetchYouTubeData } from "./files/youtube-reader.js";
 
 // Keep track of already processing/processed URLs globally so we don't spam
 const processedWebFetches = new Set();
 const processedGitHubFetches = new Set();
+const processedTwitterFetches = new Set();
+const processedYouTubeFetches = new Set();
 
 export async function handleAutoWebFetch(url) {
   if (processedWebFetches.has(url)) return;
@@ -52,6 +56,44 @@ export async function handleAutoGitHubFetch(repoUrl) {
     const errorBlob = new Blob([`Failed to fetch GitHub repo ${repoUrl}:\n\n${err.message}`], { type: "text/plain" });
     const errorFile = new File([errorBlob], `github_error_${repoUrl.replace(/[^a-zA-Z0-9]/g, "_")}.txt`, { type: "text/plain" });
     injectFileAndSend(errorFile, `<BetterDeepSeek>\n[BDS:AUTO] GitHub fetch failed for ${repoUrl}\n</BetterDeepSeek>`);
+  }
+}
+
+export async function handleAutoTwitterFetch(url) {
+  if (processedTwitterFetches.has(url)) return;
+  processedTwitterFetches.add(url);
+
+  console.log(`[BDS:AUTO] Starting automatic Twitter fetch for: ${url}`);
+
+  try {
+    const file = await fetchTwitterTweet(url);
+    if (file) {
+      injectFileAndSend(file, `<BetterDeepSeek>\n[BDS:AUTO] Twitter Fetch Result for: ${url}\n</BetterDeepSeek>`);
+    }
+  } catch (err) {
+    console.error("[BDS:AUTO] Twitter Fetch Failed:", err);
+    const errorBlob = new Blob([`Failed to fetch tweet ${url}:\n\n${err.message}`], { type: "text/plain" });
+    const errorFile = new File([errorBlob], `twitter_error_${url.replace(/[^a-zA-Z0-9]/g, "_")}.md`, { type: "text/plain" });
+    injectFileAndSend(errorFile, `<BetterDeepSeek>\n[BDS:AUTO] Twitter fetch failed for ${url}\n</BetterDeepSeek>`);
+  }
+}
+
+export async function handleAutoYouTubeFetch(url) {
+  if (processedYouTubeFetches.has(url)) return;
+  processedYouTubeFetches.add(url);
+
+  console.log(`[BDS:AUTO] Starting automatic YouTube fetch for: ${url}`);
+
+  try {
+    const file = await fetchYouTubeData(url);
+    if (file) {
+      injectFileAndSend(file, `<BetterDeepSeek>\n[BDS:AUTO] YouTube Fetch Result for: ${url}\n</BetterDeepSeek>`);
+    }
+  } catch (err) {
+    console.error("[BDS:AUTO] YouTube Fetch Failed:", err);
+    const errorBlob = new Blob([`Failed to fetch YouTube video ${url}:\n\n${err.message}`], { type: "text/plain" });
+    const errorFile = new File([errorBlob], `youtube_error_${url.replace(/[^a-zA-Z0-9]/g, "_")}.txt`, { type: "text/plain" });
+    injectFileAndSend(errorFile, `<BetterDeepSeek>\n[BDS:AUTO] YouTube fetch failed for ${url}\n</BetterDeepSeek>`);
   }
 }
 

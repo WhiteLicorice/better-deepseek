@@ -69,8 +69,16 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
 
   // ── Listen for config updates from the content script ──
   window.addEventListener(EVENTS.configUpdate, (event) => {
-    const nextConfig = event && event.detail ? event.detail : {};
-    state.config = normalizeConfig(nextConfig);
+    let nextConfig = event && event.detail ? event.detail : {};
+    // Handle stringified detail (Firefox Xray Vision fix)
+    if (typeof nextConfig === "string") {
+      try {
+        nextConfig = JSON.parse(nextConfig);
+      } catch (e) {
+        console.error("[BDS] Failed to parse configUpdate detail:", e);
+      }
+    }
+    state.config = normalizeConfig(nextConfig || {});
   });
   
   window.addEventListener(EVENTS.markVoiceMessage, () => {
@@ -96,14 +104,17 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
   }
 
   function emitNetworkState(status, url) {
+    const detail = {
+      status,
+      url: String(url || ""),
+      activeCompletionRequests: state.activeCompletionRequests,
+      timestamp: Date.now(),
+    };
+    
     window.dispatchEvent(
       new CustomEvent(EVENTS.networkState, {
-        detail: {
-          status,
-          url: String(url || ""),
-          activeCompletionRequests: state.activeCompletionRequests,
-          timestamp: Date.now(),
-        },
+        // Stringify detail to cross the boundary in Firefox
+        detail: JSON.stringify(detail),
       })
     );
   }

@@ -16,7 +16,16 @@ export function setupBridgeEvents() {
   });
 
   window.addEventListener(BRIDGE_EVENTS.networkState, (event) => {
-    handleNetworkState(event && event.detail ? event.detail : {});
+    let detail = event && event.detail ? event.detail : {};
+    // Handle stringified detail (Firefox Xray Vision fix)
+    if (typeof detail === "string") {
+      try {
+        detail = JSON.parse(detail);
+      } catch (e) {
+        console.error("[BDS] Failed to parse networkState detail:", e);
+      }
+    }
+    handleNetworkState(detail);
   });
 }
 
@@ -38,7 +47,10 @@ export function pushConfigToPage() {
   };
 
   window.dispatchEvent(
-    new CustomEvent(BRIDGE_EVENTS.configUpdate, { detail })
+    new CustomEvent(BRIDGE_EVENTS.configUpdate, { 
+      // Stringify detail to cross the boundary in Firefox without Xray Vision issues
+      detail: JSON.stringify(detail) 
+    })
   );
 }
 

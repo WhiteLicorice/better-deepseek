@@ -3,7 +3,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const distDir = path.resolve(__dirname, '../dist');
+const targetArg = process.argv.find(arg => arg.startsWith('--target='));
+const target = targetArg ? targetArg.split('=')[1] : 'chrome';
+const distDir = path.resolve(__dirname, `../dist-${target}`);
 
 const files = ['content.js', 'background.js', 'injected.js', 'manifest.json'];
 

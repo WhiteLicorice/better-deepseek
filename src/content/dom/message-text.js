@@ -11,6 +11,43 @@ export function extractMessageRawText(node) {
   return parseNodeWithBestTextSource(node);
 }
 
+/**
+ * Extract code directly from a <pre><code> DOM element inside a message node.
+ * This bypasses all text extraction and markdown mangling, giving us the
+ * verbatim code content with perfect indentation.
+ *
+ * DeepSeek's markdown renderer converts ```python...``` into a
+ * <pre><code class="language-python"> element. Inside this element,
+ * ALL whitespace is preserved exactly as the AI wrote it.
+ * This is immune to:
+ *  - Indentation stripping (markdown code block syntax)
+ *  - __name__ → <strong>name</strong> (markdown bold)
+ *  - Copy/Download button text contamination
+ */
+export function extractCodeFromDomNode(node) {
+  if (!node) return "";
+
+  // Prefer a language-tagged code block (from a fenced ```python block)
+  const langCode = node.querySelector(
+    'pre code[class*="language-python"], pre code[class*="language-py"]'
+  );
+  if (langCode) {
+    return langCode.textContent || "";
+  }
+
+  // Fall back to any <pre><code> block that looks substantial
+  const allCodeBlocks = node.querySelectorAll("pre code");
+  let best = "";
+  for (const el of allCodeBlocks) {
+    const text = el.textContent || "";
+    if (text.trim().length > best.length) {
+      best = text;
+    }
+  }
+
+  return best;
+}
+
 function parseNodeWithBestTextSource(node) {
   const candidates = getNodeTextCandidates(node);
   if (!candidates.length) {
@@ -53,9 +90,9 @@ function decodeNodeHtmlText(html) {
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|li|pre|code|blockquote|h[1-6])>/gi, "\n");
 
-  const container = document.createElement("div");
-  container.innerHTML = htmlWithBreaks;
-  return String(container.textContent || "");
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlWithBreaks, "text/html");
+  return String(doc.body.textContent || "");
 }
 
 function scoreRawTextCandidate(value) {

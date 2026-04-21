@@ -6,6 +6,7 @@ import VisualizerCard from "./VisualizerCard.svelte";
   import DocxCard from "./DocxCard.svelte";
   import LoadingIndicator from "./LoadingIndicator.svelte";
 
+
   /** 
    * @typedef {object} ToolBlock
    * @property {string} name
@@ -40,6 +41,7 @@ import VisualizerCard from "./VisualizerCard.svelte";
         <ExcelCard content={block.content} />
       {:else if block.name === 'docx'}
         <DocxCard content={block.content} />
+
       {:else}
         <ToolCard name={block.name} content={block.content} />
       {/if}
