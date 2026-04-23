@@ -24,6 +24,7 @@ Better DeepSeek introduces a set of special tags that DeepSeek can use to produc
 - `<BDS:excel>...</BDS:excel>` – Generate an Excel spreadsheet using SheetJS.
 - `<BDS:docx>...</BDS:docx>` – Generate a Word document using the docx library.
 - `<BDS:AUTO:REQUEST_WEB_FETCH>url</BDS:AUTO:REQUEST_WEB_FETCH>` – Automatically fetch and convert a web page to markdown, then inject it into the chat context.
+- `<BDS:AUTO:REQUEST_GITHUB_FETCH>url</BDS:AUTO:REQUEST_GITHUB_FETCH>` – Automatically fetch a GitHub repository and inject its codebase into the chat context.
 - `<BDS:memory_write>key: value, importance: always|called</BDS:memory_write>` – Store persistent facts about the user that are injected into future prompts.
 - `<BDS:character_create name="..." usage="...">...</BDS:character_create>` – Define a roleplay persona that DeepSeek can adopt.
 
@@ -176,6 +177,11 @@ After making changes, rebuild the extension and reload it from `chrome://extensi
 Better DeepSeek does not collect, transmit, or sell any personal data. All settings, memories, skills, and characters are stored locally on your device. The extension only communicates with DeepSeek's official API and the external services you explicitly request (e.g., GitHub for repository fetching). See the full [Privacy Policy](extension/PRIVACY.md) for details.
 
 ## Changelog
+
+### v0.1.2 (2026-04-23)
+- **Cross-Browser Support**: Added experimental support for Firefox.
+- **Enhanced Code Runners**: Updated Python runner and added new JavaScript and TypeScript execution environments.
+- **GitHub Integration**: Added support for fetching and injecting GitHub repositories directly into the chat via `BDS:AUTO`.
 
 ### v0.1.1 (2026-04-18)
 - **New Feature**: Added full Voice Support (Speech-to-Text and Text-to-Speech).
