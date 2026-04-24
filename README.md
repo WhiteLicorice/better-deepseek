@@ -1,6 +1,7 @@
 # Better DeepSeek
 
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/aabiopennjmopfippagcalmkdjlepdhh?style=for-the-badge&color=blue&logo=google-chrome&logoColor=white)](https://chromewebstore.google.com/detail/better-deepseek/aabiopennjmopfippagcalmkdjlepdhh)
+[![Firefox Add-ons](https://img.shields.io/amo/v/better-deepseek?style=for-the-badge&color=orange&logo=firefox-browser&logoColor=white)](https://addons.mozilla.org/en/firefox/addon/better-deepseek/)
 [![Latest Build](https://img.shields.io/github/package-json/v/EdgeTypE/better-deepseek?label=Latest%20Build&style=for-the-badge&color=orange)](https://github.com/EdgeTypE/better-deepseek/releases/tag/latest)
 [![License](https://img.shields.io/github/license/EdgeTypE/better-deepseek?style=for-the-badge&color=green)](LICENSE)
 [![GitHub Stars](https://img.shields.io/github/stars/EdgeTypE/better-deepseek?style=for-the-badge&color=gold)](https://github.com/EdgeTypE/better-deepseek/stargazers)
@@ -69,8 +70,10 @@ The extension adds a "+" button next to the chat input, offering:
 
 ## Installation
 
-### Recommended: Chrome Web Store
-The easiest way to install Better DeepSeek is through the **[Chrome Web Store](https://chromewebstore.google.com/detail/better-deepseek/aabiopennjmopfippagcalmkdjlepdhh)**. This ensures you receive automatic updates.
+### Recommended: Browser Stores
+The easiest way to install Better DeepSeek is through the official stores:
+- **[Chrome Web Store](https://chromewebstore.google.com/detail/better-deepseek/aabiopennjmopfippagcalmkdjlepdhh)**
+- **[Firefox Add-ons](https://addons.mozilla.org/en/firefox/addon/better-deepseek/)**
 
 ### Latest Development Build
 If you want to try the very latest features before they reach the store, you can download the **[Latest Automated Build](https://github.com/EdgeTypE/better-deepseek/releases/tag/latest)**. Download the ZIP, unzip it, and load it via "Load unpacked" in Chrome.
