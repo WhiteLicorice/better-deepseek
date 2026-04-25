@@ -10,6 +10,27 @@ Better DeepSeek is a browser extension that enhances the DeepSeek chat interface
 
 > "Better DeepSeek" is an unofficial, independent, and community-driven open-source extension. It is NOT affiliated with, endorsed by, sponsored by, or officially connected to DeepSeek or DeepSeek AI in any way. All product names, logos, and brands are property of their respective owners.
 
+
+
+## Showcase
+
+<p align="center">
+  <table align="center">
+    <tr>
+    <td align="center"><b>Memory Management</b><br><img src="extension/memory.jpg" width="350"></td>
+            <td align="center"><b>Webpage Skills</b><br><img src="extension/webpage%20skill.png" width="350"></td>
+      <td align="center"><b>Long Work</b><br><img src="extension/longwork.jpg" width="350"></td>
+    </tr>
+    <tr>
+      <td align="center"><b>Persona Creation</b><br><img src="extension/persona.png" width="350"></td>
+            <td align="center"><b>Presentations</b><br><img src="extension/presentation.png" width="350"></td>
+            <td align="center"><b>Attach Menu</b><br><img src="extension/attachMenu.jpg" width="350"></td>
+
+
+  
+  </table>
+</p>
+
 ## Features
 
 ### Hidden System Prompt
@@ -57,6 +78,7 @@ A sleek drawer slides out from a floating button on the DeepSeek page. Inside yo
 - Create, edit, and activate characters.
 
 ![long work image](extension/4.png)
+
 
 
 ### Code Block Download Buttons
