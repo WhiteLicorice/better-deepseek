@@ -5,6 +5,7 @@
     STORAGE_KEYS,
     SYSTEM_PROMPT_TEMPLATE_VERSION,
     DOWNLOAD_BEHAVIOR_VERSION,
+    DEFAULT_SYSTEM_PROMPT,
   } from "../../lib/constants.js";
 
   let systemPrompt = $state(appState.settings.systemPrompt || "");
@@ -45,6 +46,10 @@
       appState.ui.showToast("Settings saved.");
     }
   }
+
+  function resetSystemPrompt() {
+    systemPrompt = DEFAULT_SYSTEM_PROMPT;
+  }
 </script>
 
 <div class="bds-section-title">
@@ -59,7 +64,10 @@
   General Settings
 </div>
 
-<label class="bds-label" for="bds-system-prompt">Hidden System Prompt</label>
+<div class="bds-label-row">
+  <label class="bds-label" for="bds-system-prompt">Hidden System Prompt</label>
+  <button class="bds-reset-btn" type="button" onclick={resetSystemPrompt}>Reset</button>
+</div>
 <textarea
   id="bds-system-prompt"
   spellcheck="false"
