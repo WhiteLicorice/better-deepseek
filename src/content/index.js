@@ -20,6 +20,8 @@ import { loadStateFromStorage, bindStorageChangeListener } from "./storage.js";
 import { injectHookScript, setupBridgeEvents, pushConfigToPage } from "./bridge.js";
 import { mountUi } from "./ui/mount.js";
 import { observeChatDom, scheduleScan, startUrlWatcher } from "./scanner.js";
+import { initSidebarMenuInjector } from "./ui/SidebarMenuInjector.js";
+import { checkPendingExport } from "./tools/pending-export.js";
 
 init().catch((error) => {
   console.error("[BetterDeepSeek] Init error:", error);
@@ -35,7 +37,9 @@ async function init() {
   bindStorageChangeListener();
   startUrlWatcher();
   observeChatDom();
+  initSidebarMenuInjector();
   scheduleScan();
+  checkPendingExport();
   pushConfigToPage();
 }
 

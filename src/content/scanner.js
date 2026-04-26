@@ -8,6 +8,7 @@ import { processMessageNode } from "./message-processor.svelte.js";
 import { enhanceCodeBlockDownloads } from "./files/code-blocks.js";
 import { mount } from "svelte";
 import AttachMenu from "./ui/AttachMenu.svelte";
+import { checkPendingExport } from "./tools/pending-export.js";
 
 /**
  * Collect all message nodes from the chat DOM.
@@ -280,6 +281,7 @@ export function startUrlWatcher() {
       state.ui.showLongWorkOverlay(false);
     }
     scheduleScan();
+    checkPendingExport();
   }, 1000);
 
   // Focus/Visibility triggers to handle background-to-foreground transitions

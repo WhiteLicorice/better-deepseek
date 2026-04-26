@@ -165,6 +165,13 @@ function exportToPdf(messages, title) {
       position: relative;
       border: 1px solid #dfe1e4;
     }
+    a {
+      color: #007bff;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
     pre .lang {
       position: absolute;
       top: 0;
@@ -246,6 +253,8 @@ function formatContentForHtml(content) {
     // Bold & Italic
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
+    // Links [text](url)
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
     // Lists
     .replace(/^\s*-\s+(.*$)/gm, "<li>$1</li>")
     // Horizontal Rule

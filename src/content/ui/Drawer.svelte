@@ -1,6 +1,5 @@
 <script>
   import SettingsPanel from "./SettingsPanel.svelte";
-  import ExportPanel from "./ExportPanel.svelte";
   import CharacterList from "./CharacterList.svelte";
   import SkillList from "./SkillList.svelte";
   import MemoryList from "./MemoryList.svelte";
@@ -38,10 +37,6 @@
   </div>
 
   <SettingsPanel bind:this={settingsRef} />
-
-  <hr />
-
-  <ExportPanel />
 
   <hr />
 
