@@ -177,26 +177,40 @@ function exportToPdf(messages, title, dark = false) {
     }
 
     .logo-text {
-      font-weight: 700;
-      font-size: 18px;
-      color: var(--primary);
-      letter-spacing: -0.02em;
+      font-weight: 800;
+      font-size: 22px;
+      background: linear-gradient(135deg, var(--primary), #0d8a6b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.03em;
     }
 
     .session-title {
-      font-size: 36px;
+      font-size: 38px;
       font-weight: 800;
-      margin: 0 0 12px 0;
+      margin: 0 0 16px 0;
       line-height: 1.1;
-      letter-spacing: -0.03em;
+      letter-spacing: -0.04em;
       color: var(--title-color);
     }
 
     .metadata {
       font-size: 14px;
       color: var(--text-muted);
-      margin-bottom: 50px;
+      margin-bottom: 60px;
       font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .metadata::before {
+      content: "";
+      display: block;
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: var(--primary);
     }
 
     .message {
@@ -210,31 +224,30 @@ function exportToPdf(messages, title, dark = false) {
 
     .assistant {
       text-align: left;
+      border-left: 2px solid var(--primary);
+      padding-left: 24px;
+      margin-left: -2px;
     }
 
     .role-header {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
     }
 
     .user .role-header {
       justify-content: flex-end;
     }
 
-    .assistant .role-header {
-      justify-content: flex-start;
-    }
-
     .role-badge {
       display: inline-block;
-      padding: 5px 14px;
-      border-radius: 6px;
+      padding: 6px 14px;
+      border-radius: 8px;
       font-size: 10px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
     }
 
     .user .role-badge {
@@ -244,55 +257,33 @@ function exportToPdf(messages, title, dark = false) {
     }
 
     .assistant .role-badge {
-      background: rgba(16, 163, 127, 0.1);
-      color: var(--primary);
-      border: 1px solid rgba(16, 163, 127, 0.2);
+      background: var(--primary);
+      color: #ffffff;
     }
 
     .content {
       font-size: 16px;
-      line-height: 1.8;
+      line-height: 1.85;
       text-align: justify;
       text-justify: inter-word;
     }
 
     .user .content {
       display: inline-block;
-      text-align: left; /* Keep text left-aligned inside the right-aligned block for readability */
+      text-align: left;
       max-width: 85%;
+      background: var(--user-bg);
+      padding: 16px 24px;
+      border-radius: 16px 4px 16px 16px;
+      border: 1px solid var(--border);
     }
     
-    /* When justified, we still want the last line to follow the alignment */
-    .user .content p {
-       text-align: right;
-    }
-
-    .content h1, .content h2, .content h3 {
-      font-weight: 700;
-      margin-top: 2em;
-      margin-bottom: 0.75em;
-      color: var(--title-color);
-    }
-
-    .content p { margin: 1.25em 0; }
-
-    .content a {
-      color: var(--primary);
-      text-decoration: none;
-      font-weight: 500;
-    }
-
-    .content ul, .content ol {
-      padding-left: 1.5em;
-      margin: 1.25em 0;
-    }
-
-    .content li { margin-bottom: 0.5em; }
+    .user .content p { text-align: left; }
 
     pre {
       background: var(--code-bg);
       color: #e5e7eb;
-      padding: 24px;
+      padding: 40px 24px 24px 24px;
       border-radius: 12px;
       font-family: 'JetBrains Mono', monospace;
       font-size: 13.5px;
@@ -301,19 +292,30 @@ function exportToPdf(messages, title, dark = false) {
       margin: 24px 0;
       position: relative;
       border: 1px solid var(--border);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    pre::before {
+      content: "";
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ff5f56;
+      box-shadow: 20px 0 0 #ffbd2e, 40px 0 0 #27c93f;
     }
 
     .lang-label {
       position: absolute;
-      top: 0;
-      right: 0;
-      padding: 6px 12px;
-      font-size: 10px;
+      top: 10px;
+      right: 14px;
+      font-size: 11px;
       font-weight: 700;
       text-transform: uppercase;
       color: #9ca3af;
-      background: rgba(255,255,255,0.05);
-      border-bottom-left-radius: 8px;
+      letter-spacing: 0.05em;
     }
 
     code {
