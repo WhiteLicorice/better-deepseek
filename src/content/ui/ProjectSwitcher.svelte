@@ -88,8 +88,7 @@
 {#if showConfirm}
   <div class="bds-confirm-box">
     <p class="bds-confirm-text">
-      Switching projects changes the instructions and files applied to your next message.
-      Prior messages are unaffected. Continue?
+      Project context applies only to new conversations. Switch now to auto-associate future chats with this project.
     </p>
     <div class="bds-editor-actions">
       <button type="button" class="bds-btn-outlined" onclick={cancelSwitch}>Cancel</button>
