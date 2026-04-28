@@ -159,6 +159,11 @@ When DeepSeek writes to memory using `<BDS:memory_write>`, the entries appear in
 ### Uploading Folders and GitHub Repos
 Click the "+" button next to the chat input to reveal the advanced upload menu. Choose "Upload Folder" to select a local directory; the extension will concatenate all text files into a single upload. On browsers without the File System Access API (Firefox), the folder picker falls back to the browser's native directory input so the flow still works. "GitHub Repo" fetches the repository as a ZIP and converts it to a gitingest-style text file for context.
 
+### Working with Projects
+Project selection now lives directly below the chat composer. Use the hero project bar to choose the active project and the project files that should be included on the next new-chat send. Selected project files are attached as native chat files instead of being injected as plain text.
+
+Inside an existing project chat, use the "+" menu and choose **Attach Project Files** to attach more project files without opening the drawer. The project manager still handles project creation, uploads, exports, and linked conversations, while the lightweight right-side file drawer shows which files were sent in the current chat.
+
 ## Development
 
 ### Project Structure
@@ -230,4 +235,3 @@ Use it at your own risk. Better DeepSeek is an independent project and is not af
 - [Turndown](https://github.com/mixmark-io/turndown)
 
 > "Better DeepSeek" is an unofficial, independent, and community-driven open-source extension. It is NOT affiliated with, endorsed by, sponsored by, or officially connected to DeepSeek or DeepSeek AI in any way. All product names, logos, and brands are property of their respective owners.
-

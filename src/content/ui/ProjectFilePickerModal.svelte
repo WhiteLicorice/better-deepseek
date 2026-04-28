@@ -78,12 +78,18 @@
       .filter((file) => selectedIds.includes(file.id))
       .reduce((sum, file) => sum + file.size, 0)
   );
+
+  function handleOverlayClick(event) {
+    if (event.target === event.currentTarget) {
+      oncancel();
+    }
+  }
 </script>
 
 {#if open}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="bds-project-modal-overlay" on:click|self={oncancel}>
+  <div class="bds-project-modal-overlay" onclick={handleOverlayClick}>
     <div class="bds-project-modal" role="dialog" aria-modal="true" aria-label={title}>
       <div class="bds-project-modal-header">
         <div>
