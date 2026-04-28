@@ -95,6 +95,7 @@ The extension adds a "+" button next to the chat input, offering:
 ### Recommended: Browser Stores
 The easiest way to install Better DeepSeek is through the official stores:
 - **[Chrome Web Store](https://chromewebstore.google.com/detail/better-deepseek/aabiopennjmopfippagcalmkdjlepdhh)**
+- **[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/better-deepseek/goboedojlaeplneahnmnobmendoeblld)**
 - **[Firefox Add-ons](https://addons.mozilla.org/en/firefox/addon/better-deepseek/)**
 
 ### Latest Development Build
