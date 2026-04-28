@@ -1,12 +1,22 @@
 import state from "./state.js";
 import { makeId } from "../lib/utils/helpers.js";
 
+// Files sent before DeepSeek assigns a real conversation id are tracked under
+// this temporary draft key and moved once the chat URL resolves.
 const DRAFT_CHAT_KEY = "__draft__";
 const syntheticFileMetadata = new Map();
 
+export function getTrackedFileSignature(file) {
+  return [
+    file?.name || "",
+    Number(file?.size) || 0,
+    Number(file?.lastModified) || 0,
+  ].join("::");
+}
+
 export function registerSyntheticFiles(files, metadataList) {
   files.forEach((file, index) => {
-    syntheticFileMetadata.set(getFileSignature(file), {
+    syntheticFileMetadata.set(getTrackedFileSignature(file), {
       ...(metadataList[index] || {}),
       name: file.name,
       size: file.size,
@@ -74,7 +84,7 @@ export function moveDraftSentFilesToConversation(conversationId) {
 
 function readInputFiles(nativeInput) {
   return Array.from(nativeInput?.files || []).map((file) => {
-    const signature = getFileSignature(file);
+    const signature = getTrackedFileSignature(file);
     const syntheticMeta = syntheticFileMetadata.get(signature);
     const base = {
       name: file.name,
@@ -99,10 +109,6 @@ function readInputFiles(nativeInput) {
 
 function resolveChatKey(conversationId) {
   return String(conversationId || state.currentConversationId || DRAFT_CHAT_KEY);
-}
-
-function getFileSignature(file) {
-  return [file?.name || "", Number(file?.size) || 0, Number(file?.lastModified) || 0].join("::");
 }
 
 function refreshSentFilesUi() {

@@ -84,18 +84,24 @@
       oncancel();
     }
   }
+
+  function handleModalKeydown(event) {
+    if (event.key === "Escape") {
+      oncancel();
+    }
+  }
 </script>
 
 {#if open}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   <div class="bds-project-modal-overlay" onclick={handleOverlayClick}>
-    <div class="bds-project-modal" role="dialog" aria-modal="true" aria-label={title}>
-      <div class="bds-project-modal-header">
-        <div>
-          <div class="bds-project-modal-title">{title}</div>
-          <div class="bds-project-modal-subtitle">Choose a project and the files to work with.</div>
-        </div>
+      <div class="bds-project-modal" role="dialog" aria-modal="true" aria-labelledby="bds-project-modal-title" tabindex="-1" onkeydown={handleModalKeydown}>
+        <div class="bds-project-modal-header">
+          <div>
+            <div id="bds-project-modal-title" class="bds-project-modal-title">{title}</div>
+            <div class="bds-project-modal-subtitle">Choose a project and the files to work with.</div>
+          </div>
         <button type="button" class="bds-project-modal-close" onclick={oncancel} aria-label="Close">×</button>
       </div>
 

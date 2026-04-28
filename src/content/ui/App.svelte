@@ -42,7 +42,7 @@
     if (drawerRef) drawerRef.refreshProjects();
   }
   export function refreshSentFiles() {
-    if (chatFilesDrawerRef) chatFilesDrawerRef.refresh();
+    if (chatFilesDrawerRef) chatFilesDrawerRef.refreshSentFiles();
   }
 
   function toggleDrawer() {

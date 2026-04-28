@@ -2,6 +2,8 @@ import { buildZip } from "../lib/zip.js";
 import { triggerBlobDownload } from "../lib/utils/download.js";
 import { buildTimestamp } from "../lib/utils/helpers.js";
 
+// Project uploads are stored as text content only, so extensions without a
+// reliable browser-safe text MIME type intentionally fall back to text/plain.
 const MIME_BY_EXTENSION = {
   js: "text/javascript",
   jsx: "text/javascript",
@@ -75,11 +77,19 @@ export function createProjectAttachmentFiles(project, files) {
     return [createNativeProjectFile(safeFiles[0])];
   }
 
+  // Multi-file project selections are bundled into one text attachment so the
+  // chat uses DeepSeek's native file-upload path without exploding the number
+  // of attachment chips or reverting to payload text injection.
   const bundleText = buildProjectAttachmentBundleText(project, safeFiles);
   const projectSlug = slugify(project?.name || "project");
+  const lastModified = safeFiles.reduce(
+    (latest, file) => Math.max(latest, Number(file.createdAt) || 0),
+    0
+  ) || Date.now();
   return [
     new File([bundleText], `${projectSlug}-project-files.txt`, {
       type: "text/plain",
+      lastModified,
     }),
   ];
 }
@@ -88,6 +98,7 @@ export function createNativeProjectFile(projectFile) {
   const downloadName = normalizeAttachmentName(projectFile?.name || "project-file.txt");
   return new File([String(projectFile?.content || "")], downloadName, {
     type: inferProjectFileMimeType(projectFile?.name),
+    lastModified: Number(projectFile?.createdAt) || Date.now(),
   });
 }
 

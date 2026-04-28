@@ -22,7 +22,7 @@
   let showConfirm = $state(false);
   let showFileModal = $state(false);
 
-  export function refresh() {
+  export function refreshProjectState() {
     projects = [...appState.projects];
     activeProject = getActiveProject();
     selectedId = activeProject?.id || "";
@@ -31,7 +31,7 @@
   }
 
   $effect(() => {
-    refresh();
+    refreshProjectState();
   });
 
   function hasMessages() {
@@ -55,7 +55,7 @@
     } else {
       clearActiveProject();
     }
-    refresh();
+    refreshProjectState();
     pushConfigToPage();
     if (appState.ui) {
       appState.ui.refreshProjects();
@@ -76,7 +76,7 @@
   function handleFileSelection(detail) {
     setActiveFiles(detail.fileIds);
     showFileModal = false;
-    refresh();
+    refreshProjectState();
     pushConfigToPage();
     if (appState.ui) {
       appState.ui.refreshProjects();

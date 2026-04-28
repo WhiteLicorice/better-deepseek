@@ -18,6 +18,7 @@ import {
 } from "./project-manager.js";
 import {
   captureComposerFiles,
+  getTrackedFileSignature,
   moveDraftSentFilesToConversation,
   queuePendingSendFromComposer,
   registerSyntheticFiles,
@@ -317,7 +318,7 @@ export function startUrlWatcher() {
       if (convId) {
         const exists = state.projectConversations.some((c) => c.conversationId === convId);
         if (!exists) {
-           snapshotTitleAndAssociate(convId, state.activeProjectId);
+          snapshotTitleAndAssociate(convId, state.activeProjectId);
         }
       }
     }
@@ -371,9 +372,7 @@ function bindComposerSendHandling(wrapper, nativeInput) {
     wrapper.setAttribute("data-bds-send-handlers-bound", "true");
   }
 
-  const textarea = document.querySelector('textarea#chat-input') ||
-    document.querySelector('.ds-textarea textarea') ||
-    document.querySelector('textarea');
+  const textarea = findComposerTextarea();
   if (textarea && !textarea.hasAttribute("data-bds-enter-send-bound")) {
     textarea.addEventListener(
       "keydown",
@@ -429,7 +428,7 @@ async function handleComposerSendIntent(event, nativeInput, wrapper) {
 
     const sendButton = await waitForComposerSendButton(wrapper);
     if (!sendButton) {
-      throw new Error("Could not prepare the send button after attaching project files.");
+      throw new Error("Send button not found or remained disabled after attaching project files. Please try again.");
     }
 
     state.composer.skipAutoAttachOnce = true;
@@ -449,12 +448,12 @@ function injectComposerFiles(nativeInput, files) {
   const existingSignatures = new Set();
 
   for (const file of Array.from(nativeInput.files || [])) {
-    existingSignatures.add(`${file.name}::${file.size}`);
+    existingSignatures.add(getTrackedFileSignature(file));
     dt.items.add(file);
   }
 
   for (const file of files) {
-    const signature = `${file.name}::${file.size}`;
+    const signature = getTrackedFileSignature(file);
     if (existingSignatures.has(signature)) {
       continue;
     }
@@ -468,8 +467,9 @@ function injectComposerFiles(nativeInput, files) {
 
 function waitForComposerSendButton(wrapper) {
   return new Promise((resolve) => {
-    let attempts = 0;
     const maxAttempts = 50;
+    const pollIntervalMs = 200;
+    let attempts = 0;
 
     const poll = () => {
       attempts += 1;
@@ -489,7 +489,7 @@ function waitForComposerSendButton(wrapper) {
         return;
       }
 
-      window.setTimeout(poll, 200);
+      window.setTimeout(poll, pollIntervalMs);
     };
 
     poll();
@@ -508,4 +508,9 @@ function findComposerSendButton(wrapper) {
     const isAttach = button.classList.contains("bds-plus-btn") || button.querySelector("svg line");
     return isSend && !isAttach;
   }) || null;
+}
+
+function findComposerTextarea() {
+  return document.querySelector("textarea#chat-input") ||
+    document.querySelector(".ds-textarea textarea");
 }

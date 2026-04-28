@@ -6,13 +6,13 @@
   let entries = $state([]);
   let conversationId = $state(null);
 
-  export function refresh() {
+  export function refreshSentFiles() {
     conversationId = getCurrentConversationId();
     entries = getSentFileEntries(conversationId);
   }
 
   $effect(() => {
-    refresh();
+    refreshSentFiles();
   });
 
   function formatSize(bytes) {
@@ -32,7 +32,7 @@
 </script>
 
 <aside class:open class="bds-chat-files-drawer">
-  <button type="button" class="bds-chat-files-toggle" onclick={() => (open = !open)} aria-expanded={open}>
+  <button type="button" class="bds-chat-files-toggle" onclick={() => (open = !open)} aria-expanded={open} aria-label={open ? "Collapse sent files drawer" : "Expand sent files drawer"}>
     <span>{open ? "Hide" : "Files"}</span>
     <span class="bds-chat-files-count">{totalFiles}</span>
   </button>
