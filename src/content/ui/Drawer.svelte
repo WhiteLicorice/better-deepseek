@@ -3,11 +3,7 @@
   import CharacterList from "./CharacterList.svelte";
   import SkillList from "./SkillList.svelte";
   import MemoryList from "./MemoryList.svelte";
-  import ProjectSwitcher from "./ProjectSwitcher.svelte";
-  import ProjectFileSelector from "./ProjectFileSelector.svelte";
-  import ProjectConversationList from "./ProjectConversationList.svelte";
   import ProjectsManager from "./ProjectsManager.svelte";
-  import appState from "../state.js";
 
   let { open = false, onclose } = $props();
 
@@ -15,14 +11,9 @@
   let charactersRef = $state(null);
   let skillsRef = $state(null);
   let memoryRef = $state(null);
-  let projectSwitcherRef = $state(null);
-  let projectFileSelectorRef = $state(null);
-  let projectConversationListRef = $state(null);
   let projectsManagerRef = $state(null);
 
   let showProjectsManager = $state(false);
-
-  let hasActiveProject = $state(Boolean(appState.activeProjectId));
 
   export function refreshSettings() {
     if (settingsRef) settingsRef.refresh();
@@ -37,13 +28,8 @@
     if (memoryRef) memoryRef.refresh();
   }
   export function refreshProjects() {
-    if (projectSwitcherRef) projectSwitcherRef.refresh();
-    if (projectFileSelectorRef) projectFileSelectorRef.refresh();
-    if (projectConversationListRef) projectConversationListRef.refresh();
     if (projectsManagerRef) projectsManagerRef.refresh();
     if (settingsRef) settingsRef.refreshProject();
-    // Re-evaluate derived so conditional sections update
-    hasActiveProject = Boolean(appState.activeProjectId);
   }
 
   function openProjectsManager() {
@@ -69,12 +55,13 @@
   {#if showProjectsManager}
     <ProjectsManager bind:this={projectsManagerRef} onback={closeProjectsManager} />
   {:else}
-    <ProjectSwitcher bind:this={projectSwitcherRef} onManage={openProjectsManager} />
-
-    {#if hasActiveProject}
-      <ProjectFileSelector bind:this={projectFileSelectorRef} />
-      <ProjectConversationList bind:this={projectConversationListRef} />
-    {/if}
+    <div class="bds-section-title" style="margin-bottom: 8px;">Projects</div>
+    <p style="font-size: 12px; opacity: 0.7; margin: 0 0 10px;">
+      Choose the active project and project files directly from the chat composer. Use the drawer to manage project data and exports.
+    </p>
+    <button type="button" class="bds-btn" style="width: 100%;" onclick={openProjectsManager}>
+      Manage Projects
+    </button>
 
     <hr />
 

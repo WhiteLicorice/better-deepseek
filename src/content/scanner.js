@@ -8,8 +8,24 @@ import { processMessageNode } from "./message-processor.svelte.js";
 import { enhanceCodeBlockDownloads } from "./files/code-blocks.js";
 import { mount } from "svelte";
 import AttachMenu from "./ui/AttachMenu.svelte";
+import HeroProjectBar from "./ui/HeroProjectBar.svelte";
 import { checkPendingExport } from "./tools/pending-export.js";
-import { getCurrentConversationId, snapshotTitleAndAssociate } from "./project-manager.js";
+import {
+  getActiveFiles,
+  getActiveProject,
+  getCurrentConversationId,
+  snapshotTitleAndAssociate,
+} from "./project-manager.js";
+import {
+  captureComposerFiles,
+  moveDraftSentFilesToConversation,
+  queuePendingSendFromComposer,
+  registerSyntheticFiles,
+} from "./chat-file-tracker.js";
+import {
+  buildSyntheticAttachmentMetadata,
+  createProjectAttachmentFiles,
+} from "./project-file-helpers.js";
 
 /**
  * Collect all message nodes from the chat DOM.
@@ -161,33 +177,48 @@ function scanInputArea() {
   if (!fileInput) return;
 
   const wrapper = fileInput.parentElement;
-  if (!wrapper || wrapper.hasAttribute("data-bds-attach-menu-mounted")) {
+  if (!wrapper) {
     return;
   }
 
-  const prevSibling = fileInput.previousElementSibling;
-  let nativeButton = null;
-  if (prevSibling && prevSibling.getAttribute("role") === "button") {
-    nativeButton = prevSibling;
-  } else {
-    nativeButton = wrapper.querySelector('div[role="button"][tabindex="0"]');
-  }
-
-  if (nativeButton) {
-    nativeButton.style.setProperty("display", "none", "important");
-  }
-
-  const mountPoint = document.createElement("div");
-  wrapper.insertBefore(mountPoint, fileInput);
-
-  mount(AttachMenu, {
-    target: mountPoint,
-    props: {
-      nativeInput: fileInput
+  if (!wrapper.hasAttribute("data-bds-attach-menu-mounted")) {
+    const prevSibling = fileInput.previousElementSibling;
+    let nativeButton = null;
+    if (prevSibling && prevSibling.getAttribute("role") === "button") {
+      nativeButton = prevSibling;
+    } else {
+      nativeButton = wrapper.querySelector('div[role="button"][tabindex="0"]');
     }
-  });
 
-  wrapper.setAttribute("data-bds-attach-menu-mounted", "true");
+    if (nativeButton) {
+      nativeButton.style.setProperty("display", "none", "important");
+    }
+
+    const mountPoint = document.createElement("div");
+    wrapper.insertBefore(mountPoint, fileInput);
+
+    mount(AttachMenu, {
+      target: mountPoint,
+      props: {
+        nativeInput: fileInput
+      }
+    });
+
+    wrapper.setAttribute("data-bds-attach-menu-mounted", "true");
+  }
+
+  if (!wrapper.hasAttribute("data-bds-hero-project-mounted")) {
+    const mountPoint = document.createElement("div");
+    mountPoint.className = "bds-hero-project-host";
+    wrapper.insertAdjacentElement("afterend", mountPoint);
+    mount(HeroProjectBar, {
+      target: mountPoint,
+    });
+    wrapper.setAttribute("data-bds-hero-project-mounted", "true");
+  }
+
+  bindComposerFileTracking(fileInput);
+  bindComposerSendHandling(wrapper, fileInput);
 }
 
 /**
@@ -269,19 +300,24 @@ export function startUrlWatcher() {
     return;
   }
 
+  state.currentConversationId = getCurrentConversationId();
+  moveDraftSentFilesToConversation(state.currentConversationId);
+
   state.urlWatchTimer = window.setInterval(() => {
     if (location.href === state.lastUrl) {
       return;
     }
 
     state.lastUrl = location.href;
+    state.currentConversationId = getCurrentConversationId();
+    moveDraftSentFilesToConversation(state.currentConversationId);
 
     if (state.activeProjectId) {
-      const convId = getCurrentConversationId();
+      const convId = state.currentConversationId;
       if (convId) {
         const exists = state.projectConversations.some((c) => c.conversationId === convId);
         if (!exists) {
-          snapshotTitleAndAssociate(convId, state.activeProjectId);
+           snapshotTitleAndAssociate(convId, state.activeProjectId);
         }
       }
     }
@@ -308,3 +344,168 @@ export function startUrlWatcher() {
   });
 }
 
+function bindComposerFileTracking(nativeInput) {
+  if (nativeInput.hasAttribute("data-bds-file-tracking-bound")) {
+    return;
+  }
+
+  nativeInput.addEventListener("change", () => {
+    captureComposerFiles(nativeInput);
+  });
+  nativeInput.setAttribute("data-bds-file-tracking-bound", "true");
+}
+
+function bindComposerSendHandling(wrapper, nativeInput) {
+  if (!wrapper.hasAttribute("data-bds-send-handlers-bound")) {
+    wrapper.addEventListener(
+      "click",
+      (event) => {
+        const sendButton = findComposerSendButton(wrapper);
+        if (!sendButton) return;
+        const target = event.target instanceof Element ? event.target.closest("button, [role='button']") : null;
+        if (!target || target !== sendButton) return;
+        void handleComposerSendIntent(event, nativeInput, wrapper);
+      },
+      true
+    );
+    wrapper.setAttribute("data-bds-send-handlers-bound", "true");
+  }
+
+  const textarea = document.querySelector('textarea#chat-input') ||
+    document.querySelector('.ds-textarea textarea') ||
+    document.querySelector('textarea');
+  if (textarea && !textarea.hasAttribute("data-bds-enter-send-bound")) {
+    textarea.addEventListener(
+      "keydown",
+      (event) => {
+        if (event.key !== "Enter" || event.shiftKey || event.isComposing) {
+          return;
+        }
+        void handleComposerSendIntent(event, nativeInput, wrapper);
+      },
+      true
+    );
+    textarea.setAttribute("data-bds-enter-send-bound", "true");
+  }
+}
+
+async function handleComposerSendIntent(event, nativeInput, wrapper) {
+  if (state.composer.autoAttachInProgress) {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    return;
+  }
+
+  if (state.composer.skipAutoAttachOnce) {
+    state.composer.skipAutoAttachOnce = false;
+    queuePendingSendFromComposer(nativeInput);
+    return;
+  }
+
+  const activeProject = getActiveProject();
+  const activeFiles = getActiveFiles();
+  const hasChatHistory = collectMessageNodes().some((node) => !node.closest("#bds-root"));
+
+  if (!activeProject || activeFiles.length === 0 || hasChatHistory) {
+    queuePendingSendFromComposer(nativeInput);
+    return;
+  }
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  state.composer.autoAttachInProgress = true;
+  try {
+    const attachmentFiles = createProjectAttachmentFiles(activeProject, activeFiles);
+    if (!attachmentFiles.length) {
+      return;
+    }
+
+    registerSyntheticFiles(
+      attachmentFiles,
+      buildSyntheticAttachmentMetadata(activeProject, activeFiles, attachmentFiles)
+    );
+    injectComposerFiles(nativeInput, attachmentFiles);
+
+    const sendButton = await waitForComposerSendButton(wrapper);
+    if (!sendButton) {
+      throw new Error("Could not prepare the send button after attaching project files.");
+    }
+
+    state.composer.skipAutoAttachOnce = true;
+    sendButton.click();
+  } catch (error) {
+    console.error("[BDS] Failed to auto-attach project files:", error);
+    if (state.ui) {
+      state.ui.showToast(error?.message || "Could not attach active project files.");
+    }
+  } finally {
+    state.composer.autoAttachInProgress = false;
+  }
+}
+
+function injectComposerFiles(nativeInput, files) {
+  const dt = new DataTransfer();
+  const existingSignatures = new Set();
+
+  for (const file of Array.from(nativeInput.files || [])) {
+    existingSignatures.add(`${file.name}::${file.size}`);
+    dt.items.add(file);
+  }
+
+  for (const file of files) {
+    const signature = `${file.name}::${file.size}`;
+    if (existingSignatures.has(signature)) {
+      continue;
+    }
+    dt.items.add(file);
+  }
+
+  nativeInput.files = dt.files;
+  nativeInput.dispatchEvent(new Event("change", { bubbles: true }));
+  captureComposerFiles(nativeInput);
+}
+
+function waitForComposerSendButton(wrapper) {
+  return new Promise((resolve) => {
+    let attempts = 0;
+    const maxAttempts = 50;
+
+    const poll = () => {
+      attempts += 1;
+      const sendButton = findComposerSendButton(wrapper);
+      if (sendButton) {
+        const disabled =
+          sendButton.getAttribute("aria-disabled") === "true" ||
+          sendButton.classList.contains("ds-icon-button--disabled");
+        if (!disabled) {
+          resolve(sendButton);
+          return;
+        }
+      }
+
+      if (attempts >= maxAttempts) {
+        resolve(sendButton || null);
+        return;
+      }
+
+      window.setTimeout(poll, 200);
+    };
+
+    poll();
+  });
+}
+
+function findComposerSendButton(wrapper) {
+  const searchRoot = wrapper?.parentElement || document;
+  const buttons = Array.from(searchRoot.querySelectorAll("div[role='button'], button"));
+  return buttons.find((button) => {
+    const isSend =
+      button.querySelector("svg path[d*='M8.3125'], .ds-icon-send") ||
+      button.querySelector("svg path[d*='M13.12 19.98']") ||
+      button.title === "Send message" ||
+      button.ariaLabel === "Send Message";
+    const isAttach = button.classList.contains("bds-plus-btn") || button.querySelector("svg line");
+    return isSend && !isAttach;
+  }) || null;
+}

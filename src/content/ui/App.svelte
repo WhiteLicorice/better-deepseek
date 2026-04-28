@@ -1,5 +1,6 @@
 <script>
   import Drawer from "./Drawer.svelte";
+  import ChatFilesDrawer from "./ChatFilesDrawer.svelte";
   import ToastStack from "./ToastStack.svelte";
 
   let drawerOpen = $state(false);
@@ -23,6 +24,7 @@
 
   // Settings/skills/memories refresh — forwarded to Drawer
   let drawerRef = $state(null);
+  let chatFilesDrawerRef = $state(null);
 
   export function refreshSettings() {
     if (drawerRef) drawerRef.refreshSettings();
@@ -39,6 +41,9 @@
   export function refreshProjects() {
     if (drawerRef) drawerRef.refreshProjects();
   }
+  export function refreshSentFiles() {
+    if (chatFilesDrawerRef) chatFilesDrawerRef.refresh();
+  }
 
   function toggleDrawer() {
     drawerOpen = !drawerOpen;
@@ -52,6 +57,7 @@
 <button id="bds-toggle" type="button" onclick={toggleDrawer}>BDS</button>
 
 <Drawer bind:this={drawerRef} open={drawerOpen} onclose={closeDrawer} />
+<ChatFilesDrawer bind:this={chatFilesDrawerRef} />
 
 
 <ToastStack {toasts} />

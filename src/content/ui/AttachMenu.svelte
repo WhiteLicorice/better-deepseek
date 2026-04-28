@@ -3,8 +3,12 @@
   import { pickFolderAndConcatenate } from "../files/folder-reader.js";
   import { fetchGitHubRepo, parseGitHubUrl } from "../files/github-reader.js";
   import { fetchAndConvertWebPage } from "../files/web-reader.js";
+  import ProjectFilePickerModal from "./ProjectFilePickerModal.svelte";
   import appState from "../state.js";
   import { BRIDGE_EVENTS } from "../../lib/constants.js";
+  import { createProjectAttachmentFiles, buildSyntheticAttachmentMetadata } from "../project-file-helpers.js";
+  import { registerSyntheticFiles, captureComposerFiles } from "../chat-file-tracker.js";
+  import { getActiveProject, getCurrentConversationId, getProjectForConversation } from "../project-manager.js";
 
   // The native input[type="file"] reference passed from scanner
   export let nativeInput;
@@ -26,6 +30,7 @@
   let webStatus = "";
   let webLoading = false;
   let webError = "";
+  let showProjectFilesDialog = false;
 
   let dialogRef;
 
@@ -206,6 +211,9 @@
       if (showWebDialog && !webLoading) {
         showWebDialog = false;
       }
+      if (showProjectFilesDialog) {
+        showProjectFilesDialog = false;
+      }
       closeMenu();
     }
   }
@@ -224,7 +232,7 @@
     try {
       const fakeFile = await pickFolderAndConcatenate();
       if (fakeFile) {
-        injectFile(fakeFile);
+        injectFiles([fakeFile]);
       }
     } catch (err) {
       if (err?.name === "AbortError") {
@@ -266,7 +274,7 @@
 
       if (file) {
         showGithubDialog = false;
-        injectFile(file);
+        injectFiles([file]);
       }
     } catch (err) {
       githubError = err.message || "Failed to fetch repository.";
@@ -304,7 +312,7 @@
 
       if (file) {
         showWebDialog = false;
-        injectFile(file);
+        injectFiles([file]);
       }
     } catch (err) {
       webError = err.message || "Could not fetch page content.";
@@ -313,7 +321,7 @@
     }
   }
 
-  function injectFile(file) {
+  function injectFiles(files) {
     if (!nativeInput) return;
     const dt = new DataTransfer();
     if (nativeInput.files) {
@@ -321,9 +329,40 @@
         dt.items.add(nativeInput.files[i]);
       }
     }
-    dt.items.add(file);
+    for (const file of files) {
+      dt.items.add(file);
+    }
     nativeInput.files = dt.files;
     nativeInput.dispatchEvent(new Event("change", { bubbles: true }));
+    captureComposerFiles(nativeInput);
+  }
+
+  function handleProjectFileAttach() {
+    closeMenu();
+    showProjectFilesDialog = true;
+  }
+
+  function handleProjectFilesConfirm(detail) {
+    const project = detail.project || getProjectForConversation(getCurrentConversationId()) || getActiveProject();
+    const files = createProjectAttachmentFiles(project, detail.files);
+    const metadata = buildSyntheticAttachmentMetadata(project, detail.files, files);
+    registerSyntheticFiles(files, metadata);
+    injectFiles(files);
+    showProjectFilesDialog = false;
+
+    if (appState.ui) {
+      appState.ui.showToast(
+        `${detail.files.length} project file${detail.files.length === 1 ? "" : "s"} attached.`
+      );
+    }
+  }
+
+  function getInitialProjectId() {
+    return (
+      getProjectForConversation(getCurrentConversationId())?.id ||
+      getActiveProject()?.id ||
+      ""
+    );
   }
 
   function handleDialogKeydown(e, type) {
@@ -369,6 +408,10 @@
       <button class="bds-attach-item" on:click={handleUploadFolder}>
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bds-item-icon"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
         Upload Folder
+      </button>
+      <button class="bds-attach-item" on:click={handleProjectFileAttach}>
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="bds-item-icon"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 0 4 24V4.5A2.5 2.5 0 0 1 6.5 2z"></path><path d="M8 7h8"></path><path d="M8 11h8"></path><path d="M8 15h5"></path></svg>
+        Attach Project Files
       </button>
       <div class="bds-attach-divider"></div>
       <button class="bds-attach-item" on:click={handleGithubImport}>
@@ -494,6 +537,16 @@
     </div>
   </div>
 {/if}
+
+<ProjectFilePickerModal
+  open={showProjectFilesDialog}
+  title="Attach Project Files"
+  confirmLabel="Attach Files"
+  initialProjectId={getInitialProjectId()}
+  initialSelectedIds={appState.activeFileIds}
+  oncancel={() => (showProjectFilesDialog = false)}
+  onconfirm={handleProjectFilesConfirm}
+/>
 
 <style>
   .bds-attach-wrapper {

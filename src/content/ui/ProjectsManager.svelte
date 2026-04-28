@@ -12,6 +12,7 @@
   } from "../project-manager.js";
   import { pushConfigToPage } from "../bridge.js";
   import { pickFolderSelection } from "../../lib/utils/folder-picker.js";
+  import { downloadAllProjectFiles, downloadProjectFile } from "../project-file-helpers.js";
 
   let { onback } = $props();
 
@@ -307,6 +308,15 @@
     projectConversations = getConversationsForProject(selectedProject.id);
   }
 
+  function exportFile(file) {
+    downloadProjectFile(file);
+  }
+
+  function exportAllFiles() {
+    if (!selectedProject || projectFiles.length === 0) return;
+    downloadAllProjectFiles(selectedProject, projectFiles);
+  }
+
   function formatSize(bytes) {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -509,6 +519,14 @@
             </div>
             <button
               type="button"
+              class="bds-btn-outlined"
+              style="font-size: 11px; padding: 3px 8px;"
+              onclick={() => exportFile(file)}
+            >
+              Export
+            </button>
+            <button
+              type="button"
               class="bds-btn-danger"
               style="font-size: 11px; padding: 3px 8px;"
               onclick={() => promptDeleteFile(file)}
@@ -520,6 +538,16 @@
       {/each}
     {/if}
   </div>
+
+  <button
+    type="button"
+    class="bds-btn-outlined"
+    style="width: 100%; margin-bottom: 6px;"
+    onclick={exportAllFiles}
+    disabled={projectFiles.length === 0}
+  >
+    Export All
+  </button>
 
   <button
     type="button"

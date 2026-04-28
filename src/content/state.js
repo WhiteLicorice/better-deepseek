@@ -22,6 +22,18 @@ const state = {
   activeProjectId: null,
   /** @type {string[]} session-only, never persisted */
   activeFileIds: [],
+  /** @type {Record<string, Array<{id:string,sentAt:number,files:Array<object>}>>} */
+  chatSentFiles: {},
+  /** @type {Array<object>} */
+  pendingComposerFiles: [],
+  /** @type {Array<object>} */
+  pendingSendFiles: [],
+  /** @type {{autoAttachInProgress:boolean,skipAutoAttachOnce:boolean}} */
+  composer: {
+    autoAttachInProgress: false,
+    skipAutoAttachOnce: false,
+  },
+  currentConversationId: null,
   observer: null,
   scanTimer: 0,
   urlWatchTimer: 0,

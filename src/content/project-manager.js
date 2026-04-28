@@ -72,9 +72,14 @@ export function clearActiveProject() {
   state.activeFileIds = [];
 }
 
+export function getProjectById(projectId) {
+  if (!projectId) return null;
+  return state.projects.find((project) => project.id === projectId) || null;
+}
+
 export function getActiveProject() {
   if (!state.activeProjectId) return null;
-  return state.projects.find((p) => p.id === state.activeProjectId) || null;
+  return getProjectById(state.activeProjectId);
 }
 
 // ── File CRUD ──
@@ -119,6 +124,10 @@ export function clearActiveFiles() {
   state.activeFileIds = [];
 }
 
+export function setActiveFiles(fileIds) {
+  state.activeFileIds = Array.from(new Set(Array.isArray(fileIds) ? fileIds : []));
+}
+
 export function getActiveFiles() {
   return state.projectFiles.filter((f) => state.activeFileIds.includes(f.id));
 }
@@ -155,6 +164,14 @@ export async function deassociateConversation(conversationId) {
 export function getConversationsForProject(projectId) {
   return state.projectConversations.filter((c) => c.projectId === projectId);
 }
+
+export function getProjectForConversation(conversationId) {
+  const association = state.projectConversations.find(
+    (item) => item.conversationId === String(conversationId || "")
+  );
+  return association ? getProjectById(association.projectId) : null;
+}
+
 
 // ── Conversation ID detection ──
 

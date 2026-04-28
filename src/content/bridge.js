@@ -6,7 +6,8 @@ import state from "./state.js";
 import { BRIDGE_EVENTS } from "../lib/constants.js";
 import { findLatestAssistantMessageNode, collectMessageNodes } from "./scanner.js";
 import { finalizeLongWork } from "./files/long-work.js";
-import { getActiveProject, getActiveFiles } from "./project-manager.js";
+import { getActiveProject } from "./project-manager.js";
+import { commitPendingSend } from "./chat-file-tracker.js";
 
 /**
  * Set up listeners for bridge events from the injected script.
@@ -50,7 +51,6 @@ export function pushConfigToPage() {
       ? {
           name: activeProject.name,
           instructions: activeProject.customInstructions,
-          files: getActiveFiles().map((f) => ({ name: f.name, content: f.content })),
         }
       : null,
   };
@@ -80,6 +80,7 @@ function handleNetworkState(detail) {
   state.network.lastEventAt = Date.now();
 
   if (activeCompletionRequests > 0) {
+    commitPendingSend();
     if (state.longWork.active) {
       state.longWork.lastActivityAt = Date.now();
     }
