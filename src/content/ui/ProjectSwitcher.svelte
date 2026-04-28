@@ -40,6 +40,7 @@
     }
     selectedId = id;
     pushConfigToPage();
+    if (appState.ui) appState.ui.refreshProjects();
   }
 
   function confirmSwitch() {
