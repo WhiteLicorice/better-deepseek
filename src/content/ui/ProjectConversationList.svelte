@@ -7,6 +7,7 @@
   } from "../project-manager.js";
 
   let conversations = $state([]);
+  let currentId = $state(getCurrentConversationId());
 
   export function refresh() {
     if (!appState.activeProjectId) {
@@ -14,6 +15,7 @@
       return;
     }
     conversations = getConversationsForProject(appState.activeProjectId);
+    currentId = getCurrentConversationId();
   }
 
   $effect(() => {
@@ -37,7 +39,6 @@
     window.location.href = `/a/chat/${conversationId}`;
   }
 
-  let currentId = $derived(getCurrentConversationId());
 </script>
 
 <div class="bds-subsection-title">Linked Conversations</div>
