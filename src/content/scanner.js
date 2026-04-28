@@ -217,6 +217,13 @@ function linkifyLogo() {
   const link = document.createElement('a');
   link.href = '/';
   link.className = 'bds-logo-link';
+  
+  link.addEventListener('click', (e) => {
+    if (e.button === 0 && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+      e.preventDefault();
+    }
+  });
+
   // Copy some essential layout classes if needed, but mostly we want to wrap it
   target.parentNode.insertBefore(link, target);
   link.appendChild(target);
@@ -255,6 +262,12 @@ function linkifyNewChatButton() {
   link.href = '/';
   link.className = 'bds-logo-link'; // Reuse the same CSS for pass-through styling
   link.setAttribute('data-bds-linkified', 'true');
+  
+  link.addEventListener('click', (e) => {
+    if (e.button === 0 && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+      e.preventDefault();
+    }
+  });
   
   container.parentNode.insertBefore(link, container);
   link.appendChild(container);
