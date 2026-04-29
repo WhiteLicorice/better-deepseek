@@ -23,7 +23,6 @@ export async function loadStateFromStorage() {
     STORAGE_KEYS.characters,
     STORAGE_KEYS.projects,
     STORAGE_KEYS.projectFiles,
-    STORAGE_KEYS.projectConversations,
   ]);
 
   const storedSettings = values[STORAGE_KEYS.settings] || {};
@@ -61,7 +60,6 @@ export async function loadStateFromStorage() {
   state.characters = normalizeCharacters(values[STORAGE_KEYS.characters]);
   state.projects = normalizeProjects(values[STORAGE_KEYS.projects]);
   state.projectFiles = normalizeProjectFiles(values[STORAGE_KEYS.projectFiles]);
-  state.projectConversations = normalizeProjectConversations(values[STORAGE_KEYS.projectConversations]);
 }
 
 function shouldUpgradeSystemPrompt(storedSettings) {
@@ -214,18 +212,6 @@ export function normalizeProjectFiles(raw) {
     }));
 }
 
-export function normalizeProjectConversations(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw
-    .filter((item) => item && typeof item === "object" && item.conversationId && item.projectId)
-    .map((item) => ({
-      conversationId: String(item.conversationId),
-      projectId: String(item.projectId),
-      title: String(item.title || "Untitled"),
-      createdAt: Number(item.createdAt) || Date.now(),
-    }));
-}
-
 export function sanitizeMemoryKey(input) {
   return String(input || "")
     .trim()
@@ -289,13 +275,6 @@ export function bindStorageChangeListener() {
 
     if (changes[STORAGE_KEYS.projectFiles]) {
       state.projectFiles = normalizeProjectFiles(changes[STORAGE_KEYS.projectFiles].newValue);
-      if (state.ui) state.ui.refreshProjects();
-    }
-
-    if (changes[STORAGE_KEYS.projectConversations]) {
-      state.projectConversations = normalizeProjectConversations(
-        changes[STORAGE_KEYS.projectConversations].newValue
-      );
       if (state.ui) state.ui.refreshProjects();
     }
 

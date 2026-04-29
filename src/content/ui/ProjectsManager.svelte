@@ -6,9 +6,7 @@
     deleteProject,
     addProjectFile,
     deleteProjectFile,
-    deassociateConversation,
     getFilesForProject,
-    getConversationsForProject,
   } from "../project-manager.js";
   import { pushConfigToPage } from "../bridge.js";
   import { pickFolderSelection } from "../../lib/utils/folder-picker.js";
@@ -20,8 +18,6 @@
   let projects = $state([...appState.projects]);
   let selectedProject = $state(null);
   let projectFiles = $state([]);
-  let projectConversations = $state([]);
-
   // Create form
   let createName = $state("");
   let createDescription = $state("");
@@ -55,7 +51,6 @@
       if (updated) {
         selectedProject = updated;
         projectFiles = getFilesForProject(updated.id);
-        projectConversations = getConversationsForProject(updated.id);
       } else {
         goBack();
       }
@@ -68,7 +63,6 @@
     editDescription = project.description;
     editInstructions = project.customInstructions;
     projectFiles = getFilesForProject(project.id);
-    projectConversations = getConversationsForProject(project.id);
     showDeleteConfirm = false;
     fileError = "";
     view = "detail";
@@ -300,11 +294,6 @@
     deleteFileId = null;
     deleteFileName = "";
     showDeleteFileConfirm = false;
-  }
-
-  async function removeConversation(conversationId) {
-    await deassociateConversation(conversationId);
-    projectConversations = getConversationsForProject(selectedProject.id);
   }
 
   function formatSize(bytes) {
@@ -605,51 +594,13 @@
 
   <hr style="margin: 12px 0;" />
 
-  <!-- Conversations section -->
-  <div class="bds-subsection-title">Linked Conversations</div>
-
-  <div class="bds-list" style="margin-bottom: 12px;">
-    {#if projectConversations.length === 0}
-      <p class="bds-empty" style="font-size: 11px;">No conversations linked.</p>
-    {:else}
-      {#each projectConversations as conv (conv.conversationId)}
-        <div class="bds-skill-item">
-          <div style="flex: 1; min-width: 0;">
-            <div
-              style="font-size: 12px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"
-            >
-              {conv.title}
-            </div>
-            <div style="font-size: 10px; opacity: 0.5;">
-              {formatDate(conv.createdAt)}
-            </div>
-          </div>
-          <button
-            type="button"
-            class="bds-btn-danger"
-            style="font-size: 10px; padding: 2px 6px;"
-            onclick={() => removeConversation(conv.conversationId)}
-          >
-            ✕
-          </button>
-        </div>
-      {/each}
-    {/if}
-  </div>
-
-  <hr style="margin: 12px 0;" />
-
   <!-- Delete project -->
   {#if showDeleteConfirm}
     <div class="bds-confirm-box bds-confirm-danger">
       <p class="bds-confirm-text">
         Delete "{selectedProject.name}"? This will also remove its
         {projectFiles.length}
-        {projectFiles.length === 1 ? "file" : "files"} and
-        {projectConversations.length} conversation {projectConversations.length ===
-        1
-          ? "association"
-          : "associations"}. Conversations in DeepSeek are unaffected.
+        {projectFiles.length === 1 ? "file" : "files"}.
       </p>
       <div class="bds-editor-actions">
         <button

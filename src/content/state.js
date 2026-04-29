@@ -16,8 +16,6 @@ const state = {
   projects: [],
   /** @type {Array<{id:string,projectId:string,name:string,content:string,size:number,createdAt:number}>} */
   projectFiles: [],
-  /** @type {Array<{conversationId:string,projectId:string,title:string,createdAt:number}>} */
-  projectConversations: [],
   /** @type {string|null} session-only, never persisted */
   activeProjectId: null,
   /** @type {string[]} session-only, never persisted */
@@ -39,7 +37,7 @@ const state = {
   },
   /** @type {import('./ui/mount.js').UiApi | null} */
   ui: null,
-  /** @type {{ refresh: () => void } | null} session-only ref to ProjectHeroBar */
+  /** @type {{ refresh: () => void } | null} session-only ref to AttachMenu's project panel */
   heroBarRef: null,
 };
 

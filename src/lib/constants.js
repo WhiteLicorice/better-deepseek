@@ -6,7 +6,6 @@ export const STORAGE_KEYS = {
   characters: "bds_characters",
   projects: "bds_projects",
   projectFiles: "bds_project_files",
-  projectConversations: "bds_project_conversations",
 };
 
 // ── Bridge Events (content ↔ injected) ──

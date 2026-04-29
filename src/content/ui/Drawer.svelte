@@ -3,7 +3,6 @@
   import CharacterList from "./CharacterList.svelte";
   import SkillList from "./SkillList.svelte";
   import MemoryList from "./MemoryList.svelte";
-  import ProjectConversationList from "./ProjectConversationList.svelte";
   import ProjectsManager from "./ProjectsManager.svelte";
   import appState from "../state.js";
 
@@ -13,12 +12,10 @@
   let charactersRef = $state(null);
   let skillsRef = $state(null);
   let memoryRef = $state(null);
-  let projectConversationListRef = $state(null);
   let projectsManagerRef = $state(null);
 
   let showProjectsManager = $state(false);
 
-  let hasActiveProject = $state(Boolean(appState.activeProjectId));
 
   export function refreshSettings() {
     if (settingsRef) settingsRef.refresh();
@@ -33,10 +30,8 @@
     if (memoryRef) memoryRef.refresh();
   }
   export function refreshProjects() {
-    if (projectConversationListRef) projectConversationListRef.refresh();
     if (projectsManagerRef) projectsManagerRef.refresh();
     if (settingsRef) settingsRef.refreshProject();
-    hasActiveProject = Boolean(appState.activeProjectId);
   }
 
   function openProjectsManager() {
@@ -88,10 +83,6 @@
     <p style="font-size: 11px; opacity: 0.45; margin: 0 0 4px; padding: 0 2px;">
       Project &amp; file selection available below the chat input.
     </p>
-
-    {#if hasActiveProject}
-      <ProjectConversationList bind:this={projectConversationListRef} />
-    {/if}
 
     <hr />
 
