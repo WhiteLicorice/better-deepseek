@@ -4,7 +4,8 @@
   import { fetchGitHubRepo, parseGitHubUrl } from "../files/github-reader.js";
   import { fetchAndConvertWebPage } from "../files/web-reader.js";
   import { projectFilesToFile } from "../files/project-file-builder.js";
-  import { getFilesForProject } from "../project-manager.js";
+  import { getFilesForProject, setActiveProject, clearActiveProject, tickFile, untickFile } from "../project-manager.js";
+  import { pushConfigToPage } from "../bridge.js";
   import appState from "../state.js";
   import { BRIDGE_EVENTS } from "../../lib/constants.js";
 
@@ -36,6 +37,18 @@
   let projectPickerFiles = [];
   let projectPickerSelected = [];
   let projectPickerName = "";
+
+  // Project panel (folder button) state
+  let showProjectPanel = false;
+  let projectPanelStyle = "";
+  let projectBtnRef;
+  let projectPanelRef;
+  let panelProjects = [];
+  let panelActiveProjectId = "";
+  let panelFiles = [];
+  let panelTickedIds = [];
+  let panelPendingId = null;
+  let panelShowConfirm = false;
 
   // Speech Recognition state
   let isRecording = false;
@@ -193,27 +206,32 @@
   onMount(() => {
     document.addEventListener("click", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
+    appState.heroBarRef = { refresh: refreshProjectPanel };
     return () => {
       document.removeEventListener("click", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
+      if (appState.heroBarRef?.refresh === refreshProjectPanel) {
+        appState.heroBarRef = null;
+      }
     };
   });
 
   function handleClickOutside(e) {
-    if (menuRef && !menuRef.contains(e.target)) {
-      if (dialogRef && dialogRef.contains(e.target)) return;
+    const inMenu = menuRef && menuRef.contains(e.target);
+    const inDialog = dialogRef && dialogRef.contains(e.target);
+    const inPanel = projectPanelRef && projectPanelRef.contains(e.target);
+    if (!inMenu && !inDialog && !inPanel) {
       closeMenu();
+      showProjectPanel = false;
     }
   }
 
   function handleEscape(e) {
     if (e.key === "Escape") {
-      if (showGithubDialog && !githubLoading) {
-        showGithubDialog = false;
-      }
-      if (showWebDialog && !webLoading) {
-        showWebDialog = false;
-      }
+      if (showGithubDialog && !githubLoading) showGithubDialog = false;
+      if (showWebDialog && !webLoading) showWebDialog = false;
+      if (showProjectFilesDialog) showProjectFilesDialog = false;
+      showProjectPanel = false;
       closeMenu();
     }
   }
@@ -384,6 +402,78 @@
     return `${(bytes / 1048576).toFixed(1)} MB`;
   }
 
+  function hasMessages() {
+    return document.querySelectorAll("div.ds-message").length > 0;
+  }
+
+  function openProjectPanel(e) {
+    e.stopPropagation();
+    if (showProjectPanel) { showProjectPanel = false; return; }
+    refreshProjectPanel();
+    if (projectBtnRef) {
+      const rect = projectBtnRef.getBoundingClientRect();
+      projectPanelStyle = `bottom: calc(100vh - ${rect.top}px + 8px); left: ${rect.left}px;`;
+    }
+    showProjectPanel = true;
+  }
+
+  function refreshProjectPanel() {
+    panelProjects = [...appState.projects];
+    panelActiveProjectId = appState.activeProjectId || "";
+    panelFiles = panelActiveProjectId ? getFilesForProject(panelActiveProjectId) : [];
+    panelTickedIds = [...appState.activeFileIds];
+  }
+
+  function handlePanelProjectChange(e) {
+    const newId = e.target.value || "";
+    if (hasMessages() && newId !== panelActiveProjectId) {
+      panelPendingId = newId;
+      panelShowConfirm = true;
+      e.target.value = panelActiveProjectId;
+    } else {
+      applyPanelSwitch(newId);
+    }
+  }
+
+  function applyPanelSwitch(id) {
+    if (id) setActiveProject(id);
+    else clearActiveProject();
+    panelActiveProjectId = appState.activeProjectId || "";
+    panelFiles = panelActiveProjectId ? getFilesForProject(panelActiveProjectId) : [];
+    panelTickedIds = [...appState.activeFileIds];
+    pushConfigToPage();
+    if (appState.ui) appState.ui.refreshProjects();
+  }
+
+  function confirmPanelSwitch() {
+    applyPanelSwitch(panelPendingId);
+    panelPendingId = null;
+    panelShowConfirm = false;
+  }
+
+  function cancelPanelSwitch() {
+    panelPendingId = null;
+    panelShowConfirm = false;
+  }
+
+  function handlePanelFileToggle(fileId, checked) {
+    if (checked) tickFile(fileId);
+    else untickFile(fileId);
+    panelTickedIds = [...appState.activeFileIds];
+    pushConfigToPage();
+  }
+
+  function attachPanelFiles() {
+    if (!nativeInput || !panelTickedIds.length) return;
+    const activeFiles = panelFiles.filter((f) => panelTickedIds.includes(f.id));
+    if (!activeFiles.length) return;
+    const activeProject = panelProjects.find((p) => p.id === panelActiveProjectId);
+    const file = projectFilesToFile(activeFiles, activeProject?.name || "Project");
+    if (!file) return;
+    injectFile(file, "project");
+    showProjectPanel = false;
+  }
+
   function handleDialogKeydown(e, type) {
     if (e.key === "Enter") {
       if (type === "github" && !githubLoading) submitGithubUrl();
@@ -400,8 +490,27 @@
     </svg>
   </button>
 
-  <button 
-    class="bds-mic-btn {isRecording ? 'bds-recording' : ''}" 
+  {#if appState.projects && appState.projects.length > 0}
+    <button
+      class="bds-project-btn{panelActiveProjectId ? ' bds-project-btn--active' : ''}"
+      bind:this={projectBtnRef}
+      on:click={openProjectPanel}
+      title={panelActiveProjectId
+        ? `Project: ${panelProjects.find((p) => p.id === panelActiveProjectId)?.name || 'Active'}`
+        : 'Select Project'}
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+        fill={panelActiveProjectId ? 'currentColor' : 'none'}
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        style="opacity:{panelActiveProjectId ? '0.9' : '0.65'}"
+      >
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+      </svg>
+    </button>
+  {/if}
+
+  <button
+    class="bds-mic-btn {isRecording ? 'bds-recording' : ''}"
     on:click={toggleSpeechRecognition} 
     title={isRecording ? "Stop Recording" : "Voice Prompt"}
   >
@@ -545,6 +654,72 @@
         </button>
       </div>
     </div>
+  </div>
+{/if}
+
+{#if showProjectPanel}
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <!-- svelte-ignore a11y_click_events_have_key_events -->
+  <div class="bds-project-panel" style={projectPanelStyle} use:portal bind:this={projectPanelRef} on:click|stopPropagation>
+    <div class="bds-pp-header">
+      <span class="bds-pp-label">Project</span>
+      <select class="bds-pp-select" value={panelActiveProjectId} on:change={handlePanelProjectChange}>
+        <option value="">None</option>
+        {#each panelProjects as p (p.id)}
+          <option value={p.id}>{p.name}</option>
+        {/each}
+      </select>
+    </div>
+
+    {#if panelShowConfirm}
+      <div class="bds-pp-confirm">
+        <span class="bds-pp-confirm-text">Switch project? Applies to new chats.</span>
+        <div class="bds-pp-confirm-actions">
+          <button class="bds-github-btn bds-github-btn-cancel" on:click={cancelPanelSwitch}>Cancel</button>
+          <button class="bds-github-btn bds-github-btn-import" on:click={confirmPanelSwitch}>Switch</button>
+        </div>
+      </div>
+    {:else if panelActiveProjectId && panelFiles.length > 0}
+      <div class="bds-pp-files">
+        {#each panelFiles as file (file.id)}
+          <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <label
+            class="bds-pp-pill{panelTickedIds.includes(file.id) ? ' bds-pp-pill--active' : ''}"
+            title={file.name}
+          >
+            <input
+              type="checkbox"
+              class="bds-sr-only"
+              checked={panelTickedIds.includes(file.id)}
+              on:change={(e) => handlePanelFileToggle(file.id, e.target.checked)}
+            />
+            <span class="bds-pp-pill-check" aria-hidden="true">
+              {#if panelTickedIds.includes(file.id)}
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><path d="M8.5 2L4 7 1.5 4.5l-.7.7L4 8.5 9.2 2.7z"/></svg>
+              {:else}
+                <span class="bds-pp-pill-box"></span>
+              {/if}
+            </span>
+            <span class="bds-pp-pill-name">{file.name.split("/").pop()}</span>
+          </label>
+        {/each}
+      </div>
+      {#if panelTickedIds.length > 0}
+        <div class="bds-pp-footer">
+          <button class="bds-pp-attach" on:click={attachPanelFiles}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+            Attach ({panelTickedIds.length})
+          </button>
+        </div>
+      {/if}
+    {:else if panelActiveProjectId}
+      <p class="bds-pp-empty">No files — add via Manage Projects</p>
+    {:else}
+      <p class="bds-pp-empty">No project selected</p>
+    {/if}
   </div>
 {/if}
 
@@ -920,5 +1095,193 @@
     .bds-attach-dropdown {
       box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
     }
+  }
+
+  /* ─── Project Panel ─── */
+
+  .bds-project-btn {
+    background: transparent;
+    border: none;
+    color: var(--dsw-alias-brand-text, #4d6bfe);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    flex-shrink: 0;
+    padding: 0;
+  }
+
+  .bds-project-btn:hover {
+    background-color: var(--dsw-alias-brand-hover-bg, rgba(77, 107, 254, 0.1));
+  }
+
+  .bds-project-btn--active {
+    color: var(--dsw-alias-brand-text, #4d6bfe);
+  }
+
+  .bds-project-panel {
+    position: fixed;
+    background: var(--dsw-color-bg-elevated, #2a2a2a);
+    border: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+    min-width: 240px;
+    max-width: 300px;
+    z-index: 999999;
+    overflow: hidden;
+  }
+
+  .bds-pp-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+  }
+
+  .bds-pp-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.45;
+    flex-shrink: 0;
+    color: var(--dsw-alias-text, #e0e0e0);
+  }
+
+  .bds-pp-select {
+    background: transparent;
+    border: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+    border-radius: 5px;
+    color: var(--dsw-alias-text, #e0e0e0);
+    font-size: 12px;
+    padding: 3px 6px;
+    cursor: pointer;
+    flex: 1;
+    outline: none;
+    min-width: 0;
+  }
+
+  .bds-pp-select:focus {
+    border-color: var(--dsw-alias-brand-text, #4d6bfe);
+  }
+
+  .bds-pp-files {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 8px;
+    gap: 1px;
+    max-height: 210px;
+    overflow-y: auto;
+  }
+
+  .bds-pp-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--dsw-alias-text, #ccc);
+    transition: background 0.1s ease;
+    user-select: none;
+  }
+
+  .bds-pp-pill:hover {
+    background: var(--dsw-color-bg-hover, rgba(255, 255, 255, 0.06));
+  }
+
+  .bds-pp-pill--active {
+    color: var(--dsw-alias-brand-text, #4d6bfe);
+    background: rgba(77, 107, 254, 0.08);
+  }
+
+  .bds-pp-pill--active:hover {
+    background: rgba(77, 107, 254, 0.13);
+  }
+
+  .bds-pp-pill-check {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+  }
+
+  .bds-pp-pill-box {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid currentColor;
+    border-radius: 2px;
+    opacity: 0.3;
+  }
+
+  .bds-pp-pill-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .bds-pp-footer {
+    padding: 8px 10px;
+    border-top: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+  }
+
+  .bds-pp-attach {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 12px;
+    background: var(--dsw-alias-brand-text, #4d6bfe);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.15s ease;
+  }
+
+  .bds-pp-attach:hover {
+    background: #3d5bde;
+  }
+
+  .bds-pp-empty {
+    font-size: 12px;
+    opacity: 0.4;
+    font-style: italic;
+    padding: 14px 12px;
+    margin: 0;
+    text-align: center;
+  }
+
+  .bds-pp-confirm {
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .bds-pp-confirm-text {
+    font-size: 12px;
+    opacity: 0.75;
+    color: var(--dsw-alias-text, #e0e0e0);
+  }
+
+  .bds-pp-confirm-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: flex-end;
   }
 </style>

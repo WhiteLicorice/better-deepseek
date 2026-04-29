@@ -8,7 +8,6 @@ import { processMessageNode } from "./message-processor.svelte.js";
 import { enhanceCodeBlockDownloads } from "./files/code-blocks.js";
 import { mount } from "svelte";
 import AttachMenu from "./ui/AttachMenu.svelte";
-import ProjectHeroBar from "./ui/ProjectHeroBar.svelte";
 import { checkPendingExport } from "./tools/pending-export.js";
 import { getCurrentConversationId, snapshotTitleAndAssociate } from "./project-manager.js";
 
@@ -189,28 +188,6 @@ function scanInputArea() {
   });
 
   wrapper.setAttribute("data-bds-attach-menu-mounted", "true");
-
-  // Mount ProjectHeroBar between the textarea box and the bottom toolbar
-  if (!document.getElementById("bds-hero-bar-mount")) {
-    const textarea =
-      document.querySelector("textarea#chat-input") ||
-      document.querySelector(".ds-textarea textarea") ||
-      document.querySelector("textarea");
-
-    if (textarea) {
-      const textareaBox = textarea.parentElement;
-      const heroMount = document.createElement("div");
-      heroMount.id = "bds-hero-bar-mount";
-      if (textareaBox && textareaBox.nextSibling) {
-        textareaBox.parentElement.insertBefore(heroMount, textareaBox.nextSibling);
-      } else if (textareaBox) {
-        textareaBox.parentElement.appendChild(heroMount);
-      } else {
-        document.body.appendChild(heroMount);
-      }
-      mount(ProjectHeroBar, { target: heroMount, props: { nativeInput: fileInput } });
-    }
-  }
 }
 
 /**
