@@ -88,6 +88,35 @@ export async function addProjectFile(projectId, name, content) {
   return file;
 }
 
+/**
+ * Adds multiple files to a project in a single storage write.
+ *
+ * Prefer this over calling addProjectFile() in a loop: sequential writes
+ * trigger one chrome.storage.onChanged event per write, and the listener
+ * updates state.projectFiles from storage — which can race against the
+ * next iteration of the loop and cause mid-upload state corruption.
+ *
+ * @param {string} projectId
+ * @param {{ name: string, content: string }[]} fileDataArray
+ * @returns {Promise<object[]>} The created file objects.
+ */
+export async function addProjectFilesBatch(projectId, fileDataArray) {
+  if (!fileDataArray.length) return [];
+  const encoder = new TextEncoder();
+  const now = Date.now();
+  const newFiles = fileDataArray.map(({ name, content }) => ({
+    id: makeId(),
+    projectId,
+    name: String(name),
+    content: String(content),
+    size: encoder.encode(content).length,
+    createdAt: now,
+  }));
+  state.projectFiles = [...state.projectFiles, ...newFiles];
+  await saveProjectFiles();
+  return newFiles;
+}
+
 export async function deleteProjectFile(id) {
   state.projectFiles = state.projectFiles.filter((f) => f.id !== id);
   state.activeFileIds = state.activeFileIds.filter((fid) => fid !== id);

@@ -4,7 +4,7 @@
     createProject,
     updateProject,
     deleteProject,
-    addProjectFile,
+    addProjectFilesBatch,
     deleteProjectFile,
     getFilesForProject,
   } from "../project-manager.js";
@@ -30,11 +30,8 @@
   let editInstructions = $state("");
   let saveTimer = null;
 
-  // Delete confirmation
+  // Delete confirmation (project-level only)
   let showDeleteConfirm = $state(false);
-  let deleteFileId = $state(null);
-  let deleteFileName = $state("");
-  let showDeleteFileConfirm = $state(false);
 
   // File upload
   let fileInput = $state(null);
@@ -72,7 +69,6 @@
     view = "list";
     selectedProject = null;
     showDeleteConfirm = false;
-    showDeleteFileConfirm = false;
   }
 
   function scheduleSave() {
@@ -130,9 +126,11 @@
 
     const MAX_SIZE = 500 * 1024;
     const errors = [];
-    let uploadedCount = 0;
+    const filesToAdd = [];
 
     try {
+      // Validate and read all files before touching storage so we can
+      // do a single write — avoiding the onChanged race condition.
       for (const file of files) {
         if (file.size > MAX_SIZE) {
           errors.push(
@@ -154,13 +152,14 @@
           continue;
         }
 
+        filesToAdd.push({ name: file.name, content });
+      }
+
+      if (filesToAdd.length > 0) {
         try {
-          await addProjectFile(selectedProject.id, file.name, content);
-          uploadedCount++;
+          await addProjectFilesBatch(selectedProject.id, filesToAdd);
         } catch (err) {
-          errors.push(
-            `Storage error for "${file.name}": ${err?.message || String(err)}`,
-          );
+          errors.push(`Storage error: ${err?.message || String(err)}`);
         }
       }
 
@@ -170,71 +169,54 @@
     } finally {
       uploading = false;
       projectFiles = getFilesForProject(selectedProject.id);
+      // Reset via bound ref so the same files can be re-selected if needed.
+      if (fileInput) fileInput.value = "";
     }
-
-    event.target.value = "";
   }
 
   async function handleFolderUpload() {
     uploading = true;
     fileError = "";
+
     let selection;
     try {
       selection = await pickFolderSelection();
     } catch (err) {
-      if (err?.name === "AbortError") {
-        uploading = false;
-        return;
-      }
-      fileError = `Folder upload failed: ${err?.message || String(err)}`;
       uploading = false;
+      if (err?.name !== "AbortError") {
+        fileError = `Folder upload failed: ${err?.message || String(err)}`;
+      }
       return;
     }
 
-    if (!selection || !selection.files.length) {
+    if (!selection?.files.length) {
       uploading = false;
       return;
     }
 
     const MAX_SIZE = 500 * 1024;
-    let uploadedCount = 0;
-    let errorCount = 0;
+    const TEXT_EXTS = new Set([
+      "txt", "md", "json", "csv",
+      "js", "ts", "jsx", "tsx",
+      "py", "go", "rs",
+      "java", "kt", "swift",
+      "c", "cpp", "cs",
+      "rb", "php",
+      "html", "css", "sh",
+      "yaml", "yml", "toml", "env",
+    ]);
+
+    const filesToAdd = [];
+    let skippedCount = 0;
 
     try {
+      // Read all files first, then do a single storage write.
       for (const file of selection.files) {
         const ext = file.name.split(".").pop()?.toLowerCase();
-        const textExts = [
-          "txt",
-          "md",
-          "json",
-          "csv",
-          "js",
-          "ts",
-          "jsx",
-          "tsx",
-          "py",
-          "go",
-          "rs",
-          "java",
-          "kt",
-          "swift",
-          "c",
-          "cpp",
-          "cs",
-          "rb",
-          "php",
-          "html",
-          "css",
-          "sh",
-          "yaml",
-          "yml",
-          "toml",
-          "env",
-        ];
-        if (!ext || !textExts.includes(ext)) continue;
+        if (!ext || !TEXT_EXTS.has(ext)) continue; // non-text — silently skip
 
         if (file.size > MAX_SIZE) {
-          errorCount++;
+          skippedCount++;
           continue;
         }
 
@@ -242,58 +224,39 @@
         try {
           content = await file.text();
         } catch {
-          errorCount++;
+          skippedCount++;
           continue;
         }
 
         if (!content.trim()) {
-          errorCount++;
+          skippedCount++;
           continue;
         }
 
+        filesToAdd.push({ name: file.path || file.name, content });
+      }
+
+      if (filesToAdd.length > 0) {
         try {
-          await addProjectFile(
-            selectedProject.id,
-            file.path || file.name,
-            content,
-          );
-          uploadedCount++;
-        } catch {
-          errorCount++;
+          await addProjectFilesBatch(selectedProject.id, filesToAdd);
+        } catch (err) {
+          fileError = `Storage error: ${err?.message || String(err)}`;
         }
       }
 
-      if (uploadedCount > 0) {
-        projectFiles = getFilesForProject(selectedProject.id);
-      }
-      if (errorCount > 0) {
-        fileError = `${uploadedCount} files uploaded, ${errorCount} skipped (too large, unreadable, or not text).`;
+      if (skippedCount > 0) {
+        fileError = `${filesToAdd.length} file${filesToAdd.length !== 1 ? "s" : ""} uploaded, ${skippedCount} skipped (too large, unreadable, or not text).`;
       }
     } finally {
       uploading = false;
+      projectFiles = getFilesForProject(selectedProject.id);
     }
   }
 
-  function promptDeleteFile(file) {
-    deleteFileId = file.id;
-    deleteFileName = file.name;
-    showDeleteFileConfirm = true;
-  }
-
-  async function confirmDeleteFile() {
-    if (!deleteFileId) return;
-    await deleteProjectFile(deleteFileId);
+  async function handleDeleteFile(file) {
+    await deleteProjectFile(file.id);
     projectFiles = getFilesForProject(selectedProject.id);
-    deleteFileId = null;
-    deleteFileName = "";
-    showDeleteFileConfirm = false;
     pushConfigToPage();
-  }
-
-  function cancelDeleteFile() {
-    deleteFileId = null;
-    deleteFileName = "";
-    showDeleteFileConfirm = false;
   }
 
   function formatSize(bytes) {
@@ -372,11 +335,11 @@
           placeholder="Project name (required)"
           onkeydown={(e) => e.key === "Enter" && handleCreate()}
         />
-        <input
-          class="bds-input"
+        <textarea
+          class="bds-input bds-desc-input"
           bind:value={createDescription}
           placeholder="Description (optional)"
-        />
+        ></textarea>
         {#if createError}
           <p class="bds-field-error">{createError}</p>
         {/if}
@@ -419,9 +382,7 @@
               {project.name}
             </div>
             {#if project.description}
-              <div
-                style="font-size: 11px; opacity: 0.55; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"
-              >
+              <div class="bds-project-desc-snippet">
                 {project.description}
               </div>
             {/if}
@@ -459,13 +420,13 @@
 
   <div class="bds-field-group">
     <label class="bds-label" for="pm-desc">Description</label>
-    <input
+    <textarea
       id="pm-desc"
       class="bds-input"
       bind:value={editDescription}
       placeholder="Optional"
       oninput={scheduleSave}
-    />
+    ></textarea>
   </div>
 
   <div class="bds-field-group">
@@ -507,26 +468,6 @@
       <p class="bds-empty" style="font-size: 11px;">No files added yet.</p>
     {:else}
       {#each projectFiles as file (file.id)}
-        {#if showDeleteFileConfirm && deleteFileId === file.id}
-          <div class="bds-confirm-box bds-confirm-danger">
-            <p class="bds-confirm-text">
-              Remove "{file.name}" from this project? The file will no longer be
-              available as context.
-            </p>
-            <div class="bds-editor-actions">
-              <button
-                type="button"
-                class="bds-btn-outlined"
-                onclick={cancelDeleteFile}>Cancel</button
-              >
-              <button
-                type="button"
-                class="bds-btn-danger"
-                onclick={confirmDeleteFile}>Remove</button
-              >
-            </div>
-          </div>
-        {:else}
           <div class="bds-skill-item">
             <div style="flex: 1; min-width: 0;">
               <div
@@ -552,13 +493,13 @@
                 type="button"
                 class="bds-btn-danger"
                 style="font-size: 11px; padding: 3px 8px;"
-                onclick={() => promptDeleteFile(file)}
+                onclick={() => handleDeleteFile(file)}
+                title="Remove {file.name} from this project"
               >
                 Delete
               </button>
             </div>
           </div>
-        {/if}
       {/each}
     {/if}
   </div>
@@ -680,5 +621,22 @@
     margin: 0 0 8px;
     line-height: 1.5;
     opacity: 0.85;
+  }
+
+  /* ── Description snippet in project list card ── */
+  .bds-project-desc-snippet {
+    font-size: 11px;
+    opacity: 0.55;
+    overflow: hidden;
+    /* Allow up to 2 lines; preserve intentional newlines from textarea input */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    white-space: pre-line;
+  }
+
+  /* ── Description textarea (smaller than custom instructions) ── */
+  .bds-desc-input {
+    min-height: 60px;
   }
 </style>
