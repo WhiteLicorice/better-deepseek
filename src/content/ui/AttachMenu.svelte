@@ -679,7 +679,7 @@
   .bds-plus-btn {
     background: transparent;
     border: none;
-    color: var(--dsw-alias-brand-text, #4d6bfe);
+    color: var(--bds-accent);
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -687,11 +687,11 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
+    transition: background-color var(--bds-transition, 0.18s ease), transform 0.1s ease;
   }
 
   .bds-plus-btn:hover {
-    background-color: var(--dsw-alias-brand-hover-bg, rgba(77, 107, 254, 0.1));
+    background-color: var(--bds-accent-glow);
   }
 
   .bds-plus-btn:active {
@@ -702,7 +702,7 @@
     position: relative;
     background: transparent;
     border: none;
-    color: var(--dsw-alias-brand-text, #4d6bfe);
+    color: var(--bds-accent);
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -710,12 +710,12 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--bds-transition, 0.18s ease);
     margin-right: 2px;
   }
 
   .bds-mic-btn:hover {
-    background-color: var(--dsw-alias-brand-hover-bg, rgba(77, 107, 254, 0.1));
+    background-color: var(--bds-accent-glow);
   }
 
   .bds-mic-btn.bds-recording {
@@ -739,10 +739,10 @@
 
   .bds-attach-dropdown {
     position: fixed;
-    background: var(--dsw-color-bg-elevated, #2a2a2a);
-    border: 1px solid var(--dsw-color-border-primary, #3d3d3d);
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    background: var(--bds-bg-panel);
+    border: 1px solid var(--bds-border);
+    border-radius: var(--bds-radius, 14px);
+    box-shadow: var(--bds-shadow);
     padding: 6px;
     display: flex;
     flex-direction: column;
@@ -753,22 +753,21 @@
   .bds-attach-item {
     background: none;
     border: none;
-    color: var(--dsw-alias-text, #e0e0e0);
+    color: var(--bds-text-primary);
     padding: 10px 12px;
     text-align: left;
-    border-radius: 6px;
+    border-radius: 8px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
     display: flex;
     align-items: center;
     gap: 10px;
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color var(--bds-transition, 0.18s ease);
     white-space: nowrap;
   }
 
   .bds-attach-item:hover {
-    background: var(--dsw-color-bg-hover, #3d3d3d);
-    color: var(--dsw-alias-brand-text, #ffffff);
+    background: var(--bds-bg-hover);
   }
 
   .bds-item-icon {
@@ -778,7 +777,7 @@
 
   .bds-attach-divider {
     height: 1px;
-    background: var(--dsw-color-border-primary, #3d3d3d);
+    background: var(--bds-border);
     margin: 4px 6px;
   }
 
@@ -796,12 +795,12 @@
   }
 
   .bds-github-dialog {
-    background: var(--dsw-color-bg-elevated, #1e1e1e);
-    border: 1px solid var(--dsw-color-border-primary, #3d3d3d);
-    border-radius: 12px;
+    background: var(--bds-bg-panel);
+    border: 1px solid var(--bds-border);
+    border-radius: var(--bds-radius, 14px);
     width: 440px;
     max-width: 90vw;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    box-shadow: var(--bds-shadow);
     overflow: hidden;
   }
 
@@ -810,10 +809,10 @@
     align-items: center;
     gap: 8px;
     padding: 14px 16px;
-    border-bottom: 1px solid var(--dsw-color-border-primary, #333);
+    border-bottom: 1px solid var(--bds-border);
     font-size: 15px;
     font-weight: 600;
-    color: var(--dsw-alias-text, #e0e0e0);
+    color: var(--bds-text-primary);
   }
 
   .bds-github-logo {
@@ -824,7 +823,7 @@
     margin-left: auto;
     background: none;
     border: none;
-    color: var(--dsw-alias-text, #999);
+    color: var(--bds-text-tertiary);
     font-size: 20px;
     cursor: pointer;
     padding: 0 4px;
@@ -832,7 +831,7 @@
   }
 
   .bds-github-close:hover {
-    color: #fff;
+    color: var(--bds-text-primary);
   }
 
   .bds-github-body {
@@ -843,19 +842,21 @@
   }
 
   .bds-github-input {
-    background: var(--dsw-color-bg-primary, #141414);
-    border: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+    background: var(--bds-bg-input);
+    border: 1px solid var(--bds-border);
     border-radius: 8px;
     padding: 10px 12px;
-    font-size: 14px;
-    color: var(--dsw-alias-text, #e0e0e0);
+    font-size: 13px;
+    color: var(--bds-text-primary);
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color var(--bds-transition, 0.18s ease), box-shadow var(--bds-transition, 0.18s ease);
     font-family: inherit;
+    width: 100%;
   }
 
   .bds-github-input:focus {
-    border-color: var(--dsw-alias-brand-text, #4d6bfe);
+    border-color: var(--bds-accent);
+    box-shadow: 0 0 0 3px var(--bds-accent-glow);
   }
 
   .bds-github-input:disabled {
@@ -863,7 +864,7 @@
   }
 
   .bds-github-error {
-    color: #f87171;
+    color: var(--bds-danger, #f87171);
     font-size: 13px;
     padding: 0 2px;
   }
@@ -873,7 +874,7 @@
     align-items: center;
     gap: 8px;
     font-size: 13px;
-    color: var(--dsw-alias-brand-text, #4d6bfe);
+    color: var(--bds-accent);
     padding: 0 2px;
   }
 
@@ -881,7 +882,7 @@
     width: 14px;
     height: 14px;
     border: 2px solid transparent;
-    border-top-color: var(--dsw-alias-brand-text, #4d6bfe);
+    border-top-color: var(--bds-accent);
     border-radius: 50%;
     animation: bds-spin 0.6s linear infinite;
     flex-shrink: 0;
@@ -896,17 +897,16 @@
     justify-content: flex-end;
     gap: 8px;
     padding: 12px 16px;
-    border-top: 1px solid var(--dsw-color-border-primary, #333);
+    border-top: 1px solid var(--bds-border);
   }
 
   .bds-github-btn {
-    padding: 8px 16px;
-    border-radius: 6px;
-    border: none;
+    padding: 7px 16px;
+    border-radius: 8px;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s, opacity 0.2s;
+    transition: all var(--bds-transition, 0.18s ease);
   }
 
   .bds-github-btn:disabled {
@@ -915,30 +915,33 @@
   }
 
   .bds-github-btn-cancel {
-    background: var(--dsw-color-bg-hover, #333);
-    color: var(--dsw-alias-text, #ccc);
+    border: 1px solid var(--bds-border);
+    background: transparent;
+    color: var(--bds-text-primary);
   }
 
   .bds-github-btn-cancel:hover:not(:disabled) {
-    background: #444;
+    background: var(--bds-bg-elevated);
+    border-color: var(--bds-border-hover);
   }
 
   .bds-github-btn-import {
-    background: var(--dsw-alias-brand-text, #4d6bfe);
+    border: none;
+    background: var(--bds-accent);
     color: #fff;
   }
 
   .bds-github-btn-import:hover:not(:disabled) {
-    background: #3d5bde;
+    opacity: 0.88;
   }
 
   .bds-attach-item--project {
-    color: var(--dsw-alias-brand-text, #4d6bfe);
+    color: var(--bds-accent);
   }
 
   .bds-attach-item--project:hover {
-    background: rgba(77, 107, 254, 0.1);
-    color: var(--dsw-alias-brand-text, #4d6bfe);
+    background: var(--bds-accent-glow);
+    color: var(--bds-accent);
   }
 
   .bds-picker-row {
@@ -948,7 +951,7 @@
     padding: 7px 4px;
     border-radius: 5px;
     cursor: pointer;
-    border-bottom: 1px solid var(--dsw-color-border-primary, rgba(255,255,255,0.06));
+    border-bottom: 1px solid var(--bds-border);
   }
 
   .bds-picker-row:last-child {
@@ -956,7 +959,7 @@
   }
 
   .bds-picker-row:hover {
-    background: var(--dsw-color-bg-hover, rgba(255,255,255,0.04));
+    background: var(--bds-bg-hover);
   }
 
   .bds-picker-info {
@@ -967,7 +970,7 @@
 
   .bds-picker-name {
     font-size: 13px;
-    color: var(--dsw-alias-text, #e0e0e0);
+    color: var(--bds-text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -975,14 +978,8 @@
 
   .bds-picker-size {
     font-size: 10px;
-    opacity: 0.45;
+    color: var(--bds-text-tertiary);
     margin-top: 1px;
-  }
-
-  @media (prefers-color-scheme: light) {
-    .bds-attach-dropdown {
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-    }
   }
 
   /* ─── Project Panel ─── */
@@ -990,7 +987,7 @@
   .bds-project-btn {
     background: transparent;
     border: none;
-    color: var(--dsw-alias-brand-text, #4d6bfe);
+    color: var(--bds-accent);
     width: 30px;
     height: 30px;
     border-radius: 50%;
@@ -998,25 +995,25 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: background-color var(--bds-transition, 0.18s ease);
     flex-shrink: 0;
     padding: 0;
   }
 
   .bds-project-btn:hover {
-    background-color: var(--dsw-alias-brand-hover-bg, rgba(77, 107, 254, 0.1));
+    background-color: var(--bds-accent-glow);
   }
 
   .bds-project-btn--active {
-    color: var(--dsw-alias-brand-text, #4d6bfe);
+    color: var(--bds-accent);
   }
 
   .bds-project-panel {
     position: fixed;
-    background: var(--dsw-color-bg-elevated, #1e1e1e);
-    border: 1px solid var(--dsw-color-border-primary, #3d3d3d);
-    border-radius: 10px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+    background: var(--bds-bg-panel);
+    border: 1px solid var(--bds-border);
+    border-radius: var(--bds-radius, 14px);
+    box-shadow: var(--bds-shadow);
     min-width: 240px;
     max-width: 300px;
     z-index: 999999;
@@ -1029,7 +1026,7 @@
     align-items: center;
     gap: 8px;
     padding: 10px 12px;
-    border-bottom: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+    border-bottom: 1px solid var(--bds-border);
   }
 
   .bds-pp-label {
@@ -1037,37 +1034,37 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    opacity: 0.45;
+    color: var(--bds-text-tertiary);
     flex-shrink: 0;
-    color: var(--dsw-alias-text, #e0e0e0);
   }
 
   .bds-pp-select {
-    background: var(--dsw-color-bg-primary, #141414);
-    border: 1px solid var(--dsw-color-border-primary, #3d3d3d);
-    border-radius: 5px;
-    color: var(--dsw-alias-text, #e0e0e0);
-    font-size: 12px;
-    padding: 3px 6px;
+    background: var(--bds-bg-input);
+    border: 1px solid var(--bds-border);
+    border-radius: 6px;
+    color: var(--bds-text-primary);
+    font-size: 13px;
+    padding: 5px 8px;
     cursor: pointer;
     flex: 1;
     outline: none;
     min-width: 0;
     font-family: inherit;
+    transition: border-color var(--bds-transition, 0.18s ease), box-shadow var(--bds-transition, 0.18s ease);
   }
 
   .bds-pp-select:focus {
-    border-color: var(--dsw-alias-brand-text, #4d6bfe);
+    border-color: var(--bds-accent);
+    box-shadow: 0 0 0 3px var(--bds-accent-glow);
   }
 
   .bds-pp-hint {
     font-size: 11px;
-    color: var(--dsw-alias-text, #e0e0e0);
-    opacity: 0.55;
+    color: var(--bds-text-secondary);
     padding: 6px 12px 8px;
     margin: 0;
     line-height: 1.45;
-    border-bottom: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+    border-bottom: 1px solid var(--bds-border);
   }
 
   .bds-pp-files-header {
@@ -1082,25 +1079,24 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: var(--dsw-alias-text, #e0e0e0);
-    opacity: 0.45;
+    color: var(--bds-text-tertiary);
   }
 
   .bds-pp-select-all {
     background: none;
     border: none;
-    color: var(--dsw-alias-brand-text, #4d6bfe);
+    color: var(--bds-accent);
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     padding: 2px 6px;
     border-radius: 4px;
-    transition: background 0.15s ease;
+    transition: background var(--bds-transition, 0.18s ease);
     font-family: inherit;
   }
 
   .bds-pp-select-all:hover {
-    background: rgba(77, 107, 254, 0.12);
+    background: var(--bds-accent-glow);
   }
 
   .bds-pp-files {
@@ -1119,23 +1115,24 @@
     padding: 6px 8px;
     border-radius: 6px;
     cursor: pointer;
-    font-size: 12px;
-    color: var(--dsw-alias-text, #ccc);
-    transition: background 0.1s ease;
+    font-size: 13px;
+    color: var(--bds-text-primary);
+    transition: background var(--bds-transition, 0.18s ease);
     user-select: none;
   }
 
   .bds-pp-pill:hover {
-    background: var(--dsw-color-bg-hover, rgba(255, 255, 255, 0.06));
+    background: var(--bds-bg-hover);
   }
 
   .bds-pp-pill--active {
-    color: var(--dsw-alias-brand-text, #4d6bfe);
-    background: rgba(77, 107, 254, 0.08);
+    color: var(--bds-accent);
+    background: var(--bds-accent-glow);
   }
 
   .bds-pp-pill--active:hover {
-    background: rgba(77, 107, 254, 0.13);
+    background: var(--bds-accent-glow);
+    filter: brightness(1.15);
   }
 
   .bds-sr-only {
@@ -1177,7 +1174,7 @@
 
   .bds-pp-footer {
     padding: 8px 10px;
-    border-top: 1px solid var(--dsw-color-border-primary, #3d3d3d);
+    border-top: 1px solid var(--bds-border);
   }
 
   .bds-pp-attach {
@@ -1185,25 +1182,26 @@
     align-items: center;
     justify-content: center;
     gap: 5px;
-    padding: 6px 12px;
-    background: var(--dsw-alias-brand-text, #4d6bfe);
+    padding: 7px 12px;
+    background: var(--bds-accent);
     color: #fff;
     border: none;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 500;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
     width: 100%;
-    transition: background 0.15s ease;
+    transition: opacity var(--bds-transition, 0.18s ease);
+    font-family: inherit;
   }
 
   .bds-pp-attach:hover {
-    background: #3d5bde;
+    opacity: 0.88;
   }
 
   .bds-pp-empty {
     font-size: 12px;
-    opacity: 0.4;
+    color: var(--bds-text-tertiary);
     font-style: italic;
     padding: 14px 12px;
     margin: 0;
@@ -1219,8 +1217,7 @@
 
   .bds-pp-confirm-text {
     font-size: 12px;
-    opacity: 0.75;
-    color: var(--dsw-alias-text, #e0e0e0);
+    color: var(--bds-text-secondary);
   }
 
   .bds-pp-confirm-actions {
