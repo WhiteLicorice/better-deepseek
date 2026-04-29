@@ -1,6 +1,7 @@
 <script>
   import Drawer from "./Drawer.svelte";
   import ToastStack from "./ToastStack.svelte";
+  import QuestionPanel from "./QuestionPanel.svelte";
   import appState from "../state.js";
 
   let drawerOpen = $state(false);
@@ -56,3 +57,4 @@
 <Drawer bind:this={drawerRef} open={drawerOpen} onclose={closeDrawer} />
 
 <ToastStack {toasts} />
+<QuestionPanel />

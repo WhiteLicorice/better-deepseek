@@ -96,6 +96,7 @@ The extension adds a "+" button next to the chat input, offering:
 ### Recommended: Browser Stores
 The easiest way to install Better DeepSeek is through the official stores:
 - **[Chrome Web Store](https://chromewebstore.google.com/detail/better-deepseek/aabiopennjmopfippagcalmkdjlepdhh)**
+- **[Microsoft Edge Add-ons](https://microsoftedge.microsoft.com/addons/detail/better-deepseek/goboedojlaeplneahnmnobmendoeblld)**
 - **[Firefox Add-ons](https://addons.mozilla.org/en/firefox/addon/better-deepseek/)**
 
 ### Latest Development Build
@@ -203,6 +204,12 @@ After making changes, rebuild the extension and reload it from `chrome://extensi
 Better DeepSeek does not collect, transmit, or sell any personal data. All settings, memories, skills, and characters are stored locally on your device. The extension only communicates with DeepSeek's official API and the external services you explicitly request (e.g., GitHub for repository fetching). See the full [Privacy Policy](extension/PRIVACY.md) for details.
 
 ## Changelog
+
+### v0.1.3 (2026-04-28)
+- **New Feature**: Added "Ask Questions" tool. DeepSeek can now ask for clarification when unsure about context or instructions.
+- **New Feature**: Export full sessions to Markdown and PDF.
+- **UX Improvement**: Added a button to reset the system prompt to default.
+- **Bug Fix**: Resolved full page reloading issues when clicking the DeepSeek logo or the "New Chat" button.
 
 ### v0.1.2 (2026-04-23)
 - **Cross-Browser Support**: Added experimental support for Firefox.
