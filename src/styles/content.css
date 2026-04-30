@@ -287,6 +287,52 @@ textarea.bds-input,
   border-bottom: none;
 }
 
+/* ── Advanced Settings Accordion ── */
+.bds-advanced-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 12px 0;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--bds-border);
+  color: var(--bds-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--bds-transition);
+}
+
+.bds-advanced-toggle:hover {
+  color: var(--bds-accent);
+}
+
+.bds-advanced-toggle .bds-chevron {
+  transition: transform var(--bds-transition);
+  color: var(--bds-text-tertiary);
+}
+
+.bds-advanced-toggle.open .bds-chevron {
+  transform: rotate(180deg);
+}
+
+.bds-advanced-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--bds-transition), padding var(--bds-transition);
+  overflow: hidden;
+}
+
+.bds-advanced-content.open {
+  grid-template-rows: 1fr;
+  padding-bottom: 8px;
+}
+
+.bds-advanced-inner {
+  min-height: 0;
+}
+
 .bds-toggle-label {
   font-size: 13px;
   color: var(--bds-text-primary);

@@ -15,6 +15,7 @@
   let voiceMode = $state(Boolean(appState.settings.voiceMode));
   let voiceLanguage = $state(appState.settings.voiceLanguage || (typeof navigator !== 'undefined' ? navigator.language : 'en-US'));
   let autoSubmitVoice = $state(Boolean(appState.settings.autoSubmitVoice));
+  let advancedOpen = $state(false);
 
   let activeProject = $state(getActiveProject());
   let projectInstructions = $state(activeProject?.customInstructions || "");
@@ -110,55 +111,69 @@
   <p style="font-size: 10px; opacity: 0.5; margin: 2px 0 12px;">Auto-saved</p>
 {/if}
 
-<div class="bds-toggle-row">
-  <span class="bds-toggle-label">Auto download create_file outputs</span>
-  <label class="bds-switch">
-    <input id="bds-auto-files" type="checkbox" bind:checked={autoFiles} />
-    <span class="bds-switch-track"></span>
-  </label>
-</div>
+<button
+  type="button"
+  class="bds-advanced-toggle"
+  class:open={advancedOpen}
+  onclick={() => advancedOpen = !advancedOpen}
+>
+  Advanced Settings
+  <span class="bds-chevron">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 6L8 10L12 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </span>
+</button>
 
-<div class="bds-section-title" style="margin-top: 20px;">
-  Voice Support
-</div>
+<div class="bds-advanced-content" class:open={advancedOpen}>
+  <div class="bds-advanced-inner">
+    <div class="bds-toggle-row">
+      <span class="bds-toggle-label">Auto download create_file outputs</span>
+      <label class="bds-switch">
+        <input id="bds-auto-files" type="checkbox" bind:checked={autoFiles} />
+        <span class="bds-switch-track"></span>
+      </label>
+    </div>
 
-<div class="bds-toggle-row">
-  <span class="bds-toggle-label">Voice Mode (Auto-read responses)</span>
-  <label class="bds-switch">
-    <input id="bds-voice-mode" type="checkbox" bind:checked={voiceMode} />
-    <span class="bds-switch-track"></span>
-  </label>
-</div>
+    <div class="bds-toggle-row">
+      <span class="bds-toggle-label">Voice Mode (Auto-read responses)</span>
+      <label class="bds-switch">
+        <input id="bds-voice-mode" type="checkbox" bind:checked={voiceMode} />
+        <span class="bds-switch-track"></span>
+      </label>
+    </div>
 
-<div class="bds-toggle-row">
-  <span class="bds-toggle-label">Auto-submit after speech</span>
-  <label class="bds-switch">
-    <input id="bds-voice-autosubmit" type="checkbox" bind:checked={autoSubmitVoice} />
-    <span class="bds-switch-track"></span>
-  </label>
-</div>
+    <div class="bds-toggle-row">
+      <span class="bds-toggle-label">Auto-submit after speech</span>
+      <label class="bds-switch">
+        <input id="bds-voice-autosubmit" type="checkbox" bind:checked={autoSubmitVoice} />
+        <span class="bds-switch-track"></span>
+      </label>
+    </div>
 
-<div class="bds-toggle-row">
-  <span class="bds-toggle-label">Speech Language</span>
-  <select class="bds-select" bind:value={voiceLanguage}>
-    <option value="en-US">English (US)</option>
-    <option value="en-GB">English (UK)</option>
-    <option value="tr-TR">Türkçe (TR)</option>
-    <option value="de-DE">Deutsch (DE)</option>
-    <option value="fr-FR">Français (FR)</option>
-    <option value="es-ES">Español (ES)</option>
-    <option value="it-IT">Italiano (IT)</option>
-    <option value="zh-CN">中文 (简体)</option>
-    <option value="ja-JP">日本語 (JP)</option>
-  </select>
-</div>
+    <div class="bds-toggle-row">
+      <span class="bds-toggle-label">Speech Language</span>
+      <select class="bds-select" bind:value={voiceLanguage}>
+        <option value="en-US">English (US)</option>
+        <option value="en-GB">English (UK)</option>
+        <option value="tr-TR">Türkçe (TR)</option>
+        <option value="de-DE">Deutsch (DE)</option>
+        <option value="fr-FR">Français (FR)</option>
+        <option value="es-ES">Español (ES)</option>
+        <option value="it-IT">Italiano (IT)</option>
+        <option value="zh-CN">中文 (简体)</option>
+        <option value="ja-JP">日本語 (JP)</option>
+      </select>
+    </div>
 
-<div class="bds-toggle-row">
-  <span class="bds-toggle-label">Auto download LONG_WORK zip</span>
-  <label class="bds-switch">
-    <input id="bds-auto-zip" type="checkbox" bind:checked={autoZip} />
-    <span class="bds-switch-track"></span>
-  </label>
+    <div class="bds-toggle-row">
+      <span class="bds-toggle-label">Auto download LONG_WORK zip</span>
+      <label class="bds-switch">
+        <input id="bds-auto-zip" type="checkbox" bind:checked={autoZip} />
+        <span class="bds-switch-track"></span>
+      </label>
+    </div>
+  </div>
 </div>
 
 
