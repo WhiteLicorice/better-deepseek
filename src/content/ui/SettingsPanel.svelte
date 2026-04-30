@@ -16,6 +16,7 @@
   let voiceLanguage = $state(appState.settings.voiceLanguage || (typeof navigator !== 'undefined' ? navigator.language : 'en-US'));
   let autoSubmitVoice = $state(Boolean(appState.settings.autoSubmitVoice));
   let preferredLang = $state(appState.settings.preferredLang || "");
+  let disableSystemPrompt = $state(Boolean(appState.settings.disableSystemPrompt));
   let advancedOpen = $state(false);
 
   let activeProject = $state(getActiveProject());
@@ -30,6 +31,7 @@
     voiceLanguage = appState.settings.voiceLanguage || (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
     autoSubmitVoice = Boolean(appState.settings.autoSubmitVoice);
     preferredLang = appState.settings.preferredLang || "";
+    disableSystemPrompt = Boolean(appState.settings.disableSystemPrompt);
   }
 
   export function refreshProject() {
@@ -58,6 +60,7 @@
     appState.settings.voiceLanguage = voiceLanguage;
     appState.settings.autoSubmitVoice = autoSubmitVoice;
     appState.settings.preferredLang = preferredLang.trim();
+    appState.settings.disableSystemPrompt = disableSystemPrompt;
 
 
     await chrome.storage.local.set({
@@ -134,6 +137,14 @@
       <span class="bds-toggle-label">Auto download create_file outputs</span>
       <label class="bds-switch">
         <input id="bds-auto-files" type="checkbox" bind:checked={autoFiles} />
+        <span class="bds-switch-track"></span>
+      </label>
+    </div>
+
+    <div class="bds-toggle-row">
+      <span class="bds-toggle-label">Disable Hidden System Prompt</span>
+      <label class="bds-switch">
+        <input id="bds-disable-prompt" type="checkbox" bind:checked={disableSystemPrompt} />
         <span class="bds-switch-track"></span>
       </label>
     </div>

@@ -450,6 +450,7 @@ export const DEFAULT_SETTINGS = {
   voiceLanguage: (typeof navigator !== 'undefined' ? navigator.language : 'en-US'),
   autoSubmitVoice: true,
   preferredLang: "",
+  disableSystemPrompt: false,
 };
 
 // ── Code language → file extension map ──

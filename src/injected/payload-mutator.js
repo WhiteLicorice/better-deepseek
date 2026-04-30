@@ -219,7 +219,9 @@ export function buildHiddenPrefix(
   const blocks = [];
 
   const shouldInjectSystemPrompt =
-    forceSystemPrompt && state.config.systemPrompt.trim();
+    forceSystemPrompt && 
+    state.config.systemPrompt.trim() && 
+    !state.config.disableSystemPrompt;
 
   if (shouldInjectSystemPrompt) {
     blocks.push(

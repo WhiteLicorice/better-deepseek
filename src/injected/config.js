@@ -29,6 +29,7 @@ export function normalizeConfig(config) {
     memories,
     activeCharacter: config.activeCharacter || null,
     preferredLang: String(config.preferredLang || ""),
+    disableSystemPrompt: Boolean(config.disableSystemPrompt),
     activeProject,
   };
 }

@@ -77,6 +77,7 @@ export function pushConfigToPage() {
     })),
     activeCharacter: state.characters.find(c => c.active) || null,
     preferredLang: String(state.settings.preferredLang || ""),
+    disableSystemPrompt: Boolean(state.settings.disableSystemPrompt),
     activeProject: activeProject
       ? {
           name: activeProject.name,
