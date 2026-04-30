@@ -281,9 +281,9 @@ export function buildHiddenPrefix(
       blocks.push(projectBlock);
     }
 
-    const langBlock = buildLanguageBlock(state);
-    if (langBlock) {
-      blocks.push(langBlock);
+    const userDataBlock = buildUserDataBlock(state);
+    if (userDataBlock) {
+      blocks.push(userDataBlock);
     }
   }
 
@@ -371,14 +371,20 @@ export function buildCharacterBlock(state) {
 }
 
 /**
- * Build the language preference block.
+ * Build the user-specific data block (time, language preference, etc).
  */
-export function buildLanguageBlock(state) {
+export function buildUserDataBlock(state) {
+  const blocks = [];
+  
+  const now = new Date();
+  blocks.push(`User's System Date & Time: ${now.toLocaleString()}`);
+
   const lang = state.config.preferredLang;
-  if (!lang || !lang.trim()) {
-    return "";
+  if (lang && lang.trim()) {
+    blocks.push(`Always respond in ${lang.trim()}.`);
   }
-  return `<BetterDeepSeek>Always respond in ${lang.trim()}.</BetterDeepSeek>`;
+
+  return `<BetterDeepSeek>\n${blocks.join("\n")}\n</BetterDeepSeek>`;
 }
 
 /**

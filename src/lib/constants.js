@@ -9,8 +9,6 @@ export const STORAGE_KEYS = {
 };
 
 
-const now = new Date();
-
 // ── Bridge Events (content ↔ injected) ──
 export const BRIDGE_EVENTS = {
   configUpdate: "bds:config-update",
@@ -20,15 +18,13 @@ export const BRIDGE_EVENTS = {
 };
 
 // ── Versioning ──
-export const SYSTEM_PROMPT_TEMPLATE_VERSION = 7;
+export const SYSTEM_PROMPT_TEMPLATE_VERSION = 8;
 export const DOWNLOAD_BEHAVIOR_VERSION = 2;
 export const LONG_WORK_STALE_MS = 30000;
 
 // ── Default System Prompt ──
 export const DEFAULT_SYSTEM_PROMPT = [
     "You are Better DeepSeek. You have access to specialized tools.",
-    "",
-    `User's System Date & Time: ${now.toLocaleString()}`,
     "",
     "MANDATORY PROJECT DELIVERY PROTOCOL:",
     "- If the user asks for a project/app/template/scaffold/multiple files/zip/archive/downloadable package,",
