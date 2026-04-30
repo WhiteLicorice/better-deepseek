@@ -21,6 +21,7 @@ import { injectHookScript, setupBridgeEvents, pushConfigToPage } from "./bridge.
 import { mountUi } from "./ui/mount.js";
 import { observeChatDom, scheduleScan, startUrlWatcher } from "./scanner.js";
 import { initSidebarMenuInjector } from "./ui/SidebarMenuInjector.js";
+import { initSidebarSearch } from "./ui/SidebarSearch.js";
 import { checkPendingExport } from "./tools/pending-export.js";
 
 init().catch((error) => {
@@ -38,6 +39,7 @@ async function init() {
   startUrlWatcher();
   observeChatDom();
   initSidebarMenuInjector();
+  initSidebarSearch();
   scheduleScan();
   checkPendingExport();
   pushConfigToPage();

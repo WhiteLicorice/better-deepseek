@@ -32,6 +32,16 @@ export function patchXmlHttpRequest(
         return originalSend.call(this, body);
       }
 
+      if (meta.url.includes("/api/v0/chat_session/fetch_page")) {
+        this.addEventListener("load", () => {
+          try {
+            const data = JSON.parse(this.responseText);
+            window.dispatchEvent(new CustomEvent("bds:session-data", { detail: JSON.stringify(data) }));
+          } catch (e) {}
+        });
+        return originalSend.call(this, body);
+      }
+
       markStart(meta.url);
       let requestFinalized = false;
       const finalizeRequest = () => {

@@ -28,6 +28,36 @@ export function setupBridgeEvents() {
     }
     handleNetworkState(detail);
   });
+
+  window.addEventListener("bds:session-data", (event) => {
+    let data = event.detail;
+    if (typeof data === "string") {
+      try { data = JSON.parse(data); } catch (e) { return; }
+    }
+    handleSessionData(data);
+  });
+}
+
+/**
+ * Update global state with session data from API.
+ */
+function handleSessionData(data) {
+  const sessions = data?.data?.biz_data?.chat_sessions;
+  if (!Array.isArray(sessions)) return;
+
+  const currentIds = new Set(state.chatSessions.map(s => s.id));
+  for (const session of sessions) {
+    if (!currentIds.has(session.id)) {
+      state.chatSessions.push({
+        id: session.id,
+        title: session.title,
+        updatedAt: session.updated_at
+      });
+    }
+  }
+  
+  // Trigger UI update if needed
+  window.dispatchEvent(new CustomEvent("bds:sessions-updated"));
 }
 
 /**

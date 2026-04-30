@@ -39,6 +39,8 @@ const state = {
   ui: null,
   /** @type {{ refresh: () => void } | null} session-only ref to AttachMenu's project panel */
   heroBarRef: null,
+  /** @type {Array<{id:string,title:string,updatedAt:number}>} persistent session cache */
+  chatSessions: [],
 };
 
 export default state;

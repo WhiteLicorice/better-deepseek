@@ -18,6 +18,16 @@ export function patchFetch(state, isChatCompletionUrl, markStart, markEnd) {
         return originalFetch.apply(this, arguments);
       }
 
+      // If it's a session fetch, we don't mutate request, we capture response
+      if (url.includes("/api/v0/chat_session/fetch_page")) {
+        const response = await originalFetch.apply(this, arguments);
+        const cloned = response.clone();
+        cloned.json().then(data => {
+          window.dispatchEvent(new CustomEvent("bds:session-data", { detail: JSON.stringify(data) }));
+        }).catch(() => {});
+        return response;
+      }
+
       markStart(url);
 
       try {

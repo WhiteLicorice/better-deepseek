@@ -8,6 +8,7 @@ import { processMessageNode } from "./message-processor.svelte.js";
 import { enhanceCodeBlockDownloads } from "./files/code-blocks.js";
 import { mount } from "svelte";
 import AttachMenu from "./ui/AttachMenu.svelte";
+import { injectSearchInput } from "./ui/SidebarSearch.js";
 import { checkPendingExport } from "./tools/pending-export.js";
 
 /**
@@ -149,6 +150,7 @@ function scanPage() {
 
   linkifyLogo();
   linkifyNewChatButton();
+  injectSearchInput();
   scanInputArea();
 }
 

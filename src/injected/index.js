@@ -19,7 +19,10 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
     requestConfig: "bds:request-config",
     networkState: "bds:network-state",
     markVoiceMessage: "bds:mark-voice-message",
+    sessionData: "bds:session-data",
   };
+
+  const SESSION_FETCH_URL = "/api/v0/chat_session/fetch_page";
 
   const CHAT_COMPLETION_PATH = "/api/v0/chat/completion";
 
@@ -100,7 +103,7 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
 
   function isChatCompletionUrl(url) {
     const s = String(url || "");
-    return s.includes("/api/v0/chat/completion") || s.includes("/api/v0/chat/edit_message");
+    return s.includes("/api/v0/chat/completion") || s.includes("/api/v0/chat/edit_message") || s.includes(SESSION_FETCH_URL);
   }
 
   function emitNetworkState(status, url) {
