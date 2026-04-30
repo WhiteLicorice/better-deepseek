@@ -205,6 +205,13 @@ Better DeepSeek does not collect, transmit, or sell any personal data. All setti
 
 ## Changelog
 
+### v0.1.4 (2026-04-30)
+- **New Feature**: Projects menu for better organizational control (Thanks to @WhiteLicorice).
+- **New Feature**: Search functionality added to the session history sidebar.
+- **UX Improvement**: Settings menu rework with an "Advanced Settings" accordion to save drawer space.
+- **New Option**: Ability to disable the Hidden System Prompt entirely.
+- **New Option**: "Force Language" setting to ensure DeepSeek responds in your preferred language.
+
 ### v0.1.3 (2026-04-28)
 - **New Feature**: Added "Ask Questions" tool. DeepSeek can now ask for clarification when unsure about context or instructions.
 - **New Feature**: Export full sessions to Markdown and PDF.
