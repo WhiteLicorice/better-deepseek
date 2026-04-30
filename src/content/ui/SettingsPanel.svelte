@@ -15,6 +15,7 @@
   let voiceMode = $state(Boolean(appState.settings.voiceMode));
   let voiceLanguage = $state(appState.settings.voiceLanguage || (typeof navigator !== 'undefined' ? navigator.language : 'en-US'));
   let autoSubmitVoice = $state(Boolean(appState.settings.autoSubmitVoice));
+  let preferredLang = $state(appState.settings.preferredLang || "");
   let advancedOpen = $state(false);
 
   let activeProject = $state(getActiveProject());
@@ -28,6 +29,7 @@
     voiceMode = Boolean(appState.settings.voiceMode);
     voiceLanguage = appState.settings.voiceLanguage || (typeof navigator !== 'undefined' ? navigator.language : 'en-US');
     autoSubmitVoice = Boolean(appState.settings.autoSubmitVoice);
+    preferredLang = appState.settings.preferredLang || "";
   }
 
   export function refreshProject() {
@@ -55,6 +57,7 @@
     appState.settings.voiceMode = voiceMode;
     appState.settings.voiceLanguage = voiceLanguage;
     appState.settings.autoSubmitVoice = autoSubmitVoice;
+    appState.settings.preferredLang = preferredLang.trim();
 
 
     await chrome.storage.local.set({
@@ -172,6 +175,19 @@
         <input id="bds-auto-zip" type="checkbox" bind:checked={autoZip} />
         <span class="bds-switch-track"></span>
       </label>
+    </div>
+
+    <div class="bds-toggle-row" style="flex-direction: column; align-items: flex-start; gap: 6px;">
+      <span class="bds-toggle-label">Preferred Response Language</span>
+      <input
+        id="bds-preferred-lang"
+        type="text"
+        class="bds-input"
+        style="width: 100%; box-sizing: border-box;"
+        placeholder="e.g. English, Turkish, Pirate"
+        bind:value={preferredLang}
+      />
+      <p style="font-size: 10px; opacity: 0.5; margin: 0;">Leave empty to let the model decide.</p>
     </div>
   </div>
 </div>

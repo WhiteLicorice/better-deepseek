@@ -280,6 +280,11 @@ export function buildHiddenPrefix(
     if (projectBlock) {
       blocks.push(projectBlock);
     }
+
+    const langBlock = buildLanguageBlock(state);
+    if (langBlock) {
+      blocks.push(langBlock);
+    }
   }
 
   return blocks.join("\n\n");
@@ -363,6 +368,17 @@ export function buildCharacterBlock(state) {
   text += `---\n${char.content.trim()}`;
 
   return `<BetterDeepSeek> <BDS:RP>\n${text}\n</BDS:RP> </BetterDeepSeek>`;
+}
+
+/**
+ * Build the language preference block.
+ */
+export function buildLanguageBlock(state) {
+  const lang = state.config.preferredLang;
+  if (!lang || !lang.trim()) {
+    return "";
+  }
+  return `<BetterDeepSeek>Always respond in ${lang.trim()}.</BetterDeepSeek>`;
 }
 
 /**

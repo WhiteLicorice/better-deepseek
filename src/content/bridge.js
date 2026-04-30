@@ -76,6 +76,7 @@ export function pushConfigToPage() {
       importance: item.importance,
     })),
     activeCharacter: state.characters.find(c => c.active) || null,
+    preferredLang: String(state.settings.preferredLang || ""),
     activeProject: activeProject
       ? {
           name: activeProject.name,

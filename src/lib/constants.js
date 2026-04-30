@@ -453,6 +453,7 @@ export const DEFAULT_SETTINGS = {
   voiceMode: false,
   voiceLanguage: (typeof navigator !== 'undefined' ? navigator.language : 'en-US'),
   autoSubmitVoice: true,
+  preferredLang: "",
 };
 
 // ── Code language → file extension map ──

@@ -28,6 +28,7 @@ export function normalizeConfig(config) {
     skills,
     memories,
     activeCharacter: config.activeCharacter || null,
+    preferredLang: String(config.preferredLang || ""),
     activeProject,
   };
 }
