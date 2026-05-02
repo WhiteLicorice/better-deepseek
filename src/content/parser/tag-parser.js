@@ -85,8 +85,11 @@ function stripLeadingChatter(content) {
 export function unwrapMarkdownCodeFence(content) {
   const original = String(content || "");
 
-  // Match the first fence: ```[optional lang][optional newline]CODE[optional newline]```
-  const regex = /```(?:[a-zA-Z0-9_+.-]*\s*(?:\r?\n|\s))?([\s\S]*?)\r?\n?```/;
+  // Match first fenced code block. Requires closing fence on its own line
+  // (preceded by newline, optionally with leading whitespace).
+  // This prevents false matches on triple-backtick sequences inside code content
+  // (e.g. docstrings, markdown examples).
+  const regex = /```[^\n]*\r?\n([\s\S]*?)\r?\n\s*```/;
   const match = original.match(regex);
 
   if (match) {
@@ -114,9 +117,9 @@ export function stripMarkdownViewerControls(text) {
     // AI-generated UI controls should be implemented.
     output = output.replace(
       new RegExp(
-        // Strip DeepSeek's UI buttons (Copy/Download) that sometimes get captured
-        // Support both Turkish (Kopyala/İndir) and English (Copy/Download) UI
-        `^\\s*${languagePattern}\\s*(?:\\r?\\n|\\s+)(?:Kopyala|Copy)\\s*(?:\\r?\\n|\\s+)(?:İndir|Download)\\s*(?:\\r?\\n)*`,
+        // Strip DeepSeek's UI buttons (Copy/Download) that sometimes get captured.
+        // Use \\s+ as separator so same-line buttons ("python Copy Download") also match.
+        `^\\s*${languagePattern}\\s+(?:Kopyala|Copy)\\s+(?:İndir|Download)\\s*`,
         "i"
       ),
       ""
@@ -124,7 +127,7 @@ export function stripMarkdownViewerControls(text) {
 
     output = output.replace(
       // Support matching buttons without preceding language name
-      /^\s*(?:Kopyala|Copy)\s*(?:\r?\n|\s+)(?:İndir|Download)\s*(?:\r?\\n)*/i,
+      /^\s*(?:Kopyala|Copy)\s+(?:İndir|Download)\s*/i,
       ""
     );
   }

@@ -20,6 +20,15 @@ import { sanitizeVisibleText } from "./text-sanitizer.js";
 const RENDERABLE_TOOLS = new Set(["html", "latex", "visualizer", "pptx", "excel", "docx", "ask_question"]);
 
 /**
+ * Strip markdown code fences and their content from text.
+ * Returns text safe for BDS tag presence detection — prevents false
+ * positives when AI explains BDS syntax inside code examples.
+ */
+function stripMarkdownCodeFences(text) {
+  return String(text || "").replace(/```[^\n]*\r?\n[\s\S]*?\r?\n\s*```/g, "");
+}
+
+/**
  * Parse a raw message text for all BDS tags.
  */
 export function parseBdsMessage(rawText, isSettled = false) {
@@ -71,6 +80,9 @@ export function parseBdsMessage(rawText, isSettled = false) {
     visibleText: text,
   };
 
+  // Check original text for BDS tag PRESENCE. Must use original (not
+  // fence-stripped) text here — AI may wrap legitimate LONG_WORK/Artifact
+  // blocks in ``` fences, and stripping first would lose all tags.
   if (!/(<BDS:|<BetterDeepSeek>|Bds create file>)/i.test(text)) {
     return result;
   }
@@ -81,6 +93,12 @@ export function parseBdsMessage(rawText, isSettled = false) {
   result.containsControlTags = hasHidingTags;
   result.longWorkOpen = /<BDS:LONG_WORK>/i.test(text);
   result.longWorkClose = /<\/BDS:LONG_WORK>/i.test(text);
+
+  // Strip code fences for streaming detection only. This prevents false
+  // positive "Working..." overlays when AI explains BDS syntax inside code
+  // examples. Content extraction (create_file, renderable blocks, etc.)
+  // still uses the original text above.
+  const tagScanText = stripMarkdownCodeFences(text);
 
   // Parse create_file pair tags independently so nested files inside LONG_WORK are captured.
   const createFilePairRegex =
@@ -201,35 +219,51 @@ export function parseBdsMessage(rawText, isSettled = false) {
 
   result.visibleText = sanitizeVisibleText(text);
 
-  // UNIVERSAL INTERFACE LOCK: Detect if ANY BDS tag is currently open (not closed)
-  // This handles streaming for all tools (Visualizer, LongWork, etc.)
-  const allBdsTags = Array.from(text.matchAll(/<BDS:([A-Za-z0-9_]+)[^>]*>/gi));
-  const allBdsCloseTags = Array.from(text.matchAll(/<\/BDS:([A-Za-z0-9_]+)>/gi));
+  // UNIVERSAL INTERFACE LOCK: Detect if ANY BDS tag is currently open (not closed).
+  // This handles streaming for all tools (Visualizer, LongWork, etc.).
+  //
+  // Scan the fence-stripped text to avoid false positives when AI explains
+  // BDS syntax inside markdown code blocks. Real BDS tags live outside fences.
+  const scanOpenTags = Array.from(tagScanText.matchAll(/<BDS:([A-Za-z0-9_]+)[^>]*>/gi));
+  const scanCloseTags = Array.from(tagScanText.matchAll(/<\/BDS:([A-Za-z0-9_]+)>/gi));
 
-  // Determine if there's an open tag that hasn't been closed yet
-  // We check if the last open tag has a corresponding close tag after it
+  // Determine if there's an open tag that hasn't been closed yet.
+  // Find the last open tag and check if a close tag for it exists after it.
   let streamingTagName = null;
   let streamingTagStartIdx = -1;
 
-  // Simple heuristic: if number of open tags > number of close tags, we are streaming
-  // Or more accurately: find the last open tag and see if there's a close tag for it later
-  for (let i = allBdsTags.length - 1; i >= 0; i--) {
-    const openTag = allBdsTags[i];
+  for (let i = scanOpenTags.length - 1; i >= 0; i--) {
+    const openTag = scanOpenTags[i];
     const tagName = openTag[1].toLowerCase();
-    
-    // EXCEPTION: AUTO tags are background instructions/requests, 
+
+    // EXCEPTION: AUTO tags are background instructions/requests,
     // they should never trigger the UI's "Working..." overlay.
     if (tagName.startsWith("auto")) continue;
 
     // Check if this specific tag name has a close tag appearing after this open tag
-    const hasClose = allBdsCloseTags.some(ct => 
+    const hasClose = scanCloseTags.some(ct =>
       ct[1].toLowerCase() === tagName && ct.index > openTag.index
     );
 
     if (!hasClose) {
       streamingTagName = tagName;
-      streamingTagStartIdx = openTag.index;
-      break; 
+      // The tag is confirmed streaming (real BDS tag, not in a code fence).
+      // Now find its position in the ORIGINAL text for correct truncation.
+      // Re-scan original text for the same tag name to get the right index.
+      const origAllOpen = Array.from(text.matchAll(/<BDS:([A-Za-z0-9_]+)[^>]*>/gi));
+      const origAllClose = Array.from(text.matchAll(/<\/BDS:([A-Za-z0-9_]+)>/gi));
+      for (let j = origAllOpen.length - 1; j >= 0; j--) {
+        const ot = origAllOpen[j];
+        if (ot[1].toLowerCase() !== tagName) continue;
+        const hasOrigClose = origAllClose.some(ct =>
+          ct[1].toLowerCase() === tagName && ct.index > ot.index
+        );
+        if (!hasOrigClose) {
+          streamingTagStartIdx = ot.index;
+          break;
+        }
+      }
+      break;
     }
   }
 

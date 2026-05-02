@@ -66,12 +66,68 @@ function parseNodeWithBestTextSource(node) {
   return stripMarkdownViewerControls(selected);
 }
 
+/**
+ * Extract text from innerHTML, preserving BDS tags even when DeepSeek's
+ * markdown renderer turns them into actual HTML elements.
+ *
+ * DeepSeek may render `<BDS:TAG>` either as:
+ *  (a) escaped text in the DOM: `&lt;BDS:TAG&gt;` (textContent includes tag name)
+ *  (b) actual HTML elements: DOM has `<bds:tag>` or similar (textContent MISSES tag name)
+ *
+ * For case (b), textContent loses the tag names entirely. This function
+ * recovers them by processing innerHTML which preserves the tag names in
+ * serialized form.
+ */
+function extractTextWithBdsTags(html) {
+  let text = String(html || "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"');
+
+  // Capture BDS tags (both entity-decoded text and HTML element forms)
+  // and replace with sentinel placeholders so they survive tag stripping.
+  const bdsMap = [];
+  text = text.replace(
+    /<(\/?)([a-zA-Z][a-zA-Z0-9_:.-]*)([^>]*)>/g,
+    (match, isClose, tagName, attrs) => {
+      if (/^BDS[:_]/i.test(tagName)) {
+        const upperName = tagName
+          .toUpperCase()
+          .replace(/^BDS[:_]/, "");
+        const canonical = isClose
+          ? `</BDS:${upperName}>`
+          : `<BDS:${upperName}${attrs}>`;
+        bdsMap.push(canonical);
+        return `\x00BDS${bdsMap.length - 1}\x00`;
+      }
+      return match;
+    }
+  );
+
+  // HTML-to-text: add newlines after block elements
+  text = text.replace(
+    /<\/(p|div|li|pre|code|blockquote|h[1-6])>/gi,
+    "\n"
+  );
+
+  // Strip remaining HTML tags (BDS tags are now sentinel placeholders)
+  text = text.replace(/<[^>]*>/g, "");
+
+  // Restore BDS tags from placeholders
+  text = text.replace(/\x00BDS(\d+)\x00/g, (_, idx) => {
+    return bdsMap[parseInt(idx)] || "";
+  });
+
+  return text.replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function getNodeTextCandidates(node) {
-  // Instead of innerText (which fails on detached clones), 
+  // Instead of innerText (which fails on detached clones),
   // we'll filter out thinking blocks and then use textContent.
-  
+
   const clone = node.cloneNode(true);
-  
+
   // Remove Thinking blocks and other non-content UI elements
   const selectorsToRemove = [
     ".ds-think-content",
@@ -90,10 +146,12 @@ function getNodeTextCandidates(node) {
   }
 
   // decodeNodeHtmlText already uses textContent internally but handles line breaks
-  const htmlDecoded = decodeNodeHtmlText(clone.innerHTML || "");
+  const html = clone.innerHTML || "";
+  const htmlDecoded = decodeNodeHtmlText(html);
   const textContent = String(clone.textContent || "");
+  const bdsText = extractTextWithBdsTags(html);
 
-  return [htmlDecoded, textContent].filter(
+  return [bdsText, htmlDecoded, textContent].filter(
     (value) => value && value.trim()
   );
 }
