@@ -106,17 +106,40 @@ function extractTextWithBdsTags(html) {
     }
   );
 
-  // Step 2: Convert <pre><code> blocks back to markdown fences BEFORE
-  // stripping HTML. This preserves code indentation, `#` characters
-  // (Python comments, shebangs), and code fence markers for inner blocks.
-  text = text.replace(
-    /<pre[^>]*>\s*<code([^>]*)>([\s\S]*?)<\/code>\s*<\/pre>/gi,
-    (match, codeAttrs, code) => {
-      const langMatch = codeAttrs.match(/language-(\w+)/i);
+  // Step 2: Convert <pre><code> blocks to markdown fences using live DOM
+  // parsing. Regex-based extraction loses whitespace when syntax highlighters
+  // wrap tokens in <span> elements — DOM textContent preserves it perfectly.
+  try {
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = text;
+    const preEls = Array.from(tempDiv.querySelectorAll("pre"));
+
+    for (const pre of preEls) {
+      const code = pre.querySelector("code");
+      if (!code) continue;
+      const langMatch = code.className.match(/language-(\w+)/i);
       const lang = langMatch ? langMatch[1] : "";
-      return "\n```" + lang + "\n" + code.trimEnd() + "\n```\n";
+      // textContent from live DOM preserves every space, tab, and `#`
+      const codeText = code.textContent;
+      const fence = "\n```" + lang + "\n" + codeText.trimEnd() + "\n```\n";
+      // insertAdjacentText inserts as plain text — no HTML parsing, so
+      // < > & in code stay literal.
+      pre.insertAdjacentText("afterend", fence);
+      pre.remove();
     }
-  );
+
+    text = tempDiv.innerHTML;
+    // The browser re-encodes < > & as HTML entities when serializing
+    // innerHTML. Re-decode so the code content has literal characters.
+    text = text
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&amp;/g, "&")
+      .replace(/&quot;/g, '"');
+  } catch (_) {
+    // DOM parsing may fail on severely malformed HTML.
+    // Keep the text as-is; it's better than nothing.
+  }
 
   // Step 3: Convert heading, list, and inline elements to markdown.
   text = text.replace(
@@ -178,7 +201,12 @@ function getNodeTextCandidates(node) {
   const textContent = String(clone.textContent || "");
   const bdsText = extractTextWithBdsTags(html);
 
-  return [bdsText, htmlDecoded, textContent].filter(
+  // Raw API response markdown — captured before DeepSeek's renderer strips
+  // whitespace from code blocks. Has perfect indentation and BDS tags.
+  let rawMarkdown = "";
+  try { rawMarkdown = localStorage.getItem("bds_raw_latest") || ""; } catch (_) {}
+
+  return [bdsText, htmlDecoded, textContent, rawMarkdown].filter(
     (value) => value && value.trim()
   );
 }

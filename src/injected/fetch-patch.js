@@ -1,4 +1,4 @@
-import { mutatePayload } from "./payload-mutator.js";
+import { mutatePayload, resolveConversationId } from "./payload-mutator.js";
 
 /**
  * Patch window.fetch to intercept chat completion requests.
@@ -30,11 +30,19 @@ export function patchFetch(state, isChatCompletionUrl, markStart, markEnd) {
           return await originalFetch.apply(this, arguments);
         }
 
-        return await originalFetch.call(
+        const response = await originalFetch.call(
           this,
           requestInfo.input,
           requestInfo.init
         );
+
+        // Clone and capture the raw SSE markdown before DeepSeek's
+        // renderer strips whitespace/indentation from code blocks.
+        if (response && response.ok && requestInfo.convId) {
+          captureResponseMarkdown(response, requestInfo.convId);
+        }
+
+        return response;
       } finally {
         markEnd(url);
       }
@@ -81,6 +89,8 @@ async function buildMutatedFetchRequest(input, init, state) {
   if (!mutation.changed) {
     return null;
   }
+
+  const convId = resolveConversationId(payload);
 
   const nextBody = JSON.stringify(mutation.payload);
   const sourceHeaders =
@@ -129,7 +139,7 @@ async function buildMutatedFetchRequest(input, init, state) {
 
   const nextInput =
     typeof input === "string" || input instanceof URL ? input : input.url;
-  return { input: nextInput, init: nextInit };
+  return { input: nextInput, init: nextInit, convId };
 }
 
 /**
@@ -150,4 +160,70 @@ async function extractBodyText(input, init) {
   }
 
   return "";
+}
+
+/**
+ * Clone the response, read its streaming SSE body, and accumulate the raw
+ * markdown before DeepSeek's renderer strips whitespace from code blocks.
+ * Stores result in localStorage so the content script can use it for
+ * create_file content extraction with perfect indentation.
+ */
+function captureResponseMarkdown(response, convId) {
+  try {
+    const cloned = response.clone();
+    // Read asynchronously — don't block the response from reaching DeepSeek
+    cloned.text().then((sseText) => {
+      const markdown = parseSSEToMarkdown(sseText);
+      if (markdown) {
+        try {
+          const key = "bds_raw_" + convId;
+          localStorage.setItem(key, markdown);
+          // Also store as "latest" for easy access
+          localStorage.setItem("bds_raw_latest", markdown);
+          pruneRawMarkdown();
+        } catch (_) { /* localStorage full — drop oldest */ }
+      }
+    }).catch(() => {});
+  } catch (_) { /* clone failed — response already consumed */ }
+}
+
+/**
+ * Parse Server-Sent Events to extract the concatenated markdown content.
+ * DeepSeek SSE format:  data: {"type":"text","content":"..."}
+ *                        data: [DONE]
+ */
+function parseSSEToMarkdown(sseText) {
+  const chunks = [];
+  const lines = sseText.split("\n");
+  for (const line of lines) {
+    if (!line.startsWith("data: ")) continue;
+    const data = line.slice(6);
+    if (data === "[DONE]") continue;
+    try {
+      const parsed = JSON.parse(data);
+      if (parsed.type === "text" && parsed.content) {
+        chunks.push(parsed.content);
+      }
+    } catch (_) { /* skip malformed lines */ }
+  }
+  return chunks.join("");
+}
+
+/**
+ * Keep at most 10 raw-markdown entries to avoid localStorage bloat.
+ */
+function pruneRawMarkdown() {
+  const keys = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith("bds_raw_") && key !== "bds_raw_latest") {
+      keys.push(key);
+    }
+  }
+  if (keys.length > 10) {
+    keys.sort();
+    for (let i = 0; i < keys.length - 10; i++) {
+      localStorage.removeItem(keys[i]);
+    }
+  }
 }
