@@ -85,8 +85,9 @@ function extractTextWithBdsTags(html) {
     .replace(/&amp;/g, "&")
     .replace(/&quot;/g, '"');
 
-  // Capture BDS tags (both entity-decoded text and HTML element forms)
-  // and replace with sentinel placeholders so they survive tag stripping.
+  // Step 1: Capture BDS tags FIRST — before converting <pre><code> blocks.
+  // BDS tags inside code blocks (documentation/examples) remain as sentinels
+  // and become part of the code content, not control tags.
   const bdsMap = [];
   text = text.replace(
     /<(\/?)([a-zA-Z][a-zA-Z0-9_:.-]*)([^>]*)>/g,
@@ -105,16 +106,42 @@ function extractTextWithBdsTags(html) {
     }
   );
 
-  // HTML-to-text: add newlines after block elements
+  // Step 2: Convert <pre><code> blocks back to markdown fences BEFORE
+  // stripping HTML. This preserves code indentation, `#` characters
+  // (Python comments, shebangs), and code fence markers for inner blocks.
+  text = text.replace(
+    /<pre[^>]*>\s*<code([^>]*)>([\s\S]*?)<\/code>\s*<\/pre>/gi,
+    (match, codeAttrs, code) => {
+      const langMatch = codeAttrs.match(/language-(\w+)/i);
+      const lang = langMatch ? langMatch[1] : "";
+      return "\n```" + lang + "\n" + code.trimEnd() + "\n```\n";
+    }
+  );
+
+  // Step 3: Convert heading, list, and inline elements to markdown.
+  text = text.replace(
+    /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi,
+    (_, level, content) =>
+      "\n" + "#".repeat(parseInt(level)) + " " + content.trim() + "\n"
+  );
+  text = text.replace(
+    /<li[^>]*>([\s\S]*?)<\/li>/gi,
+    (_, content) => "\n- " + content.trim() + "\n"
+  );
+  text = text.replace(/<strong[^>]*>([\s\S]*?)<\/strong>/gi, "**$1**");
+  text = text.replace(/<em[^>]*>([\s\S]*?)<\/em>/gi, "*$1*");
+
+  // Step 4: HTML-to-text: add newlines after block elements
   text = text.replace(
     /<\/(p|div|li|pre|code|blockquote|h[1-6])>/gi,
     "\n"
   );
 
-  // Strip remaining HTML tags (BDS tags are now sentinel placeholders)
+  // Step 5: Strip remaining HTML tags (BDS tags are sentinel placeholders,
+  // <pre><code>, headings, and lists already converted to markdown)
   text = text.replace(/<[^>]*>/g, "");
 
-  // Restore BDS tags from placeholders
+  // Step 6: Restore BDS tags from placeholders
   text = text.replace(/\x00BDS(\d+)\x00/g, (_, idx) => {
     return bdsMap[parseInt(idx)] || "";
   });
