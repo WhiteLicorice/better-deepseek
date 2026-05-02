@@ -178,8 +178,9 @@ function captureResponseMarkdown(response, convId) {
         try {
           const key = "bds_raw_" + convId;
           localStorage.setItem(key, markdown);
-          // Also store as "latest" for easy access
+          // Also store as "latest" with timestamp for freshness check
           localStorage.setItem("bds_raw_latest", markdown);
+          localStorage.setItem("bds_raw_latest_ts", String(Date.now()));
           pruneRawMarkdown();
         } catch (_) { /* localStorage full — drop oldest */ }
       }
@@ -201,8 +202,13 @@ function parseSSEToMarkdown(sseText) {
     if (data === "[DONE]") continue;
     try {
       const parsed = JSON.parse(data);
-      if (parsed.type === "text" && parsed.content) {
-        chunks.push(parsed.content);
+      // DeepSeek can use either a top-level "content" field or the
+      // OpenAI-style choices[0].delta.content path.
+      const text =
+        (parsed.type === "text" && parsed.content) ||
+        (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content);
+      if (text) {
+        chunks.push(text);
       }
     } catch (_) { /* skip malformed lines */ }
   }

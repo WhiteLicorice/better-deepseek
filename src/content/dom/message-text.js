@@ -203,8 +203,14 @@ function getNodeTextCandidates(node) {
 
   // Raw API response markdown — captured before DeepSeek's renderer strips
   // whitespace from code blocks. Has perfect indentation and BDS tags.
+  // Only use if stored recently (<60s) to avoid stale data from other tabs.
   let rawMarkdown = "";
-  try { rawMarkdown = localStorage.getItem("bds_raw_latest") || ""; } catch (_) {}
+  try {
+    const ts = parseInt(localStorage.getItem("bds_raw_latest_ts") || "0", 10);
+    if (Date.now() - ts < 60000) {
+      rawMarkdown = localStorage.getItem("bds_raw_latest") || "";
+    }
+  } catch (_) {}
 
   return [bdsText, htmlDecoded, textContent, rawMarkdown].filter(
     (value) => value && value.trim()
