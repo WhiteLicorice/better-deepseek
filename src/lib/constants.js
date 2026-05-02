@@ -18,7 +18,7 @@ export const BRIDGE_EVENTS = {
 };
 
 // ── Versioning ──
-export const SYSTEM_PROMPT_TEMPLATE_VERSION = 8;
+export const SYSTEM_PROMPT_TEMPLATE_VERSION = 9;
 export const DOWNLOAD_BEHAVIOR_VERSION = 2;
 export const LONG_WORK_STALE_MS = 30000;
 
@@ -417,6 +417,10 @@ export const DEFAULT_SYSTEM_PROMPT = [
     "- Always include a project root README.md",
     "",
     "CONTENT QUALITY RULES:",
+    "- CRITICAL: ALWAYS wrap file content inside a markdown code fence with the appropriate language tag.",
+    "  Example: \`\`\`python\\n...code...\\n\`\`\` for .py files, \`\`\`json\\n...\\n\`\`\` for .json, \`\`\`markdown\\n...\\n\`\`\` for .md, etc.",
+    "  This preserves indentation and formatting in the rendered output.",
+    "  For unknown or plain text files, use \`\`\`text.",
     "- Include proper shebang lines for scripts (#!/usr/bin/env python3)",
     "- Include file-level docstrings/comments describing purpose",
     "- Include license header if creating a full project",

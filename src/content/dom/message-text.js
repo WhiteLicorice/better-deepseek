@@ -1,9 +1,6 @@
 /**
  * Extract raw text from a message DOM node using the best available source.
  */
-
-import { stripMarkdownViewerControls } from "../parser/tag-parser.js";
-
 /**
  * Extract the raw text from a message node, choosing the best source.
  */
@@ -63,7 +60,7 @@ function parseNodeWithBestTextSource(node) {
     pool.sort(
       (a, b) => scoreRawTextCandidate(b) - scoreRawTextCandidate(a)
     )[0] || "";
-  return stripMarkdownViewerControls(selected);
+  return selected;
 }
 
 function getNodeTextCandidates(node) {
@@ -72,7 +69,7 @@ function getNodeTextCandidates(node) {
   
   const clone = node.cloneNode(true);
   
-  // Remove Thinking blocks and other non-content UI elements
+  // Remove Thinking blocks, UI elements, and code block banners
   const selectorsToRemove = [
     ".ds-think-content",
     "[class*=\"think\"]",
@@ -82,11 +79,49 @@ function getNodeTextCandidates(node) {
     "._74c0879", // Collapsible area title
     ".ds-icon",
     ".ds-icon-button",
-    "div[role=\"button\"]"
+    "div[role=\"button\"]",
+    // Code block banners contain "Run Python", "Copy", "Download" button text
+    ".md-code-block-banner",
+    ".md-code-block-banner-wrap",
+    "[class*=\"code-block-banner\"]",
+    // BDS injected run buttons
+    ".bds-run-btn"
   ];
 
   for (const selector of selectorsToRemove) {
     clone.querySelectorAll(selector).forEach(el => el.remove());
+  }
+
+  // INDENTATION FIX: Extract code from <pre><code> elements BEFORE text
+  // extraction. DeepSeek renders markdown code fences as <pre><code> with
+  // preserved whitespace, but when the surrounding BDS tags are treated as
+  // unknown HTML elements, re-parsing or textContent can collapse whitespace.
+  // By replacing each <pre> with a text node containing the verbatim code,
+  // we guarantee indentation survives into the final extracted text.
+  // INDENTATION & UI FIX: Replace the entire markdown code block container with its 
+  // raw indented code text. DeepSeek's markdown renderer puts code in .md-code-block,
+  // which contains a banner (with "Copy", "Download", etc.) and a <pre><code> block.
+  // By replacing the whole .md-code-block with the text from <pre><code>, we:
+  // 1. Preserve the whitespace perfectly.
+  // 2. Completely eliminate the banner UI text from leaking into the extracted content.
+  // 3. We re-wrap the code in ``` backticks so the parser can consistently unwrap it.
+  const mdCodeBlocks = clone.querySelectorAll(".md-code-block");
+  for (const block of mdCodeBlocks) {
+    const codeEl = block.querySelector("pre code") || block.querySelector("pre");
+    if (codeEl) {
+      const codeText = codeEl.textContent || "";
+      const textNode = clone.ownerDocument.createTextNode(`\n\`\`\`\n${codeText}\n\`\`\`\n`);
+      block.replaceWith(textNode);
+    }
+  }
+
+  // Catch any stray <pre> elements that aren't inside .md-code-block
+  const strayPres = clone.querySelectorAll("pre");
+  for (const pre of strayPres) {
+    const codeEl = pre.querySelector("code");
+    const codeText = (codeEl || pre).textContent || "";
+    const textNode = clone.ownerDocument.createTextNode(`\n\`\`\`\n${codeText}\n\`\`\`\n`);
+    pre.replaceWith(textNode);
   }
 
   // decodeNodeHtmlText already uses textContent internally but handles line breaks

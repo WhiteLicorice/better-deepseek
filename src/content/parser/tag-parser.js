@@ -52,7 +52,7 @@ export function normalizeTaggedCodeContent(content, tagName) {
     output = stripLeadingChatter(output);
   }
 
-  return stripMarkdownViewerControls(output);
+  return output;
 }
 
 /**
@@ -80,54 +80,41 @@ function stripLeadingChatter(content) {
 
 /**
  * Unwrap markdown code fences (```lang ... ```) from content.
- * Robust: Extracts the first code block found, even if there is surrounding text.
+ * Robust: Handles multiple fences, unclosed fences, and leftover backticks.
  */
 export function unwrapMarkdownCodeFence(content) {
-  const original = String(content || "");
+  let text = String(content || "");
 
-  // Match the first fence: ```[optional lang][optional newline]CODE[optional newline]```
-  const regex = /```(?:[a-zA-Z0-9_+.-]*\s*(?:\r?\n|\s))?([\s\S]*?)\r?\n?```/;
-  const match = original.match(regex);
-
-  if (match) {
-    return String(match[1] || "").trim();
+  // Try to extract the LARGEST fenced code block (greedy inner match)
+  // This handles: ```python\n...code...\n```
+  const fenceRegex = /```(?:[a-zA-Z0-9_+.-]*)\s*\r?\n([\s\S]*?)\r?\n?\s*```/g;
+  let bestMatch = null;
+  let match;
+  while ((match = fenceRegex.exec(text)) !== null) {
+    const inner = match[1] || "";
+    if (!bestMatch || inner.length > bestMatch.length) {
+      bestMatch = inner;
+    }
   }
 
-  return original.trim();
-}
-
-/**
- * Strip DeepSeek's markdown viewer control text (Copy/Download buttons).
- */
-export function stripMarkdownViewerControls(text) {
-  let output = String(text || "");
-  let previous = "";
-
-  const languagePattern =
-    "(?:python|javascript|typescript|tsx|jsx|html|css|json|bash|shell|sh|sql|yaml|yml|xml|markdown|md)";
-
-  while (output !== previous) {
-    previous = output;
-
-    // TODO: This logic currently only handles Turkish and English UI labels.
-    // In the future, a more robust/generalized approach for stripping 
-    // AI-generated UI controls should be implemented.
-    output = output.replace(
-      new RegExp(
-        // Strip DeepSeek's UI buttons (Copy/Download) that sometimes get captured
-        // Support both Turkish (Kopyala/İndir) and English (Copy/Download) UI
-        `^\\s*${languagePattern}\\s*(?:\\r?\\n|\\s+)(?:Kopyala|Copy)\\s*(?:\\r?\\n|\\s+)(?:İndir|Download)\\s*(?:\\r?\\n)*`,
-        "i"
-      ),
-      ""
-    );
-
-    output = output.replace(
-      // Support matching buttons without preceding language name
-      /^\s*(?:Kopyala|Copy)\s*(?:\r?\n|\s+)(?:İndir|Download)\s*(?:\r?\\n)*/i,
-      ""
-    );
+  if (bestMatch !== null) {
+    return bestMatch.trim();
   }
 
-  return output;
+  // Handle unclosed fence: ```python\n...code... (no closing ```)
+  const unclosedMatch = text.match(/```(?:[a-zA-Z0-9_+.-]*)\s*\r?\n([\s\S]+)$/);
+  if (unclosedMatch) {
+    return unclosedMatch[1].trim();
+  }
+
+  // Strip ALL stray leading/trailing ``` markers 
+  while (/^\s*```/.test(text)) {
+    text = text.replace(/^\s*```[a-zA-Z0-9_+.-]*\s*\r?\n?/, "");
+  }
+  while (/```\s*$/.test(text)) {
+    text = text.replace(/\r?\n?\s*```\s*$/, "");
+  }
+
+  return text.trim();
 }
+
