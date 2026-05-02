@@ -79,17 +79,18 @@ function stripLeadingChatter(content) {
 }
 
 /**
- * Unwrap markdown code fences (```lang ... ```) from content.
- * Robust: Extracts the first code block found, even if there is surrounding text.
+ * Unwrap markdown code fences from content ONLY when the entire content
+ * is a single fenced code block (from start to end, ignoring surrounding
+ * whitespace). Does NOT extract code blocks from mixed content like README
+ * files that have prose + code examples — those must stay intact.
  */
 export function unwrapMarkdownCodeFence(content) {
   const original = String(content || "");
 
-  // Match first fenced code block. Requires closing fence on its own line
-  // (preceded by newline, optionally with leading whitespace).
-  // This prevents false matches on triple-backtick sequences inside code content
-  // (e.g. docstrings, markdown examples).
-  const regex = /```[^\n]*\r?\n([\s\S]*?)\r?\n\s*```/;
+  // Anchored: ^\s*``` ... ```\s*$ — only matches when the whole content
+  // is one code fence. Prevents extracting the first inner ``` block
+  // from mixed files (e.g., README.md with text + code examples).
+  const regex = /^\s*```[^\n]*\r?\n([\s\S]*?)\r?\n\s*```\s*$/;
   const match = original.match(regex);
 
   if (match) {
@@ -119,15 +120,16 @@ export function stripMarkdownViewerControls(text) {
       new RegExp(
         // Strip DeepSeek's UI buttons (Copy/Download) that sometimes get captured.
         // Use \\s+ as separator so same-line buttons ("python Copy Download") also match.
+        // 'm' flag so ^ matches start of every line, not just start of string.
         `^\\s*${languagePattern}\\s+(?:Kopyala|Copy)\\s+(?:İndir|Download)\\s*`,
-        "i"
+        "im"
       ),
       ""
     );
 
     output = output.replace(
       // Support matching buttons without preceding language name
-      /^\s*(?:Kopyala|Copy)\s+(?:İndir|Download)\s*/i,
+      /^\s*(?:Kopyala|Copy)\s+(?:İndir|Download)\s*/im,
       ""
     );
   }
