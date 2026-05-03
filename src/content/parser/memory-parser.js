@@ -9,12 +9,30 @@ import { STORAGE_KEYS } from "../../lib/constants.js";
 let memoryPersistTimer = 0;
 
 /**
- * Parse a memory_write tag content.
- * Supports both:
- * 1. key_name: value, importance: always
- * 2. key: key_name, value: value, importance: always
+ * Parse a memory_write tag content or attributes.
+ * Supports:
+ * 1. Attributes: <BDS:memory_write key_name="..." value="..." importance="...">
+ * 2. Text Content Pattern 1: key_name: value, importance: always
+ * 3. Text Content Pattern 2: key: key_name, value: value, importance: always
  */
-export function parseMemoryWrite(content) {
+export function parseMemoryWrite(content, attrs = {}) {
+  // 1. Check Attributes first (High priority)
+  const attrKey = attrs.key_name || attrs.key || attrs.name;
+  const attrValue = attrs.value || attrs.content;
+  const attrImportance = attrs.importance;
+
+  if (attrKey) {
+    const finalValue = attrValue || String(content || "").trim();
+    if (finalValue) {
+      return {
+        key: sanitizeMemoryKey(attrKey),
+        value: finalValue,
+        importance: sanitizeMemoryImportance(attrImportance || "called")
+      };
+    }
+  }
+
+  // 2. Fallback to Content parsing
   const cleaned = String(content || "").trim();
   if (!cleaned) {
     return null;

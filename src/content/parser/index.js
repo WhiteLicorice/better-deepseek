@@ -115,7 +115,7 @@ export function parseBdsMessage(rawText, isSettled = false) {
     }
 
     if (name === "memory_write") {
-      const parsedMemory = parseMemoryWrite(content);
+      const parsedMemory = parseMemoryWrite(content, attrs);
       if (parsedMemory) {
         result.memoryWrites.push(parsedMemory);
       }
@@ -185,6 +185,15 @@ export function parseBdsMessage(rawText, isSettled = false) {
       "create_file"
     );
     result.createFiles.push({ fileName, content });
+  }
+
+  const selfClosingMemoryRegex = /<BDS:memory_write([^>]*)\/>/gi;
+  while ((match = selfClosingMemoryRegex.exec(text)) !== null) {
+    const attrs = parseTagAttributes(match[1] || "");
+    const parsedMemory = parseMemoryWrite("", attrs);
+    if (parsedMemory) {
+      result.memoryWrites.push(parsedMemory);
+    }
   }
 
   const plainCreateRegex =
