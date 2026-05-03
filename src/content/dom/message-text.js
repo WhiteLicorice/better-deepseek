@@ -127,8 +127,9 @@ function getNodeTextCandidates(node) {
   // decodeNodeHtmlText already uses textContent internally but handles line breaks
   const htmlDecoded = decodeNodeHtmlText(clone.innerHTML || "");
   const textContent = String(clone.textContent || "");
+  const markdownReconstructed = extractMessageMarkdown(clone);
 
-  return [htmlDecoded, textContent].filter(
+  return [htmlDecoded, textContent, markdownReconstructed].filter(
     (value) => value && value.trim()
   );
 }
@@ -218,6 +219,25 @@ function htmlToMarkdown(element) {
         case "blockquote": markdown += `\n> ${content.trim()}\n`; break;
         case "a": markdown += `[${content}](${child.getAttribute("href") || "#"})`; break;
         case "br": markdown += `\n`; break;
+        case "table": markdown += `\n\n${content}\n`; break;
+        case "thead": 
+        case "tbody": 
+          markdown += content; 
+          break;
+        case "tr": 
+          markdown += `|${content}\n`;
+          if (
+            child.parentElement?.tagName.toLowerCase() === "thead" || 
+            (child.parentElement?.tagName.toLowerCase() === "table" && child === child.parentElement.firstElementChild)
+          ) {
+            const cellCount = child.querySelectorAll("th, td").length;
+            markdown += `|${Array(cellCount).fill("---").join("|")}|\n`;
+          }
+          break;
+        case "th":
+        case "td":
+          markdown += ` ${content.trim().replace(/\n/g, " ")} |`;
+          break;
         default: markdown += content;
       }
     }
