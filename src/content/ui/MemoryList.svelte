@@ -108,7 +108,7 @@
     {#each entries as [key, item] (key)}
       <div class="bds-memory-item">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;">
-          <div style="display: grid; gap: 4px; flex: 1;">
+          <div style="display: grid; gap: 4px; flex: 1; min-width: 0;">
             <strong>{key}</strong>
             <span>{item.value}</span>
             <em>{item.importance}</em>

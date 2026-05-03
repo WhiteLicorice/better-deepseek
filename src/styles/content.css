@@ -586,6 +586,9 @@ textarea.bds-input,
 .bds-memory-item span {
   color: var(--bds-text-primary);
   line-height: 1.45;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  display: block;
 }
 
 .bds-memory-item em {
