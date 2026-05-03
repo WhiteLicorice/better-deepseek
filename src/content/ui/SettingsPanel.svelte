@@ -17,6 +17,8 @@
   let autoSubmitVoice = $state(Boolean(appState.settings.autoSubmitVoice));
   let preferredLang = $state(appState.settings.preferredLang || "");
   let disableSystemPrompt = $state(Boolean(appState.settings.disableSystemPrompt));
+  let systemPromptInjectionFrequency = $state(appState.settings.systemPromptInjectionFrequency || "first");
+  let systemPromptInjectionInterval = $state(Number(appState.settings.systemPromptInjectionInterval) || 3);
   let advancedOpen = $state(false);
 
   let activeProject = $state(getActiveProject());
@@ -32,6 +34,8 @@
     autoSubmitVoice = Boolean(appState.settings.autoSubmitVoice);
     preferredLang = appState.settings.preferredLang || "";
     disableSystemPrompt = Boolean(appState.settings.disableSystemPrompt);
+    systemPromptInjectionFrequency = appState.settings.systemPromptInjectionFrequency || "first";
+    systemPromptInjectionInterval = Number(appState.settings.systemPromptInjectionInterval) || 3;
   }
 
   export function refreshProject() {
@@ -61,6 +65,8 @@
     appState.settings.autoSubmitVoice = autoSubmitVoice;
     appState.settings.preferredLang = preferredLang.trim();
     appState.settings.disableSystemPrompt = disableSystemPrompt;
+    appState.settings.systemPromptInjectionFrequency = systemPromptInjectionFrequency;
+    appState.settings.systemPromptInjectionInterval = systemPromptInjectionInterval;
 
 
     await chrome.storage.local.set({
@@ -148,6 +154,30 @@
         <span class="bds-switch-track"></span>
       </label>
     </div>
+
+    <div class="bds-toggle-row">
+      <span class="bds-toggle-label">System Prompt Injection Frequency</span>
+      <select class="bds-select" bind:value={systemPromptInjectionFrequency}>
+        <option value="first">Only on first message</option>
+        <option value="always">Always (every message)</option>
+        <option value="every_x">Every N messages</option>
+      </select>
+    </div>
+
+    {#if systemPromptInjectionFrequency === 'every_x'}
+    <div class="bds-toggle-row" style="flex-direction: column; align-items: flex-start; gap: 6px; padding-left: 12px; border-left: 2px solid rgba(255, 255, 255, 0.1); margin-left: 4px;">
+      <span class="bds-toggle-label">Injection Interval (N)</span>
+      <input
+        id="bds-injection-interval"
+        type="number"
+        min="2"
+        class="bds-input"
+        style="width: 100px; box-sizing: border-box;"
+        bind:value={systemPromptInjectionInterval}
+      />
+      <p style="font-size: 10px; opacity: 0.5; margin: 0;">Inject the prompt every {systemPromptInjectionInterval} messages.</p>
+    </div>
+    {/if}
 
     <div class="bds-toggle-row">
       <span class="bds-toggle-label">Voice Mode (Auto-read responses)</span>

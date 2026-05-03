@@ -27,15 +27,34 @@ export function mutatePayload(payload, state) {
       // If we are about to check if we need to inject the system prompt,
       // we check if it already exists in the history (excluding the target if we just cleaned it).
       const historyHasPrompt = hasSystemPromptInHistory(messages, target);
-      let forceSystemPrompt = !historyHasPrompt;
+      let forceSystemPrompt = false;
+      
+      const freq = state.config.systemPromptInjectionFrequency || "first";
 
-      // DO NOT inject system prompt or skills mid-conversation in existing chats!
-      // If messages.length > 1, the server already has the primary context.
-      if (messages.length > 1) {
-        forceSystemPrompt = false;
-      } else if (state.hasInjected && state.hasInjected(conversationId)) {
-        // Fallback for length == 1 (e.g., F5 then sending first message)
-        forceSystemPrompt = false;
+      if (freq === "always") {
+        forceSystemPrompt = true;
+      } else if (freq === "every_x") {
+        const userMsgCount = messages.filter(m => {
+          const role = String(m.role || m.author || "").toLowerCase();
+          return role === "user" || role === "human";
+        }).length;
+        const interval = state.config.systemPromptInjectionInterval || 3;
+        
+        if ((userMsgCount - 1) % interval === 0) {
+          forceSystemPrompt = true;
+        } else if (!historyHasPrompt) {
+          // Fallback if somehow there is no prompt in history at all
+          forceSystemPrompt = true;
+        }
+      } else {
+        // "first" - DO NOT inject system prompt or skills mid-conversation in existing chats!
+        forceSystemPrompt = !historyHasPrompt;
+        if (messages.length > 1) {
+          forceSystemPrompt = false;
+        } else if (state.hasInjected && state.hasInjected(conversationId)) {
+          // Fallback for length == 1 (e.g., F5 then sending first message)
+          forceSystemPrompt = false;
+        }
       }
 
       const prefix = buildHiddenPrefix(
@@ -59,10 +78,17 @@ export function mutatePayload(payload, state) {
     const cleanText = stripInjectedBlocks(payload.prompt);
     
     // For single prompt requests (like edits or standalone calls):
-    // If it's an edit of the first message, we force injection.
-    // If it's a subsequent message, the server already has the context.
     const isFirstMessageEdit = payload.message_id === 1 || payload.parent_message_id == null;
-    const forceSystemPrompt = isFirstMessageEdit;
+    const freq = state.config.systemPromptInjectionFrequency || "first";
+    
+    let forceSystemPrompt = false;
+    if (freq === "always") {
+      forceSystemPrompt = true;
+    } else if (freq === "every_x") {
+      forceSystemPrompt = isFirstMessageEdit;
+    } else {
+      forceSystemPrompt = isFirstMessageEdit;
+    }
     
     const prefix = buildHiddenPrefix(cleanText, conversationId, state, forceSystemPrompt, null, null);
     if (prefix) {
@@ -259,8 +285,8 @@ export function buildHiddenPrefix(
       lastCharName = state.currentSessionChar;
     }
     
-    // Only inject if it's the first persona in this context OR the character has changed
-    if (!lastCharName || lastCharName !== activeChar.name) {
+    // Only inject if it's an injection turn (forceSystemPrompt), the first persona, OR the character has changed
+    if (forceSystemPrompt || !lastCharName || lastCharName !== activeChar.name) {
       const characterBlock = buildCharacterBlock(state);
       if (characterBlock) {
         blocks.push(characterBlock);

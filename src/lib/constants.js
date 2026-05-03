@@ -455,6 +455,8 @@ export const DEFAULT_SETTINGS = {
   autoSubmitVoice: true,
   preferredLang: "",
   disableSystemPrompt: false,
+  systemPromptInjectionFrequency: "first",
+  systemPromptInjectionInterval: 3,
 };
 
 // ── Code language → file extension map ──
