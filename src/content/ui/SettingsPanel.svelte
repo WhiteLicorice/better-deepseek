@@ -19,6 +19,7 @@
   let disableSystemPrompt = $state(Boolean(appState.settings.disableSystemPrompt));
   let systemPromptInjectionFrequency = $state(appState.settings.systemPromptInjectionFrequency || "first");
   let systemPromptInjectionInterval = $state(Number(appState.settings.systemPromptInjectionInterval) || 3);
+  let disableMemory = $state(Boolean(appState.settings.disableMemory));
   let advancedOpen = $state(false);
 
   let activeProject = $state(getActiveProject());
@@ -36,6 +37,7 @@
     disableSystemPrompt = Boolean(appState.settings.disableSystemPrompt);
     systemPromptInjectionFrequency = appState.settings.systemPromptInjectionFrequency || "first";
     systemPromptInjectionInterval = Number(appState.settings.systemPromptInjectionInterval) || 3;
+    disableMemory = Boolean(appState.settings.disableMemory);
   }
 
   export function refreshProject() {
@@ -67,6 +69,7 @@
     appState.settings.disableSystemPrompt = disableSystemPrompt;
     appState.settings.systemPromptInjectionFrequency = systemPromptInjectionFrequency;
     appState.settings.systemPromptInjectionInterval = systemPromptInjectionInterval;
+    appState.settings.disableMemory = disableMemory;
 
 
     await chrome.storage.local.set({
@@ -151,6 +154,14 @@
       <span class="bds-toggle-label">Disable Hidden System Prompt</span>
       <label class="bds-switch">
         <input id="bds-disable-prompt" type="checkbox" bind:checked={disableSystemPrompt} />
+        <span class="bds-switch-track"></span>
+      </label>
+    </div>
+
+    <div class="bds-toggle-row">
+      <span class="bds-toggle-label">Disable Stored Memory Injection</span>
+      <label class="bds-switch">
+        <input id="bds-disable-memory" type="checkbox" bind:checked={disableMemory} />
         <span class="bds-switch-track"></span>
       </label>
     </div>

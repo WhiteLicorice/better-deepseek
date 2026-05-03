@@ -357,7 +357,7 @@ export function buildSkillsBlock(state) {
  * Build the <BDS:memory_calls> block based on importance and keyword matching.
  */
 export function buildMemoryCallsBlock(userPrompt, state) {
-  if (!state.config.memories.length) {
+  if (state.config.disableMemory || !state.config.memories.length) {
     return "";
   }
 

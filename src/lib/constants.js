@@ -460,6 +460,7 @@ export const DEFAULT_SETTINGS = {
   autoSubmitVoice: true,
   preferredLang: "",
   disableSystemPrompt: false,
+  disableMemory: false,
   systemPromptInjectionFrequency: "first",
   systemPromptInjectionInterval: 3,
 };

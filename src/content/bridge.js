@@ -78,6 +78,7 @@ export function pushConfigToPage() {
     activeCharacter: state.characters.find(c => c.active) || null,
     preferredLang: String(state.settings.preferredLang || ""),
     disableSystemPrompt: Boolean(state.settings.disableSystemPrompt),
+    disableMemory: Boolean(state.settings.disableMemory),
     systemPromptInjectionFrequency: String(state.settings.systemPromptInjectionFrequency || "first"),
     systemPromptInjectionInterval: Number(state.settings.systemPromptInjectionInterval || 3),
     activeProject: activeProject

@@ -30,6 +30,7 @@ export function normalizeConfig(config) {
     activeCharacter: config.activeCharacter || null,
     preferredLang: String(config.preferredLang || ""),
     disableSystemPrompt: Boolean(config.disableSystemPrompt),
+    disableMemory: Boolean(config.disableMemory),
     systemPromptInjectionFrequency: String(config.systemPromptInjectionFrequency || "first"),
     systemPromptInjectionInterval: Number(config.systemPromptInjectionInterval) || 3,
     activeProject,
