@@ -12,6 +12,7 @@ import {
   DOWNLOAD_BEHAVIOR_VERSION,
 } from "../lib/constants.js";
 import { makeId } from "../lib/utils/helpers.js";
+import { setHtmlToMarkdownMaxDepth } from "./dom/message-text.js";
 
 // ── Load ──
 
@@ -31,6 +32,7 @@ export async function loadStateFromStorage() {
     ...DEFAULT_SETTINGS,
     ...storedSettings,
   };
+  setHtmlToMarkdownMaxDepth(state.settings.htmlToMarkdownMaxDepth);
 
   if (shouldUpgradeSystemPrompt(storedSettings)) {
     state.settings.systemPrompt = DEFAULT_SYSTEM_PROMPT;
@@ -238,6 +240,7 @@ export function bindStorageChangeListener() {
         ...DEFAULT_SETTINGS,
         ...(changes[STORAGE_KEYS.settings].newValue || {}),
       };
+      setHtmlToMarkdownMaxDepth(state.settings.htmlToMarkdownMaxDepth);
       if (state.ui) {
         state.ui.refreshSettings();
       }
