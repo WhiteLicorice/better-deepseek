@@ -67,6 +67,7 @@ html.dark, body.dark, .dark :root {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  transition: none;
 }
 
 #bds-root * {
