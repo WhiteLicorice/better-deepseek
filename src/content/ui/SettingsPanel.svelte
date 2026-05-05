@@ -375,7 +375,10 @@
       </p>
     </div>
 
-    <div class="bds-toggle-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+    <div
+      class="bds-toggle-row"
+      style="flex-direction: column; align-items: flex-start; gap: 8px;"
+    >
       <span class="bds-toggle-label">GitHub Personal Access Token</span>
       <div class="bds-token-field">
         <input
@@ -410,7 +413,10 @@
           </button>
         </div>
       </div>
-      <p class="bds-token-help">Create a classic token with <code>repo</code> scope at GitHub Settings -> Tokens.</p>
+      <p class="bds-token-help">
+        Create a classic token with <code>repo</code> scope at GitHub Settings ->
+        Tokens.
+      </p>
     </div>
   </div>
 </div>
