@@ -7,6 +7,19 @@
 import { Readability } from "@mozilla/readability";
 import TurndownService from "turndown";
 
+function createWebFetchPermissionError(message, metadata = {}) {
+  const error = new Error(message);
+  error.name = "WebFetchPermissionError";
+  error.bdsWebFetchPermissionError = true;
+  error.permissionRequired = true;
+  Object.assign(error, metadata);
+  return error;
+}
+
+export function isWebFetchPermissionError(error) {
+  return Boolean(error && error.bdsWebFetchPermissionError);
+}
+
 async function ensureWebFetchPermission(url, interactive) {
   const response = await chrome.runtime.sendMessage({
     type: "bds-ensure-host-permission",
@@ -27,14 +40,47 @@ async function ensureWebFetchPermission(url, interactive) {
   })();
 
   if (response?.denied) {
-    throw new Error(
-      `Web Fetch permission was denied for ${origin}. Allow access and try again.`,
+    throw createWebFetchPermissionError(
+      `Web Fetch permission was denied for ${origin}. Open the extension permissions, allow that site or All Sites, then try again.`,
+      {
+        denied: true,
+        origin,
+        promptUnavailable: Boolean(response?.promptUnavailable),
+        interactive,
+      },
     );
   }
 
   if (response?.permissionRequired) {
-    throw new Error(
+    if (interactive === false) {
+      throw createWebFetchPermissionError(
+        `Web Fetch needs permission to access ${origin}. Automatic Web Fetch cannot ask for that permission by itself. Open the extension permissions and allow that site or All Sites, then retry.`,
+        {
+          origin,
+          promptUnavailable: true,
+          interactive,
+        },
+      );
+    }
+
+    if (response?.promptUnavailable) {
+      throw createWebFetchPermissionError(
+        `Web Fetch needs permission to access ${origin}. This browser could not show the permission prompt from the chat page. Open the extension permissions and allow that site or All Sites, then retry.`,
+        {
+          origin,
+          promptUnavailable: true,
+          interactive,
+        },
+      );
+    }
+
+    throw createWebFetchPermissionError(
       `Web Fetch needs permission to access ${origin}. Try again and approve the permission prompt.`,
+      {
+        origin,
+        promptUnavailable: false,
+        interactive,
+      },
     );
   }
 

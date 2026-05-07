@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import state from "../../src/content/state.js";
 import { resetAppState } from "../helpers/app-state.js";
 
 const readerMocks = vi.hoisted(() => ({
   fetchAndConvertWebPage: vi.fn(),
+  isWebFetchPermissionError: vi.fn((error) =>
+    Boolean(error && error.bdsWebFetchPermissionError),
+  ),
   fetchGitHubRepo: vi.fn(),
   fetchTwitterTweet: vi.fn(),
   fetchYouTubeData: vi.fn(),
@@ -13,6 +15,7 @@ const readerMocks = vi.hoisted(() => ({
 
 vi.mock("../../src/content/files/web-reader.js", () => ({
   fetchAndConvertWebPage: readerMocks.fetchAndConvertWebPage,
+  isWebFetchPermissionError: readerMocks.isWebFetchPermissionError,
 }));
 vi.mock("../../src/content/files/github-reader.js", () => ({
   fetchGitHubRepo: readerMocks.fetchGitHubRepo,
@@ -53,6 +56,9 @@ describe("auto integration", () => {
     setupAutoDom();
     vi.useFakeTimers();
     Object.values(readerMocks).forEach((mock) => mock.mockReset());
+    readerMocks.isWebFetchPermissionError.mockImplementation((error) =>
+      Boolean(error && error.bdsWebFetchPermissionError),
+    );
   });
 
   it("fetches a web page and injects the returned file once", async () => {
@@ -94,6 +100,28 @@ describe("auto integration", () => {
       { token: "ghp_secret" },
     );
     expect(input.files[0].name).toContain("github_error_owner_repo");
+  });
+
+  it("toasts permission guidance when automatic web fetch needs manual site access", async () => {
+    const error = Object.assign(
+      new Error(
+        "Web Fetch needs permission to access https://example.com. Automatic Web Fetch cannot ask for that permission by itself.",
+      ),
+      { bdsWebFetchPermissionError: true },
+    );
+    readerMocks.fetchAndConvertWebPage.mockRejectedValue(error);
+    const { handleAutoWebFetch } = await importAutoModule();
+    const freshState = (await import("../../src/content/state.js")).default;
+    freshState.ui = { showToast: vi.fn() };
+
+    await handleAutoWebFetch("https://example.com");
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(readerMocks.isWebFetchPermissionError).toHaveBeenCalledWith(error);
+    expect(freshState.ui.showToast).toHaveBeenCalledWith(error.message);
+    expect(document.querySelector('input[type="file"]').files[0].name).toContain(
+      "error_https___example_com",
+    );
   });
 
   it("prevents duplicate auto requests for the same url", async () => {

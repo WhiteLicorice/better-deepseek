@@ -129,4 +129,21 @@ describe("background GitHub commits fetch", () => {
       originPattern: "https://example.com/*",
     });
   });
+
+  it("reports prompt-unavailable when the browser rejects permission requests without user input", async () => {
+    chrome.permissions.contains.mockResolvedValue(false);
+    chrome.permissions.request.mockRejectedValue(
+      new Error("permissions.request may only be called from a user input handler"),
+    );
+
+    const result = await ensureHostPermission("https://example.com/a", true);
+
+    expect(result).toMatchObject({
+      ok: false,
+      permissionRequired: true,
+      promptUnavailable: true,
+      originPattern: "https://example.com/*",
+    });
+    expect(result.error).toContain("user input handler");
+  });
 });
