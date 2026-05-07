@@ -172,12 +172,29 @@ export async function ensureHostPermission(url, interactive = false) {
       ok: false,
       permissionRequired: true,
       originPattern,
+      promptUnavailable: !interactive,
     };
   }
 
-  const granted = Boolean(
-    await callChromePermissions("request", { origins: [originPattern] })
-  );
+  let granted = false;
+  try {
+    granted = Boolean(
+      await callChromePermissions("request", { origins: [originPattern] })
+    );
+  } catch (error) {
+    const message = String(error && error.message ? error.message : error);
+    if (/\buser (action|gesture)\b|input handler/i.test(message)) {
+      return {
+        ok: false,
+        permissionRequired: true,
+        promptUnavailable: true,
+        originPattern,
+        error: message,
+      };
+    }
+    throw error;
+  }
+
   if (granted) {
     return {
       ok: true,

@@ -250,4 +250,18 @@ class WebViewBridgeTest {
         assertFalse(response.getBoolean("ok"))
         assertTrue(response.getString("error").contains("empty"))
     }
+
+    @Test
+    fun `ensure host permission always succeeds on android bridge`() {
+        val payload =
+            JSONObject().apply {
+                put("type", "bds-ensure-host-permission")
+                put("url", "https://example.com/article")
+                put("interactive", true)
+            }
+        val response = JSONObject(bridge.fetch(payload.toString()))
+
+        assertTrue(response.getBoolean("ok"))
+        assertTrue(response.getBoolean("granted"))
+    }
 }

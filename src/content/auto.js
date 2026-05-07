@@ -3,7 +3,10 @@
  * Handles automatic requests from DeepSeek.
  */
 
-import { fetchAndConvertWebPage } from "./files/web-reader.js";
+import {
+  fetchAndConvertWebPage,
+  isWebFetchPermissionError,
+} from "./files/web-reader.js";
 import { fetchGitHubRepo } from "./files/github-reader.js";
 import { fetchTwitterTweet } from "./files/twitter-reader.js";
 import { fetchYouTubeData } from "./files/youtube-reader.js";
@@ -31,6 +34,9 @@ export async function handleAutoWebFetch(url) {
     }
   } catch (err) {
     console.error("[BDS:AUTO] Web Fetch Failed:", err);
+    if (isWebFetchPermissionError(err) && appState.ui?.showToast) {
+      appState.ui.showToast(err.message);
+    }
     // Optionally create a text file with the error so DeepSeek knows it failed
     const errorBlob = new Blob([`Failed to fetch ${url}:\n\n${err.message}`], { type: "text/plain" });
     const errorFile = new File([errorBlob], `error_${url.replace(/[^a-zA-Z0-9]/g, "_")}.txt`, { type: "text/plain" });

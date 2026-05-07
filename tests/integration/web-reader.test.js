@@ -56,4 +56,54 @@ describe("web-reader integration", () => {
       fetchAndConvertWebPage("https://example.com/private"),
     ).rejects.toThrow("permission was denied");
   });
+
+  it("explains when automatic web fetch cannot request permission itself", async () => {
+    chrome.runtime.sendMessage.mockResolvedValueOnce({
+      ok: false,
+      permissionRequired: true,
+      promptUnavailable: true,
+    });
+
+    let error = null;
+    try {
+      await fetchAndConvertWebPage(
+        "https://example.com/private",
+        () => {},
+        { interactive: false },
+      );
+    } catch (caughtError) {
+      error = caughtError;
+    }
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error.permissionRequired).toBe(true);
+    expect(error.promptUnavailable).toBe(true);
+    expect(error.bdsWebFetchPermissionError).toBe(true);
+    expect(error.message).toContain(
+      "Automatic Web Fetch cannot ask for that permission by itself",
+    );
+  });
+
+  it("explains when the browser cannot show the permission prompt from the page", async () => {
+    chrome.runtime.sendMessage.mockResolvedValueOnce({
+      ok: false,
+      permissionRequired: true,
+      promptUnavailable: true,
+    });
+
+    let error = null;
+    try {
+      await fetchAndConvertWebPage("https://example.com/private");
+    } catch (caughtError) {
+      error = caughtError;
+    }
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error.permissionRequired).toBe(true);
+    expect(error.promptUnavailable).toBe(true);
+    expect(error.bdsWebFetchPermissionError).toBe(true);
+    expect(error.message).toContain(
+      "could not show the permission prompt from the chat page",
+    );
+  });
 });
