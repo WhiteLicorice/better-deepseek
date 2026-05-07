@@ -213,7 +213,9 @@ class WebViewBridge(
      *
      * Supported types: bds-fetch-url -> { ok, html } bds-fetch-github-zip -> { ok, base64,
      * status?, authRejected? } bds-fetch-github-commits -> { ok, commits, status?,
-     * authRejected?, rateLimited? } bds-get-youtube-transcript -> { ok: false, error: "..." }
+     * authRejected?, rateLimited? } bds-ensure-host-permission -> { ok, granted } because the
+     * Android shell already has app-wide Internet access. bds-get-youtube-transcript ->
+     * { ok: false, error: "..." }
      *
      * Unknown types return { ok: false, error: "..." } so the JS side never sees an exception cross
      * the bridge.
@@ -227,6 +229,10 @@ class WebViewBridge(
                 "bds-fetch-url" -> handleFetchUrl(payload, response)
                 "bds-fetch-github-zip" -> handleFetchGithubZip(payload, response)
                 "bds-fetch-github-commits" -> handleFetchGithubCommits(payload, response)
+                "bds-ensure-host-permission" -> {
+                    response.put("ok", true)
+                    response.put("granted", true)
+                }
                 "bds-get-youtube-transcript" -> {
                     response.put("ok", false)
                     response.put(

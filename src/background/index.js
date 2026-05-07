@@ -82,6 +82,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "bds-ensure-host-permission") {
+    ensureHostPermission(message.url, Boolean(message.interactive))
+      .then((result) => {
+        sendResponse(result);
+      })
+      .catch((error) => {
+        sendResponse({
+          ok: false,
+          error: String(error && error.message ? error.message : error),
+        });
+      });
+    return true;
+  }
+
   return false;
 });
 
@@ -114,6 +128,108 @@ function createGithubFetchError(message, options = {}) {
     error.rateLimited = true;
   }
   return error;
+}
+
+function buildOriginPermissionPattern(url) {
+  const parsed = new URL(url);
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("Only http/https URLs are supported.");
+  }
+  return `${parsed.protocol}//${parsed.host}/*`;
+}
+
+function callChromePermissions(methodName, payload) {
+  const api = chrome && chrome.permissions ? chrome.permissions : null;
+  const method = api && typeof api[methodName] === "function"
+    ? api[methodName].bind(api)
+    : null;
+
+  if (!method) {
+    return Promise.resolve(undefined);
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      const runtimeError = chrome.runtime && chrome.runtime.lastError;
+      if (runtimeError) {
+        reject(new Error(runtimeError.message));
+        return;
+      }
+      resolve(value);
+    };
+
+    try {
+      const maybePromise = method.length >= 2
+        ? method(payload, done)
+        : method(payload);
+      if (maybePromise && typeof maybePromise.then === "function") {
+        maybePromise.then(done, reject);
+      } else if (method.length < 2) {
+        done(maybePromise);
+      }
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+export async function ensureHostPermission(url, interactive = false) {
+  const originPattern = buildOriginPermissionPattern(url);
+  const hasPermissionsApi = Boolean(
+    chrome &&
+    chrome.permissions &&
+    typeof chrome.permissions.contains === "function"
+  );
+
+  if (!hasPermissionsApi) {
+    return {
+      ok: true,
+      granted: true,
+      originPattern,
+      unsupported: true,
+    };
+  }
+
+  const alreadyGranted = Boolean(
+    await callChromePermissions("contains", { origins: [originPattern] })
+  );
+  if (alreadyGranted) {
+    return {
+      ok: true,
+      granted: true,
+      originPattern,
+    };
+  }
+
+  if (!interactive || typeof chrome.permissions.request !== "function") {
+    return {
+      ok: false,
+      permissionRequired: true,
+      originPattern,
+    };
+  }
+
+  const granted = Boolean(
+    await callChromePermissions("request", { origins: [originPattern] })
+  );
+  if (granted) {
+    return {
+      ok: true,
+      granted: true,
+      requested: true,
+      originPattern,
+    };
+  }
+
+  return {
+    ok: false,
+    permissionRequired: true,
+    denied: true,
+    originPattern,
+  };
 }
 
 export function normalizeGithubCommitCount(count) {

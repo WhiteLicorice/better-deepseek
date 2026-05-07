@@ -4,6 +4,7 @@ vi.mock("youtube-transcript", () => ({
 }));
 
 import {
+  ensureHostPermission,
   fetchGithubCommits,
   normalizeGithubCommitCount,
 } from "../../src/background/index.js";
@@ -22,6 +23,10 @@ describe("background GitHub commits fetch", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     globalThis.fetch = vi.fn();
+    chrome.permissions.contains.mockReset();
+    chrome.permissions.request.mockReset();
+    chrome.permissions.contains.mockResolvedValue(true);
+    chrome.permissions.request.mockResolvedValue(true);
   });
 
   it("paginates commit history and returns structured commit data", async () => {
@@ -103,5 +108,25 @@ describe("background GitHub commits fetch", () => {
   it("normalizes background commit counts to the supported range", () => {
     expect(normalizeGithubCommitCount(0)).toBe(1);
     expect(normalizeGithubCommitCount(600)).toBe(600);
+  });
+
+  it("requests optional host permission when broad site access is needed", async () => {
+    chrome.permissions.contains.mockResolvedValue(false);
+    chrome.permissions.request.mockResolvedValue(true);
+
+    const result = await ensureHostPermission("https://example.com/a", true);
+
+    expect(chrome.permissions.contains).toHaveBeenCalledWith({
+      origins: ["https://example.com/*"],
+    });
+    expect(chrome.permissions.request).toHaveBeenCalledWith({
+      origins: ["https://example.com/*"],
+    });
+    expect(result).toMatchObject({
+      ok: true,
+      granted: true,
+      requested: true,
+      originPattern: "https://example.com/*",
+    });
   });
 });

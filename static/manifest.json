@@ -7,10 +7,15 @@
   "host_permissions": [
     "https://chat.deepseek.com/*",
     "https://codeload.github.com/*",
+    "https://api.github.com/*",
+    "https://api-docs.deepseek.com/*",
+    "https://raw.githubusercontent.com/*",
+    "https://publish.twitter.com/*",
+    "https://www.youtube.com/*",
     "https://cdn.jsdelivr.net/*",
-    "https://pyscript.net/*",
-    "<all_urls>"
+    "https://pyscript.net/*"
   ],
+  "optional_host_permissions": ["<all_urls>"],
   "content_scripts": [
     {
       "matches": ["https://chat.deepseek.com/*"],
