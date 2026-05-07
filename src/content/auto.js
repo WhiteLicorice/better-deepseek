@@ -24,7 +24,7 @@ export async function handleAutoWebFetch(url) {
   try {
     const file = await fetchAndConvertWebPage(url, (status) => {
       console.log(`[BDS:AUTO] Web Fetch Status: ${status}`);
-    });
+    }, { interactive: false });
 
     if (file) {
       injectFileAndSend(file, `<BetterDeepSeek>\n[BDS:AUTO] Web Fetch Result for: ${url}\n</BetterDeepSeek>`);

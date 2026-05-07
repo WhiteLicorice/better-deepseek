@@ -13,6 +13,7 @@ import { fileURLToPath } from "url";
 import { copyFileSync, mkdirSync, existsSync, readdirSync, statSync, readFileSync, writeFileSync } from "fs";
 import { execSync } from "child_process";
 import { zipSync, strToU8 } from "fflate";
+import { transformManifestForTarget } from "./scripts/manifest-utils.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -183,33 +184,8 @@ async function run() {
   // Handle manifest based on target. Android has no extension manifest.
   if (!isAndroid) {
   const manifestPath = resolve(__dirname, "static/manifest.json");
-  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-
-  if (target === "firefox") {
-    // Firefox MV3 specific settings
-    manifest.browser_specific_settings = {
-      gecko: {
-        id: "betterdeepseek@goygoyengine.com",
-        strict_min_version: "109.0",
-        data_collection_permissions: {
-          required: ["none"]
-        }
-      }
-    };
-    
-    // In Firefox MV3, we use 'scripts' because service workers were late to the party.
-    // Since our build format is IIFE, we DON'T set type: "module".
-    if (manifest.background && manifest.background.service_worker) {
-      manifest.background = {
-        scripts: [manifest.background.service_worker]
-      };
-    }
-
-    // Firefox MV3 does not support the 'sandbox' property inside 'content_security_policy'
-    if (manifest.content_security_policy) {
-      delete manifest.content_security_policy.sandbox;
-    }
-  }
+  const baseManifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const manifest = transformManifestForTarget(baseManifest, target);
   
   writeFileSync(
     resolve(distDir, "manifest.json"),

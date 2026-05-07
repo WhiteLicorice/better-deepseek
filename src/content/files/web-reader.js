@@ -7,8 +7,50 @@
 import { Readability } from "@mozilla/readability";
 import TurndownService from "turndown";
 
-export async function fetchAndConvertWebPage(url, onStatus = () => {}) {
+async function ensureWebFetchPermission(url, interactive) {
+  const response = await chrome.runtime.sendMessage({
+    type: "bds-ensure-host-permission",
+    url,
+    interactive,
+  });
+
+  if (response && response.ok) {
+    return;
+  }
+
+  const origin = (() => {
+    try {
+      return new URL(url).origin;
+    } catch {
+      return url;
+    }
+  })();
+
+  if (response?.denied) {
+    throw new Error(
+      `Web Fetch permission was denied for ${origin}. Allow access and try again.`,
+    );
+  }
+
+  if (response?.permissionRequired) {
+    throw new Error(
+      `Web Fetch needs permission to access ${origin}. Try again and approve the permission prompt.`,
+    );
+  }
+
+  throw new Error(response?.error || `Could not get permission for ${origin}.`);
+}
+
+export async function fetchAndConvertWebPage(
+  url,
+  onStatus = () => { },
+  options = {},
+) {
   try {
+    await ensureWebFetchPermission(
+      url,
+      options.interactive !== false,
+    );
     onStatus("Fetching page content...");
     const response = await chrome.runtime.sendMessage({
       type: "bds-fetch-url",

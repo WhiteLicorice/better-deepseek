@@ -42,6 +42,10 @@ function normalizeGetResult(keys) {
 }
 
 export const chromeMock = {
+  permissions: {
+    contains: vi.fn(async () => true),
+    request: vi.fn(async () => true),
+  },
   storage: {
     local: {
       get: vi.fn(async (keys) => normalizeGetResult(keys)),
@@ -86,6 +90,8 @@ export function resetChromeMock() {
   chromeMock.storage.local.clear.mockClear();
   chromeMock.storage.onChanged.addListener.mockClear();
   chromeMock.storage.onChanged.removeListener.mockClear();
+  chromeMock.permissions.contains.mockClear();
+  chromeMock.permissions.request.mockClear();
   chromeMock.runtime.sendMessage.mockClear();
   chromeMock.runtime.getURL.mockClear();
   listeners.clear();

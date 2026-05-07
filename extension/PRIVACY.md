@@ -16,7 +16,8 @@ If you explicitly use the GitHub repository import feature, the Extension may co
 
 **3. Permissions**
 - `storage`: Used solely to save your local extension settings.
-- `host_permissions`: Used to interface with the DeepSeek chat DOM, to allow the "Web Fetch" tool to read sites you explicitly ask it to summarize, and to download GitHub repository archives you explicitly request.
+- `permissions`: Used only to request optional site access at runtime for the "Web Fetch" tool when you explicitly ask the extension to read a site outside its built-in network surfaces.
+- `host_permissions`: Used to interface with the DeepSeek chat DOM and to reach the built-in third-party endpoints required for pricing refreshes, GitHub imports, Twitter OEmbed, YouTube page fetches, and similar explicit network-backed features.
 
 **4. Android App**
 Better DeepSeek is also available as an unofficial Android app that wraps `chat.deepseek.com` inside an Android `WebView`. The Android build reuses the same local-first Better DeepSeek UI and logic, but stores app state through Android's local storage mechanisms instead of browser extension storage.

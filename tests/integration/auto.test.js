@@ -68,6 +68,11 @@ describe("auto integration", () => {
     const sendButton = document.querySelector("button");
 
     expect(readerMocks.fetchAndConvertWebPage).toHaveBeenCalledOnce();
+    expect(readerMocks.fetchAndConvertWebPage).toHaveBeenCalledWith(
+      "https://example.com",
+      expect.any(Function),
+      { interactive: false },
+    );
     expect(input.files).toHaveLength(1);
     expect(editor.value).toContain("Web Fetch Result");
     expect(sendButton.click).toHaveBeenCalledOnce();
