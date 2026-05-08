@@ -6,23 +6,26 @@
     <title>Better DeepSeek Site Access</title>
     <style>
       :root {
-        color-scheme: light;
-        --bds-permission-bg: #f5f7fb;
-        --bds-permission-surface: #ffffff;
-        --bds-permission-border: #000000;
-        --bds-permission-text: #000000;
-        --bds-permission-muted: #475569;
-        --bds-permission-accent: #1e3a8a;
-        --bds-permission-shadow: 4px 4px 0 #000000;
-        font-family:
-          "Inter",
-          "Segoe UI",
-          system-ui,
-          -apple-system,
-          BlinkMacSystemFont,
-          sans-serif;
-        background: var(--bds-permission-bg);
-        color: var(--bds-permission-text);
+        color-scheme: dark;
+        --bds-bg-panel: #1e1f23;
+        --bds-bg-elevated: #2a2b30;
+        --bds-bg-hover: rgba(255, 255, 255, 0.08);
+        --bds-bg-input: #2a2b30;
+        --bds-border: #3a3b3f;
+        --bds-border-hover: #4a4b50;
+        --bds-text-primary: #ececec;
+        --bds-text-secondary: #8e8ea0;
+        --bds-text-tertiary: #6b6b7b;
+        --bds-accent: #5b7bff;
+        --bds-accent-glow: rgba(91, 123, 255, 0.15);
+        --bds-danger: #f87171;
+        --bds-danger-border: rgba(248, 113, 113, 0.35);
+        --bds-radius: 14px;
+        --bds-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.25);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        background: transparent;
+        color: var(--bds-text-primary);
+        -webkit-font-smoothing: antialiased;
       }
 
       * {
@@ -36,41 +39,38 @@
         align-items: center;
         justify-content: center;
         padding: 24px;
-        background:
-          linear-gradient(180deg, rgba(30, 58, 138, 0.08) 0, rgba(30, 58, 138, 0.08) 96px, transparent 96px),
-          var(--bds-permission-bg);
+        background: rgba(0, 0, 0, 0.45);
       }
 
       .bds-card {
         width: min(100%, 460px);
         padding: 28px;
-        border-radius: 0;
-        background: var(--bds-permission-surface);
-        border: 2px solid var(--bds-permission-border);
-        box-shadow: var(--bds-permission-shadow);
+        border-radius: var(--bds-radius);
+        background: var(--bds-bg-panel);
+        border: 1px solid var(--bds-border);
+        box-shadow: var(--bds-shadow);
       }
 
       .bds-eyebrow {
-        margin: 0 0 8px;
-        color: var(--bds-permission-accent);
-        font-size: 11px;
-        font-weight: 900;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
+        margin: 0 0 4px;
+        color: var(--bds-text-tertiary);
+        font-size: 12px;
+        font-weight: 600;
       }
 
       h1 {
-        margin: 0 0 12px;
-        font-size: 32px;
-        line-height: 1.05;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
+        margin: 0 0 14px;
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: -0.3px;
+        color: var(--bds-text-primary);
       }
 
       p {
         margin: 0;
-        line-height: 1.6;
-        color: var(--bds-permission-text);
+        line-height: 1.55;
+        color: var(--bds-text-primary);
+        font-size: 14px;
       }
 
       .bds-origin {
@@ -78,12 +78,12 @@
         display: inline-flex;
         max-width: 100%;
         padding: 8px 12px;
-        border-radius: 0;
-        background: var(--bds-permission-bg);
-        border: 2px solid var(--bds-permission-border);
-        color: var(--bds-permission-accent);
+        border-radius: 8px;
+        background: var(--bds-bg-elevated);
+        border: 1px solid var(--bds-border);
+        color: var(--bds-accent);
         font-size: 12px;
-        font-weight: 800;
+        font-weight: 600;
         word-break: break-all;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
@@ -92,79 +92,93 @@
         margin-top: 18px;
         min-height: 22px;
         font-size: 13px;
-        color: var(--bds-permission-muted);
+        color: var(--bds-text-secondary);
       }
 
       .bds-status[data-state="error"] {
-        color: #991b1b;
+        color: var(--bds-danger);
       }
 
       .bds-status[data-state="success"] {
-        color: #166534;
+        color: #4ade80;
       }
 
       .bds-note {
         margin-top: 18px;
         padding: 14px;
-        border: 2px solid var(--bds-permission-border);
-        background: var(--bds-permission-bg);
-        box-shadow: var(--bds-permission-shadow);
+        border: 1px solid var(--bds-border);
+        border-radius: 10px;
+        background: var(--bds-bg-elevated);
       }
 
       .bds-note-title {
         margin: 0 0 8px;
-        color: var(--bds-permission-accent);
+        color: var(--bds-text-tertiary);
         font-size: 11px;
-        font-weight: 900;
-        letter-spacing: 0.1em;
+        font-weight: 700;
+        letter-spacing: 0.5px;
         text-transform: uppercase;
       }
 
       .bds-note-copy {
         font-size: 12px;
         line-height: 1.55;
+        color: var(--bds-text-secondary);
       }
 
       .bds-actions {
         display: flex;
         justify-content: flex-end;
-        gap: 12px;
+        gap: 10px;
         margin-top: 24px;
       }
 
       .bds-btn {
         appearance: none;
-        border: 2px solid var(--bds-permission-border);
-        border-radius: 0;
-        padding: 11px 16px;
-        font-size: 12px;
-        font-weight: 900;
+        border-radius: 10px;
+        padding: 9px 18px;
+        font-size: 13px;
+        font-weight: 600;
         cursor: pointer;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        box-shadow: var(--bds-permission-shadow);
+        font-family: inherit;
+        transition: all 0.18s ease;
       }
 
       .bds-btn:disabled {
-        opacity: 0.55;
+        opacity: 0.45;
         cursor: not-allowed;
-        box-shadow: none;
       }
 
       .bds-btn-secondary {
-        background: var(--bds-permission-surface);
-        color: var(--bds-permission-text);
+        border: 1px solid var(--bds-border);
+        background: transparent;
+        color: var(--bds-text-primary);
+      }
+
+      .bds-btn-secondary:hover:not(:disabled) {
+        background: var(--bds-bg-hover);
+        border-color: var(--bds-border-hover);
       }
 
       .bds-btn-primary {
-        background: var(--bds-permission-accent);
+        border: none;
+        background: var(--bds-accent);
         color: #ffffff;
       }
 
+      .bds-btn-primary:hover:not(:disabled) {
+        opacity: 0.88;
+      }
+
+      .bds-btn-primary:active:not(:disabled) {
+        transform: scale(0.98);
+      }
+
       .bds-hint {
-        margin-top: 18px;
+        margin-top: 16px;
         font-size: 12px;
-        color: var(--bds-permission-muted);
+        color: var(--bds-text-secondary);
+        line-height: 1.5;
       }
     </style>
   </head>
