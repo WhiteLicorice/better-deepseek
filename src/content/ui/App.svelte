@@ -5,6 +5,7 @@
   import QuestionPanel from "./QuestionPanel.svelte";
   import WebFetchPermissionModal from "./WebFetchPermissionModal.svelte";
   import WhatsNewModal from "./WhatsNewModal.svelte";
+  import SelectionOverlay from "./SelectionOverlay.svelte";
   import {
     checkWebFetchPermissionGrant,
     isDeadObjectAccessError,
@@ -417,9 +418,15 @@
     }
   }
 
+  function handleToggleSelectionMode() {
+    appState.selectionMode = true;
+    closeDrawer();
+  }
+
   onMount(() => {
     window.addEventListener("message", handleWebFetchPermissionWindowMessage);
     window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("bds:toggleSelectionMode", handleToggleSelectionMode);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     chrome.runtime.onMessage.addListener(handleRuntimeWebFetchPermissionMessage);
   });
@@ -427,6 +434,7 @@
   onDestroy(() => {
     window.removeEventListener("message", handleWebFetchPermissionWindowMessage);
     window.removeEventListener("focus", handleWindowFocus);
+    window.removeEventListener("bds:toggleSelectionMode", handleToggleSelectionMode);
     document.removeEventListener("visibilitychange", handleVisibilityChange);
     chrome.runtime.onMessage.removeListener(handleRuntimeWebFetchPermissionMessage);
     cleanupWebFetchPermissionSideEffects();
@@ -451,3 +459,5 @@
 {#if whatsNewPending}
   <WhatsNewModal onDismiss={() => whatsNewPending = false} />
 {/if}
+
+<SelectionOverlay />
