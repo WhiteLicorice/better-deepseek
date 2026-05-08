@@ -14,6 +14,12 @@ describe("manifest permissions", () => {
     expect(manifest.host_permissions).toContain("https://api.github.com/*");
     expect(manifest.host_permissions).not.toContain("<all_urls>");
     expect(manifest.optional_host_permissions).toContain("<all_urls>");
+    expect(manifest.web_accessible_resources[0].resources).toContain(
+      "static/web-fetch-permission.html",
+    );
+    expect(manifest.web_accessible_resources[0].resources).toContain(
+      "static/web-fetch-permission.js",
+    );
   });
 
   it("adds Firefox optional_permissions fallback for optional host permissions", () => {

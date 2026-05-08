@@ -111,17 +111,14 @@ describe("background GitHub commits fetch", () => {
   });
 
   it("requests optional host permission when broad site access is needed", async () => {
-    chrome.permissions.contains.mockResolvedValue(false);
     chrome.permissions.request.mockResolvedValue(true);
 
     const result = await ensureHostPermission("https://example.com/a", true);
 
-    expect(chrome.permissions.contains).toHaveBeenCalledWith({
-      origins: ["https://example.com/*"],
-    });
     expect(chrome.permissions.request).toHaveBeenCalledWith({
       origins: ["https://example.com/*"],
     });
+    expect(chrome.permissions.contains).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       ok: true,
       granted: true,
@@ -131,7 +128,6 @@ describe("background GitHub commits fetch", () => {
   });
 
   it("reports prompt-unavailable when the browser rejects permission requests without user input", async () => {
-    chrome.permissions.contains.mockResolvedValue(false);
     chrome.permissions.request.mockRejectedValue(
       new Error("permissions.request may only be called from a user input handler"),
     );
@@ -145,5 +141,22 @@ describe("background GitHub commits fetch", () => {
       originPattern: "https://example.com/*",
     });
     expect(result.error).toContain("user input handler");
+  });
+
+  it("uses contains-only checks for non-interactive permission probes", async () => {
+    chrome.permissions.contains.mockResolvedValue(false);
+
+    const result = await ensureHostPermission("https://example.com/a", false);
+
+    expect(chrome.permissions.contains).toHaveBeenCalledWith({
+      origins: ["https://example.com/*"],
+    });
+    expect(chrome.permissions.request).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      ok: false,
+      permissionRequired: true,
+      promptUnavailable: true,
+      originPattern: "https://example.com/*",
+    });
   });
 });

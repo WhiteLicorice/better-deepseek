@@ -7,7 +7,10 @@
     fetchGitHubCommits,
     normalizeGitHubCommitCount,
   } from "../files/github-commits.js";
-  import { fetchAndConvertWebPage } from "../files/web-reader.js";
+  import {
+    fetchAndConvertWebPage,
+    isWebFetchPermissionError,
+  } from "../files/web-reader.js";
   import { projectFilesToFile } from "../files/project-file-builder.js";
   import {
     getFilesForProject,
@@ -423,9 +426,38 @@
     webLoading = true;
 
     try {
-      const file = await fetchAndConvertWebPage(webUrl, (status) => {
-        webStatus = status;
-      });
+      let attemptedPermissionRetry = false;
+      let file = null;
+
+      while (!file) {
+        try {
+          file = await fetchAndConvertWebPage(webUrl, (status) => {
+            webStatus = status;
+          });
+        } catch (err) {
+          if (
+            !attemptedPermissionRetry &&
+            isWebFetchPermissionError(err) &&
+            appState.ui?.requestWebFetchPermission
+          ) {
+            attemptedPermissionRetry = true;
+            const granted = await appState.ui.requestWebFetchPermission({
+              url: webUrl,
+              origin: err.origin || webUrl,
+              message:
+                `Better DeepSeek needs permission to access ${err.origin || webUrl} ` +
+                "before Web Fetch can continue.",
+            });
+
+            if (granted) {
+              webStatus = "Retrying with site access...";
+              continue;
+            }
+          }
+
+          throw err;
+        }
+      }
 
       if (file) {
         showWebDialog = false;
