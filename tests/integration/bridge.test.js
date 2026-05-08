@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const scannerMocks = vi.hoisted(() => ({
   findLatestAssistantMessageNode: vi.fn(),
   collectMessageNodes: vi.fn(() => []),
+  scheduleScan: vi.fn(),
 }));
 
 const longWorkMocks = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ describe("bridge integration", () => {
     resetAppState();
     scannerMocks.findLatestAssistantMessageNode.mockReset();
     scannerMocks.collectMessageNodes.mockReset();
+    scannerMocks.scheduleScan.mockReset();
     longWorkMocks.finalizeLongWork.mockReset();
     document.body.innerHTML = "";
     document.head.innerHTML = "";
@@ -76,11 +78,21 @@ describe("bridge integration", () => {
 
     expect(state.network.activeCompletionRequests).toBe(2);
     expect(state.longWork.lastActivityAt).toBeGreaterThan(1);
+    expect(scannerMocks.scheduleScan).not.toHaveBeenCalled();
+  });
+
+  it("schedules a final scan when generation transitions from active to idle", () => {
+    state.network.activeCompletionRequests = 1;
+
+    handleNetworkState({ activeCompletionRequests: 0 });
+
+    expect(scannerMocks.scheduleScan).toHaveBeenCalledOnce();
   });
 
   it("finalizes long work when requests stop and files are pending", () => {
     const node = document.createElement("div");
     node.dataset.bdsLongWorkClosed = "0";
+    state.network.activeCompletionRequests = 1;
     state.longWork.active = true;
     state.longWork.files = new Map([["src/app.js", "console.log(1)"]]);
     scannerMocks.findLatestAssistantMessageNode.mockReturnValue(node);
@@ -88,10 +100,12 @@ describe("bridge integration", () => {
     handleNetworkState({ activeCompletionRequests: 0 });
 
     expect(node.dataset.bdsLongWorkClosed).toBe("1");
+    expect(scannerMocks.scheduleScan).toHaveBeenCalledOnce();
     expect(longWorkMocks.finalizeLongWork).toHaveBeenCalledWith(node);
   });
 
   it("clears stale long work state when the response ends without a finalizable message", () => {
+    state.network.activeCompletionRequests = 1;
     state.ui = {
       showLongWorkOverlay: vi.fn(),
       showToast: vi.fn(),
@@ -104,6 +118,7 @@ describe("bridge integration", () => {
 
     expect(state.longWork.active).toBe(false);
     expect(state.longWork.files.size).toBe(0);
+    expect(scannerMocks.scheduleScan).toHaveBeenCalledOnce();
     expect(state.ui.showLongWorkOverlay).toHaveBeenCalledWith(false);
     expect(state.ui.showToast).toHaveBeenCalled();
   });
