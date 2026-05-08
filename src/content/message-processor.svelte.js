@@ -29,6 +29,16 @@ const messageOverlays = new Map();
 const nodeStates = new WeakMap();
 const userMsgCleaned = new WeakSet();
 const readMessages = new WeakSet();
+const STOP_BUTTON_SELECTOR = [
+  '[aria-label*="stop" i]',
+  '[title*="stop" i]',
+  '[aria-label*="halt" i]',
+  '[title*="halt" i]',
+  ".ds-icon-stop-circle",
+  ".ds-icon-stop",
+  'div[role="button"] svg path[d*="M3 3h10v10H3z"]',
+  'div[role="button"] svg path[d*="M6 6h12v12H6z"]',
+].join(", ");
 
 function getNodeState(node) {
   let s = nodeStates.get(node);
@@ -351,14 +361,12 @@ export function processMessageNode(node) {
  * Uses the presence of the 'Stop Generation' button as a global indicator.
  */
 function isSystemGenerating() {
-  // DeepSeek's Stop button usually has a square icon.
-  const stopButton = document.querySelector(
-    '.ds-icon-stop-circle, ' +
-    '.ds-icon-stop, ' +
-    'div[role="button"] svg path[d*="M3 3h10v10H3z"], ' +
-    'div[role="button"] svg path[d*="M6 6h12v12H6z"]'
-  );
-  return !!stopButton;
+  if (Number(state.network.activeCompletionRequests || 0) > 0) {
+    return true;
+  }
+
+  const stopButton = document.querySelector(STOP_BUTTON_SELECTOR);
+  return Boolean(stopButton);
 }
 
 /**

@@ -1,5 +1,6 @@
 <script>
   import { onMount } from "svelte";
+  import { findChatEditor, robustSend, writeTextToChatEditor } from "../chat-send.js";
   import appState from "../state.js";
 
   let questions = $state([]);
@@ -87,14 +88,15 @@
 
   function attachToPromptBox() {
     if (!panelElement) return;
+    const editor = findChatEditor();
     
     const target = document.querySelector("._75e1990") || 
                    document.querySelector("._6f68655") || 
                    document.querySelector("._77cefa5") || 
                    document.querySelector("._24fad49") || 
                    document.querySelector(".ds-textarea") || 
-                   findTextarea()?.closest(".ds-textarea") ||
-                   findTextarea()?.parentElement;
+                   editor?.closest(".ds-textarea") ||
+                   editor?.parentElement;
 
     if (target) {
       if (panelElement.parentElement !== target) {
@@ -108,12 +110,6 @@
         }
       }
     }
-  }
-
-  function findTextarea() {
-    return document.querySelector("textarea#chat-input") || 
-           document.querySelector(".ds-textarea textarea") || 
-           document.querySelector("textarea");
   }
 
   function prevQuestion() {
@@ -234,55 +230,24 @@
   }
 
   function injectTextIntoDeepSeek(text) {
-    const textarea = findTextarea();
+    const textarea = writeTextToChatEditor(text);
     if (!textarea) {
       if (appState.ui) appState.ui.showToast("Could not find DeepSeek input field.");
       return;
     }
 
-    textarea.value = text;
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-
-    setTimeout(robustSend, 300);
-  }
-
-  function robustSend() {
-    let attempts = 0;
-    const maxAttempts = 50;
-
-    const attempt = () => {
-      attempts++;
-      const buttons = Array.from(document.querySelectorAll('div[role="button"], button'));
-      const sendBtn = buttons.find(b => {
-        const isSend = b.querySelector('svg path[d*="M8.3125"], .ds-icon-send') || 
-                       b.querySelector('svg path[d*="M13.12 19.98"]') ||
-                       b.title === "Send message" || 
-                       b.ariaLabel === "Send Message";
-        const isAttach = b.classList.contains('bds-plus-btn') || b.querySelector('svg line');
-        return isSend && !isAttach;
-      });
-
-      if (sendBtn) {
-        const isDisabled = sendBtn.getAttribute("aria-disabled") === "true" || 
-                           sendBtn.classList.contains("ds-icon-button--disabled");
-        
-        if (!isDisabled) {
-          sendBtn.click();
-          return;
+    robustSend({
+      editor: textarea,
+      initialDelayMs: 300,
+      logPrefix: "[BDS:QUESTION]",
+      onFailure: () => {
+        if (appState.ui) {
+          appState.ui.showToast(
+            "Could not send the answers automatically - please click Send manually.",
+          );
         }
-      }
-
-      if (attempts < maxAttempts) {
-        setTimeout(attempt, 200);
-      } else {
-        const textarea = findTextarea();
-        if (textarea) {
-          textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, keyCode: 13 }));
-        }
-      }
-    };
-
-    attempt();
+      },
+    });
   }
 
   function dismiss() {

@@ -98,7 +98,8 @@ describe("AttachMenu integration", () => {
     );
     projectFileBuilderMocks.projectFilesToFile.mockReset();
     bridgeMocks.pushConfigToPage.mockReset();
-    document.body.innerHTML = '<textarea id="chat-input"></textarea><button title="Send message"></button>';
+    document.body.innerHTML = '<textarea id="chat-input"></textarea><button aria-label="Send"></button>';
+    document.querySelector("button").click = vi.fn();
   });
 
   it("opens the dropdown and triggers native file upload", async () => {
@@ -293,6 +294,7 @@ describe("AttachMenu integration", () => {
     const nativeInput = setupNativeInput();
     const attachedFile = new File(["project"], "project.txt", { type: "text/plain" });
     projectFileBuilderMocks.projectFilesToFile.mockReturnValue(attachedFile);
+    state.settings.autoSubmitVoice = true;
 
     let recognitionInstance;
     window.SpeechRecognition = class {
@@ -319,11 +321,15 @@ describe("AttachMenu integration", () => {
 
     target.querySelector(".bds-mic-btn").click();
     recognitionInstance.onresult?.({
-      results: [[{ transcript: "voice text" }]],
+      results: Object.assign([[{ transcript: "voice text" }]], {
+        0: Object.assign([{ transcript: "voice text" }], { isFinal: true }),
+      }),
     });
     await flushUi();
+    await new Promise((resolve) => setTimeout(resolve, 450));
 
     expect(document.querySelector("#chat-input").value).toBe("voice text");
+    expect(document.querySelector("button").click).toHaveBeenCalledOnce();
     cleanup();
   });
 });

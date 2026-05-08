@@ -31,7 +31,7 @@ function setupAutoDom() {
   document.body.innerHTML = `
     <input type="file" multiple />
     <textarea id="chat-input"></textarea>
-    <button title="Send message"></button>
+    <button aria-label="Send"></button>
   `;
 
   const input = document.querySelector('input[type="file"]');
@@ -208,5 +208,32 @@ describe("auto integration", () => {
 
     expect(document.querySelector('input[type="file"]').files).toHaveLength(1);
     expect(document.querySelector("button").click).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to the Enter key when no send button can be identified", async () => {
+    setupAutoDom();
+    const file = new File(["page"], "page.txt", { type: "text/plain" });
+    readerMocks.fetchAndConvertWebPage.mockResolvedValue(file);
+    const freshState = (await import("../../src/content/state.js")).default;
+    freshState.ui = { showToast: vi.fn() };
+
+    const sendButton = document.querySelector("button");
+    sendButton.removeAttribute("aria-label");
+    const editor = document.querySelector("#chat-input");
+    const enterHandler = vi.fn(() => {
+      editor.value = "";
+    });
+    editor.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        enterHandler();
+      }
+    });
+
+    const { handleAutoWebFetch } = await importAutoModule();
+    await handleAutoWebFetch("https://example.com/fallback");
+    await vi.advanceTimersByTimeAsync(4000);
+
+    expect(enterHandler).toHaveBeenCalledOnce();
+    expect(freshState.ui.showToast).not.toHaveBeenCalled();
   });
 });
