@@ -74,6 +74,16 @@ export const chromeMock = {
   runtime: {
     sendMessage: vi.fn(async () => undefined),
     getURL: vi.fn((path = "") => `${chromeMockState.extensionBaseUrl}${path}`),
+    onMessage: {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      hasListener: vi.fn(() => false),
+    },
+    onInstalled: {
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      hasListener: vi.fn(() => false),
+    },
   },
   tabs: {
     sendMessage: vi.fn((tabId, message, callback) => {
