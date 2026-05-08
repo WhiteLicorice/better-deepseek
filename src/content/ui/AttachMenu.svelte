@@ -16,6 +16,7 @@
     clearActiveFiles,
   } from "../project-manager.js";
   import { pushConfigToPage } from "../bridge.js";
+  import { robustSend, writeTextToChatEditor } from "../chat-send.js";
   import appState from "../state.js";
   import { BRIDGE_EVENTS } from "../../lib/constants.js";
 
@@ -131,12 +132,7 @@
   }
 
   function injectTextIntoDeepSeek(text, isFinal) {
-    // DeepSeek uses a <textarea> or a contenteditable div.
-    // Usually it's #chat-input in modern DeepSeek.
-    const textarea =
-      document.querySelector("textarea#chat-input") ||
-      document.querySelector(".ds-textarea textarea") ||
-      document.querySelector("textarea");
+    const textarea = writeTextToChatEditor(text);
 
     if (!textarea) {
       if (isFinal && appState.ui)
@@ -144,70 +140,21 @@
       return;
     }
 
-    // textarea.value = text;
-    textarea.value = text;
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-
     if (isFinal && appState.settings.autoSubmitVoice) {
-      setTimeout(robustSend, 400);
-    }
-  }
-
-  function robustSend() {
-    // Notify the injected script that this is a voice message
-    window.dispatchEvent(new CustomEvent(BRIDGE_EVENTS.markVoiceMessage));
-
-    let attempts = 0;
-    const maxAttempts = 50;
-
-    const attempt = () => {
-      attempts++;
-      const buttons = Array.from(
-        document.querySelectorAll('div[role="button"], button'),
-      );
-      const sendBtn = buttons.find((b) => {
-        // Match logic from auto.js
-        const isSend =
-          b.querySelector('svg path[d*="M8.3125"], .ds-icon-send') ||
-          b.querySelector('svg path[d*="M13.12 19.98"]') ||
-          b.title === "Send message" ||
-          b.ariaLabel === "Send Message";
-        const isAttach =
-          b.classList.contains("bds-plus-btn") || b.querySelector("svg line");
-        return isSend && !isAttach;
+      window.dispatchEvent(new CustomEvent(BRIDGE_EVENTS.markVoiceMessage));
+      robustSend({
+        editor: textarea,
+        initialDelayMs: 400,
+        logPrefix: "[BDS:VOICE]",
+        onFailure: () => {
+          if (appState.ui) {
+            appState.ui.showToast(
+              "Could not send the voice message automatically - please click Send manually.",
+            );
+          }
+        },
       });
-
-      if (sendBtn) {
-        const isDisabled =
-          sendBtn.getAttribute("aria-disabled") === "true" ||
-          sendBtn.classList.contains("ds-icon-button--disabled");
-
-        if (!isDisabled) {
-          sendBtn.click();
-          return;
-        }
-      }
-
-      if (attempts < maxAttempts) {
-        setTimeout(attempt, 200);
-      } else {
-        // Fallback: Try Enter key on input
-        const textarea =
-          document.querySelector("textarea#chat-input") ||
-          document.querySelector(".ds-textarea textarea");
-        if (textarea) {
-          textarea.dispatchEvent(
-            new KeyboardEvent("keydown", {
-              key: "Enter",
-              bubbles: true,
-              keyCode: 13,
-            }),
-          );
-        }
-      }
-    };
-
-    attempt();
+    }
   }
 
   function toggleMenu(e) {

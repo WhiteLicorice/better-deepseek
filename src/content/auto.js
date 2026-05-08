@@ -10,6 +10,11 @@ import {
 import { fetchGitHubRepo } from "./files/github-reader.js";
 import { fetchTwitterTweet } from "./files/twitter-reader.js";
 import { fetchYouTubeData } from "./files/youtube-reader.js";
+import {
+  findChatEditor,
+  robustSend,
+  writeTextToChatEditor,
+} from "./chat-send.js";
 import appState from "./state.js";
 
 // Keep track of already processing/processed URLs globally so we don't spam
@@ -172,50 +177,26 @@ export async function handleAutoErrorReport(toolName, error, originalCode) {
 }
 
 function injectPureTextAndSend(autoMessage) {
-  // We reuse the logic from injectFileAndSend but skip the file part
-  const editor = document.querySelector('#chat-input, textarea[placeholder], div[contenteditable="true"]');
-  if (editor) {
-    if (editor.tagName.toLowerCase() === 'textarea') {
-      editor.value = autoMessage;
-      editor.dispatchEvent(new Event('input', { bubbles: true }));
-    } else if (editor.isContentEditable) {
-      editor.innerText = autoMessage;
-      editor.dispatchEvent(new Event('input', { bubbles: true }));
+  const editor = writeTextToChatEditor(autoMessage);
+  if (!editor) {
+    console.error("[BDS:AUTO] Could not find chat editor for text injection.");
+    if (appState.ui?.showToast) {
+      appState.ui.showToast("Could not find input field - auto-send aborted.");
     }
+    return;
   }
 
-  // Phase 2: Wait for button and send
-  let attempts = 0;
-  const maxAttempts = 50;
-
-  const attemptSend = () => {
-    attempts++;
-    const buttons = Array.from(document.querySelectorAll('div[role="button"], button'));
-    const sendBtn = buttons.find(b => {
-      const isSend = b.querySelector('svg path[d*="M8.3125"], .ds-icon-send') || b.title === "Send message";
-      const isAttach = b.classList.contains('bds-plus-btn') || b.querySelector('svg line');
-      return isSend && !isAttach;
-    });
-
-    if (sendBtn) {
-      const isDisabled = sendBtn.getAttribute('aria-disabled') === 'true' ||
-        sendBtn.classList.contains('ds-icon-button--disabled');
-
-      if (!isDisabled) {
-        sendBtn.click();
-        console.log(`[BDS:AUTO] Error report sent successfully after ${attempts} attempts.`);
-        return;
+  robustSend({
+    editor,
+    logPrefix: "[BDS:AUTO]",
+    onFailure: () => {
+      if (appState.ui?.showToast) {
+        appState.ui.showToast(
+          "Could not send the message automatically - please click Send manually.",
+        );
       }
-    }
-
-    if (attempts < maxAttempts) {
-      setTimeout(attemptSend, 200);
-    } else {
-      console.error("[BDS:AUTO] Failed to send error report: button stayed disabled or was not found.");
-    }
-  };
-
-  setTimeout(attemptSend, 500);
+    },
+  });
 }
 
 
@@ -223,6 +204,9 @@ function injectFileAndSend(file, autoMessage = "") {
   const nativeInput = document.querySelector('input[type="file"][multiple]');
   if (!nativeInput) {
     console.error("[BDS:AUTO] Could not find native file input.");
+    if (appState.ui?.showToast) {
+      appState.ui.showToast("Could not find file input - auto-send aborted.");
+    }
     return;
   }
 
@@ -237,59 +221,20 @@ function injectFileAndSend(file, autoMessage = "") {
   nativeInput.files = dt.files;
   nativeInput.dispatchEvent(new Event("change", { bubbles: true }));
 
-  // Phase 1: Inject text and file
+  let editor = findChatEditor();
   if (autoMessage) {
-    const editor = document.querySelector('#chat-input, textarea[placeholder], div[contenteditable="true"]');
-    if (editor) {
-      if (editor.tagName.toLowerCase() === 'textarea') {
-        editor.value = autoMessage;
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-      } else if (editor.isContentEditable) {
-        editor.innerText = autoMessage;
-        editor.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-    }
+    editor = writeTextToChatEditor(autoMessage, editor) || editor;
   }
 
-  // Phase 2: Wait for button and send
-  let attempts = 0;
-  const maxAttempts = 50; // 50 * 200ms = 10s max wait
-
-  const attemptSend = () => {
-    attempts++;
-
-    // Find the send button
-    // It usually has an arrow-up icon. We look for a role="button" that isn't the attach button.
-    const buttons = Array.from(document.querySelectorAll('div[role="button"], button'));
-    const sendBtn = buttons.find(b => {
-      const isSend = b.querySelector('svg path[d*="M8.3125"], .ds-icon-send') || b.title === "Send message";
-      const isAttach = b.classList.contains('bds-plus-btn') || b.querySelector('svg line');
-      return isSend && !isAttach;
-    });
-
-    if (sendBtn) {
-      const isDisabled = sendBtn.getAttribute('aria-disabled') === 'true' ||
-        sendBtn.classList.contains('ds-icon-button--disabled');
-
-      if (!isDisabled) {
-        sendBtn.click();
-        console.log(`[BDS:AUTO] Sent successfully after ${attempts} attempts.`);
-        return;
+  robustSend({
+    editor,
+    logPrefix: "[BDS:AUTO]",
+    onFailure: () => {
+      if (appState.ui?.showToast) {
+        appState.ui.showToast(
+          "Could not send the file automatically - please click Send manually.",
+        );
       }
-    }
-
-    if (attempts < maxAttempts) {
-      setTimeout(attemptSend, 200);
-    } else {
-      console.error("[BDS:AUTO] Failed to send: button stayed disabled or was not found.");
-      // Last ditch effort: Try Enter key
-      const editor = document.querySelector('#chat-input, textarea[placeholder], div[contenteditable="true"]');
-      if (editor) {
-        editor.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-      }
-    }
-  };
-
-  // Start polling
-  setTimeout(attemptSend, 500);
+    },
+  });
 }

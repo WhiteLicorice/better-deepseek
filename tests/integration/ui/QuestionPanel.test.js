@@ -14,7 +14,7 @@ describe("QuestionPanel integration", () => {
       <div class="ds-textarea">
         <textarea id="chat-input"></textarea>
       </div>
-      <button title="Send message"></button>
+      <button aria-label="Send"></button>
     `;
     document.querySelector("button").click = vi.fn();
     vi.useFakeTimers();
