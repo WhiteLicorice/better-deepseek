@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   handleAutoGitHubFetch: vi.fn(),
   handleAutoTwitterFetch: vi.fn(),
   handleAutoYouTubeFetch: vi.fn(),
+  resetAutoRequestTurnDedup: vi.fn(),
   mount: vi.fn((component, { target, props }) => {
     const marker = document.createElement("div");
     marker.className = "mock-overlay";
@@ -70,6 +71,7 @@ vi.mock("../../src/content/auto.js", () => ({
   handleAutoGitHubFetch: mocks.handleAutoGitHubFetch,
   handleAutoTwitterFetch: mocks.handleAutoTwitterFetch,
   handleAutoYouTubeFetch: mocks.handleAutoYouTubeFetch,
+  resetAutoRequestTurnDedup: mocks.resetAutoRequestTurnDedup,
 }));
 vi.mock("svelte", async () => {
   const actual = await vi.importActual("svelte");
@@ -222,6 +224,7 @@ describe("message processor integration", () => {
 
     processMessageNode(node);
 
+    expect(mocks.resetAutoRequestTurnDedup).toHaveBeenCalledOnce();
     expect(node.querySelector(".ds-markdown").textContent).toContain("Visible text");
     expect(node.querySelector(".ds-markdown").textContent).not.toContain("Hidden");
   });

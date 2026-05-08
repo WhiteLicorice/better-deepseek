@@ -185,16 +185,59 @@ describe("auto integration", () => {
     expect(document.querySelector('input[type="file"]').files).toHaveLength(0);
   });
 
-  it("prevents duplicate auto requests for the same url", async () => {
-    readerMocks.fetchTwitterTweet.mockResolvedValue(
-      new File(["tweet"], "tweet.md", { type: "text/markdown" }),
+  it("skips duplicate web fetches within one user turn, then allows them again after reset", async () => {
+    const firstFile = new File(["page one"], "page-1.txt", { type: "text/plain" });
+    const secondFile = new File(["page two"], "page-2.txt", { type: "text/plain" });
+    readerMocks.fetchAndConvertWebPage
+      .mockResolvedValueOnce(firstFile)
+      .mockResolvedValueOnce(secondFile);
+    const { handleAutoWebFetch, resetAutoRequestTurnDedup } = await importAutoModule();
+    const freshState = (await import("../../src/content/state.js")).default;
+    freshState.ui = { showToast: vi.fn() };
+
+    await handleAutoWebFetch("https://en.wikipedia.org/wiki/Special:Random");
+    await vi.advanceTimersByTimeAsync(600);
+
+    await handleAutoWebFetch("https://en.wikipedia.org/wiki/Special:Random");
+
+    expect(readerMocks.fetchAndConvertWebPage).toHaveBeenCalledTimes(1);
+    expect(freshState.ui.showToast).toHaveBeenCalledWith(
+      "Skipping duplicate Web Fetch for this prompt. Send another message to fetch it again.",
     );
-    const { handleAutoTwitterFetch } = await importAutoModule();
 
-    await handleAutoTwitterFetch("https://x.com/post/1");
-    await handleAutoTwitterFetch("https://x.com/post/1");
+    resetAutoRequestTurnDedup();
+    await handleAutoWebFetch("https://en.wikipedia.org/wiki/Special:Random");
+    await vi.advanceTimersByTimeAsync(600);
 
-    expect(readerMocks.fetchTwitterTweet).toHaveBeenCalledOnce();
+    expect(readerMocks.fetchAndConvertWebPage).toHaveBeenCalledTimes(2);
+    expect(Array.from(document.querySelector('input[type="file"]').files, (file) => file.name)).toEqual([
+      "page-1.txt",
+      "page-2.txt",
+    ]);
+  });
+
+  it("shows a toast when the same auto web fetch is already in flight", async () => {
+    let resolveFetch;
+    const fetchPromise = new Promise((resolve) => {
+      resolveFetch = resolve;
+    });
+    readerMocks.fetchAndConvertWebPage.mockReturnValue(fetchPromise);
+    const { handleAutoWebFetch } = await importAutoModule();
+    const freshState = (await import("../../src/content/state.js")).default;
+    freshState.ui = { showToast: vi.fn() };
+
+    const firstRequest = handleAutoWebFetch("https://example.com/in-flight");
+    await Promise.resolve();
+    await handleAutoWebFetch("https://example.com/in-flight");
+
+    expect(readerMocks.fetchAndConvertWebPage).toHaveBeenCalledTimes(1);
+    expect(freshState.ui.showToast).toHaveBeenCalledWith(
+      "Already fetching this page. Waiting for the current Web Fetch to finish.",
+    );
+
+    resolveFetch(new File(["page"], "page.txt", { type: "text/plain" }));
+    await firstRequest;
+    await vi.advanceTimersByTimeAsync(600);
   });
 
   it("injects youtube files and triggers send", async () => {

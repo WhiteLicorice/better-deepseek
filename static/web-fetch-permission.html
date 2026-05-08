@@ -6,12 +6,23 @@
     <title>Better DeepSeek Site Access</title>
     <style>
       :root {
-        color-scheme: dark;
-        font-family: "Segoe UI", system-ui, sans-serif;
-        background:
-          radial-gradient(circle at top, rgba(79, 127, 255, 0.32), transparent 52%),
-          linear-gradient(180deg, #0d1119 0%, #111722 100%);
-        color: #f5f7fb;
+        color-scheme: light;
+        --bds-permission-bg: #f5f7fb;
+        --bds-permission-surface: #ffffff;
+        --bds-permission-border: #000000;
+        --bds-permission-text: #000000;
+        --bds-permission-muted: #475569;
+        --bds-permission-accent: #1e3a8a;
+        --bds-permission-shadow: 4px 4px 0 #000000;
+        font-family:
+          "Inter",
+          "Segoe UI",
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: var(--bds-permission-bg);
+        color: var(--bds-permission-text);
       }
 
       * {
@@ -25,36 +36,41 @@
         align-items: center;
         justify-content: center;
         padding: 24px;
+        background:
+          linear-gradient(180deg, rgba(30, 58, 138, 0.08) 0, rgba(30, 58, 138, 0.08) 96px, transparent 96px),
+          var(--bds-permission-bg);
       }
 
       .bds-card {
         width: min(100%, 460px);
         padding: 28px;
-        border-radius: 24px;
-        background: rgba(18, 24, 36, 0.94);
-        border: 1px solid rgba(135, 153, 186, 0.2);
-        box-shadow: 0 28px 60px rgba(0, 0, 0, 0.34);
+        border-radius: 0;
+        background: var(--bds-permission-surface);
+        border: 2px solid var(--bds-permission-border);
+        box-shadow: var(--bds-permission-shadow);
       }
 
       .bds-eyebrow {
         margin: 0 0 8px;
-        color: #9db7ff;
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.08em;
+        color: var(--bds-permission-accent);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.1em;
         text-transform: uppercase;
       }
 
       h1 {
         margin: 0 0 12px;
-        font-size: 30px;
+        font-size: 32px;
         line-height: 1.05;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
       }
 
       p {
         margin: 0;
         line-height: 1.6;
-        color: #dfe6f5;
+        color: var(--bds-permission-text);
       }
 
       .bds-origin {
@@ -62,28 +78,51 @@
         display: inline-flex;
         max-width: 100%;
         padding: 8px 12px;
-        border-radius: 999px;
-        background: rgba(157, 183, 255, 0.12);
-        border: 1px solid rgba(157, 183, 255, 0.2);
-        color: #d7e4ff;
-        font-size: 13px;
-        font-weight: 700;
+        border-radius: 0;
+        background: var(--bds-permission-bg);
+        border: 2px solid var(--bds-permission-border);
+        color: var(--bds-permission-accent);
+        font-size: 12px;
+        font-weight: 800;
         word-break: break-all;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       }
 
       .bds-status {
         margin-top: 18px;
         min-height: 22px;
         font-size: 13px;
-        color: #9aa8c5;
+        color: var(--bds-permission-muted);
       }
 
       .bds-status[data-state="error"] {
-        color: #ffb7b7;
+        color: #991b1b;
       }
 
       .bds-status[data-state="success"] {
-        color: #b7f5c7;
+        color: #166534;
+      }
+
+      .bds-note {
+        margin-top: 18px;
+        padding: 14px;
+        border: 2px solid var(--bds-permission-border);
+        background: var(--bds-permission-bg);
+        box-shadow: var(--bds-permission-shadow);
+      }
+
+      .bds-note-title {
+        margin: 0 0 8px;
+        color: var(--bds-permission-accent);
+        font-size: 11px;
+        font-weight: 900;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      .bds-note-copy {
+        font-size: 12px;
+        line-height: 1.55;
       }
 
       .bds-actions {
@@ -95,34 +134,37 @@
 
       .bds-btn {
         appearance: none;
-        border: 1px solid transparent;
-        border-radius: 12px;
+        border: 2px solid var(--bds-permission-border);
+        border-radius: 0;
         padding: 11px 16px;
-        font-size: 14px;
-        font-weight: 700;
+        font-size: 12px;
+        font-weight: 900;
         cursor: pointer;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        box-shadow: var(--bds-permission-shadow);
       }
 
       .bds-btn:disabled {
         opacity: 0.55;
         cursor: not-allowed;
+        box-shadow: none;
       }
 
       .bds-btn-secondary {
-        background: transparent;
-        color: #d7def0;
-        border-color: rgba(135, 153, 186, 0.24);
+        background: var(--bds-permission-surface);
+        color: var(--bds-permission-text);
       }
 
       .bds-btn-primary {
-        background: linear-gradient(135deg, #4f7fff 0%, #3b63de 100%);
+        background: var(--bds-permission-accent);
         color: #ffffff;
       }
 
       .bds-hint {
         margin-top: 18px;
         font-size: 12px;
-        color: #95a3c0;
+        color: var(--bds-permission-muted);
       }
     </style>
   </head>
@@ -143,6 +185,10 @@
         <button id="bds-allow" class="bds-btn bds-btn-primary" type="button">
           Allow access
         </button>
+      </div>
+      <div class="bds-note">
+        <p class="bds-note-title">Blanket access</p>
+        <p id="bds-note-copy" class="bds-note-copy"></p>
       </div>
       <p class="bds-hint">
         This only grants Better DeepSeek access to the current site. The chat

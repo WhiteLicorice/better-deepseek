@@ -8,6 +8,7 @@
 
   const copyEl = document.getElementById("bds-copy");
   const originEl = document.getElementById("bds-origin");
+  const noteCopyEl = document.getElementById("bds-note-copy");
   const statusEl = document.getElementById("bds-status");
   const allowButton = document.getElementById("bds-allow");
   const cancelButton = document.getElementById("bds-cancel");
@@ -26,6 +27,36 @@
       throw new Error("Only http and https sites can be granted.");
     }
     return `${parsed.protocol}//${parsed.host}/*`;
+  }
+
+  function detectRuntimeTarget() {
+    const userAgent = String(navigator.userAgent || "");
+    if (/android/i.test(userAgent)) {
+      return "android";
+    }
+    if (/firefox\//i.test(userAgent)) {
+      return "firefox";
+    }
+    return "chrome";
+  }
+
+  function buildBroadAccessHint() {
+    const target = detectRuntimeTarget();
+    if (target === "android") {
+      return "";
+    }
+
+    if (target === "firefox") {
+      return (
+        "Tired of granting access for every site? Open about:addons, choose Better DeepSeek, " +
+        "then allow access to all websites. This removes repeated permission prompts for Web Fetch, YouTube Fetch, and other auto-tools."
+      );
+    }
+
+    return (
+      "Tired of granting access for every site? Open chrome://extensions, choose Better DeepSeek, " +
+      "then set Site access to On all sites. This removes repeated permission prompts for Web Fetch, YouTube Fetch, and other auto-tools."
+    );
   }
 
   function setStatus(message, state) {
@@ -99,6 +130,14 @@
   copyEl.textContent =
     `Grant Better DeepSeek access to ${origin} so Web Fetch can read the page ` +
     "and attach it to the chat.";
+  if (noteCopyEl) {
+    const hint = buildBroadAccessHint();
+    if (hint) {
+      noteCopyEl.textContent = hint;
+    } else if (noteCopyEl.parentElement) {
+      noteCopyEl.parentElement.hidden = true;
+    }
+  }
 
   if (!rawUrl) {
     allowButton.disabled = true;

@@ -1,13 +1,14 @@
 <script>
   import appState from "../state.js";
   import { pushConfigToPage } from "../bridge.js";
-  import {
-    STORAGE_KEYS,
-    SYSTEM_PROMPT_TEMPLATE_VERSION,
-    DOWNLOAD_BEHAVIOR_VERSION,
-    DEFAULT_SYSTEM_PROMPT,
-  } from "../../lib/constants.js";
-  import { getActiveProject, updateProject } from "../project-manager.js";
+import {
+  STORAGE_KEYS,
+  SYSTEM_PROMPT_TEMPLATE_VERSION,
+  DOWNLOAD_BEHAVIOR_VERSION,
+  DEFAULT_SYSTEM_PROMPT,
+} from "../../lib/constants.js";
+import { getActiveProject, updateProject } from "../project-manager.js";
+import { getSiteAccessGuide } from "../site-access-hint.js";
 
   let systemPrompt = $state(appState.settings.systemPrompt || "");
   let autoFiles = $state(Boolean(appState.settings.autoDownloadFiles));
@@ -39,6 +40,7 @@
   );
   let tokenPriceDisplay = $state(Boolean(appState.settings.tokenPriceDisplay));
   let advancedOpen = $state(false);
+  const siteAccessGuide = getSiteAccessGuide();
 
   let activeProject = $state(getActiveProject());
   let projectInstructions = $state(activeProject?.customInstructions || "");
@@ -458,6 +460,19 @@
     <p style="font-size: 10px; opacity: 0.5; margin: -8px 0 8px; padding-left: 0;">
       Shows estimated DeepSeek API cost per message and session total. Input/output token prices are used for estimation. Pricing data is fetched dynamically with fallbacks.
     </p>
+
+    {#if siteAccessGuide}
+      <div class="bds-site-access-note">
+        <div class="bds-site-access-note-title">Site access</div>
+        <p class="bds-site-access-note-copy">
+          Tired of granting access for every site? Open
+          <code>{siteAccessGuide.location}</code> and use
+          {siteAccessGuide.pathTail} to {siteAccessGuide.action}. This removes
+          repeated permission prompts for Web Fetch, YouTube Fetch, and other
+          auto-tools.
+        </p>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -504,6 +519,36 @@
   .bds-token-help code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.95em;
+  }
+
+  .bds-site-access-note {
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid #000;
+    background: rgba(30, 58, 138, 0.08);
+    box-shadow: 4px 4px 0 #000;
+  }
+
+  .bds-site-access-note-title {
+    margin: 0 0 6px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #1e3a8a;
+  }
+
+  .bds-site-access-note-copy {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .bds-site-access-note-copy code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95em;
+    color: #dbeafe;
   }
 
   @media (max-width: 560px) {
