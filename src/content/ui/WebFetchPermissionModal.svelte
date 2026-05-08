@@ -58,7 +58,9 @@
         disabled={request.busy}
         aria-label="Close"
       >
-        x
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
       </button>
     </div>
 
@@ -123,39 +125,38 @@
 
 <style>
   .bds-permission-backdrop {
-    --bds-permission-bg: #f5f7fb;
-    --bds-permission-surface: #ffffff;
-    --bds-permission-border: #000000;
-    --bds-permission-text: #000000;
-    --bds-permission-muted: #475569;
-    --bds-permission-accent: #1e3a8a;
-    --bds-permission-shadow: 4px 4px 0 #000000;
     position: fixed;
     inset: 0;
     z-index: 2147483647;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(15, 23, 42, 0.34);
+    background: rgba(0, 0, 0, 0.45);
     padding: 18px;
+    animation: bds-fade-in 0.15s ease;
   }
 
   .bds-permission-modal {
     width: min(92vw, 440px);
-    background: var(--bds-permission-surface);
-    color: var(--bds-permission-text);
-    border: 2px solid var(--bds-permission-border);
-    border-radius: 0;
-    box-shadow: var(--bds-permission-shadow);
+    background: var(--bds-bg-panel, #1e1f23);
+    border: 1px solid var(--bds-border, #3a3b3f);
+    border-radius: var(--bds-radius, 14px);
+    box-shadow: var(--bds-shadow, 0 12px 40px rgba(0,0,0,0.4));
+    color: var(--bds-text-primary, #ececec);
     outline: none;
     overflow: hidden;
-    font-family:
-      "Inter",
-      "Segoe UI",
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    animation: bds-scale-in 0.18s ease;
+  }
+
+  @keyframes bds-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes bds-scale-in {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
   }
 
   .bds-permission-header {
@@ -163,53 +164,53 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 16px;
-    padding: 20px 22px 16px;
-    border-bottom: 2px solid var(--bds-permission-border);
+    padding: 20px 22px 14px;
   }
 
   .bds-permission-eyebrow {
-    font-size: 11px;
-    font-weight: 900;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--bds-permission-accent);
-    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--bds-text-tertiary, #6b6b7b);
+    margin-bottom: 4px;
   }
 
   .bds-permission-header h2 {
     margin: 0;
-    font-size: 22px;
-    line-height: 1.2;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--bds-text-primary, #ececec);
   }
 
   .bds-permission-close {
-    border: 2px solid var(--bds-permission-border);
-    background: var(--bds-permission-surface);
-    color: var(--bds-permission-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--bds-text-tertiary, #6b6b7b);
     cursor: pointer;
-    font-size: 14px;
-    font-weight: 900;
-    line-height: 1;
-    padding: 8px 9px;
-    border-radius: 0;
-    box-shadow: 2px 2px 0 #000000;
-    text-transform: uppercase;
+    padding: 0;
+    transition: all 0.18s ease;
+    margin-top: 2px;
   }
 
   .bds-permission-close:hover:not(:disabled) {
-    transform: translate(-1px, -1px);
+    background: var(--bds-bg-hover, rgba(255,255,255,0.08));
+    color: var(--bds-text-primary, #ececec);
   }
 
   .bds-permission-close:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
-    box-shadow: none;
   }
 
   .bds-permission-body {
-    padding: 20px 22px;
+    padding: 0 22px 4px;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -219,40 +220,40 @@
     margin: 0;
     font-size: 14px;
     line-height: 1.55;
-    color: var(--bds-permission-text);
+    color: var(--bds-text-primary, #ececec);
   }
 
   .bds-permission-origin {
     display: inline-flex;
     align-self: flex-start;
     max-width: 100%;
-    padding: 8px 10px;
-    border-radius: 0;
-    background: var(--bds-permission-bg);
-    border: 2px solid var(--bds-permission-border);
-    color: var(--bds-permission-accent);
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--bds-bg-elevated, #2a2b30);
+    border: 1px solid var(--bds-border, #3a3b3f);
+    color: var(--bds-accent, #5b7bff);
     font-size: 12px;
-    font-weight: 800;
+    font-weight: 600;
     word-break: break-all;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
 
   .bds-permission-error {
-    padding: 12px 13px;
-    background: #fff1f2;
-    border: 2px solid var(--bds-permission-border);
-    box-shadow: 4px 4px 0 #000000;
-    color: #991b1b;
+    padding: 12px 14px;
+    background: rgba(248, 113, 113, 0.1);
+    border: 1px solid var(--bds-danger-border, rgba(248,113,113,0.35));
+    border-radius: 10px;
+    color: var(--bds-danger, #f87171);
     font-size: 13px;
     line-height: 1.5;
   }
 
   .bds-permission-info {
-    padding: 12px 13px;
-    background: #eff6ff;
-    border: 2px solid var(--bds-permission-border);
-    box-shadow: 4px 4px 0 #000000;
-    color: var(--bds-permission-text);
+    padding: 12px 14px;
+    background: var(--bds-accent-glow, rgba(91,123,255,0.15));
+    border: 1px solid var(--bds-border, #3a3b3f);
+    border-radius: 10px;
+    color: var(--bds-text-primary, #ececec);
     font-size: 13px;
     line-height: 1.5;
   }
@@ -261,79 +262,83 @@
     margin: 0;
     font-size: 12px;
     line-height: 1.5;
-    color: var(--bds-permission-muted);
+    color: var(--bds-text-secondary, #8e8ea0);
   }
 
   .bds-permission-note {
     padding: 14px;
-    border: 2px solid var(--bds-permission-border);
-    background: var(--bds-permission-bg);
-    box-shadow: var(--bds-permission-shadow);
+    border: 1px solid var(--bds-border, #3a3b3f);
+    border-radius: 10px;
+    background: var(--bds-bg-elevated, #2a2b30);
   }
 
   .bds-permission-note-title {
     margin: 0 0 8px;
     font-size: 11px;
-    font-weight: 900;
-    letter-spacing: 0.1em;
+    font-weight: 700;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
-    color: var(--bds-permission-accent);
+    color: var(--bds-text-tertiary, #6b6b7b);
   }
 
   .bds-permission-note p {
     margin: 0;
     font-size: 12px;
     line-height: 1.55;
-    color: var(--bds-permission-text);
+    color: var(--bds-text-secondary, #8e8ea0);
   }
 
   .bds-permission-note code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.95em;
-    font-weight: 700;
-    color: var(--bds-permission-accent);
+    font-weight: 600;
+    color: var(--bds-accent, #5b7bff);
   }
 
   .bds-permission-footer {
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    padding: 0 22px 22px;
+    padding: 14px 22px 20px;
   }
 
   .bds-permission-btn {
-    border-radius: 0;
-    padding: 10px 14px;
-    font-size: 12px;
-    font-weight: 900;
+    border-radius: 10px;
+    padding: 9px 18px;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-    border: 2px solid var(--bds-permission-border);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    box-shadow: 4px 4px 0 #000000;
+    font-family: inherit;
+    transition: all 0.18s ease;
   }
 
   .bds-permission-btn:disabled {
-    opacity: 0.55;
+    opacity: 0.45;
     cursor: not-allowed;
-    box-shadow: none;
   }
 
   .bds-permission-btn-secondary {
-    background: var(--bds-permission-surface);
-    color: var(--bds-permission-text);
+    border: 1px solid var(--bds-border, #3a3b3f);
+    background: transparent;
+    color: var(--bds-text-primary, #ececec);
   }
 
   .bds-permission-btn-secondary:hover:not(:disabled) {
-    transform: translate(-2px, -2px);
+    background: var(--bds-bg-hover, rgba(255,255,255,0.08));
+    border-color: var(--bds-border-hover, #4a4b50);
   }
 
   .bds-permission-btn-primary {
-    background: var(--bds-permission-accent);
+    border: none;
+    background: var(--bds-accent, #5b7bff);
     color: #ffffff;
   }
 
   .bds-permission-btn-primary:hover:not(:disabled) {
-    transform: translate(-2px, -2px);
+    opacity: 0.88;
   }
- </style>
+
+  .bds-permission-btn-primary:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+  </style>
