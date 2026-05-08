@@ -85,6 +85,11 @@ export const chromeMock = {
       hasListener: vi.fn(() => false),
     },
   },
+  tabs: {
+    sendMessage: vi.fn((tabId, message, callback) => {
+      callback?.();
+    }),
+  },
 };
 
 export function installChromeMock() {
@@ -110,6 +115,7 @@ export function resetChromeMock() {
   chromeMock.runtime.onInstalled.addListener.mockClear();
   chromeMock.runtime.onInstalled.removeListener.mockClear();
   chromeMock.runtime.onInstalled.hasListener.mockClear();
+  chromeMock.tabs.sendMessage.mockClear();
   listeners.clear();
 }
 

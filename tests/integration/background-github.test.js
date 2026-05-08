@@ -4,9 +4,11 @@ vi.mock("youtube-transcript", () => ({
 }));
 
 import {
+  completeWebFetchPermissionRequest,
   ensureHostPermission,
   fetchGithubCommits,
   normalizeGithubCommitCount,
+  registerWebFetchPermissionRequest,
 } from "../../src/background/index.js";
 
 function createJsonResponse(body, init = {}) {
@@ -25,8 +27,12 @@ describe("background GitHub commits fetch", () => {
     globalThis.fetch = vi.fn();
     chrome.permissions.contains.mockReset();
     chrome.permissions.request.mockReset();
+    chrome.tabs.sendMessage.mockReset();
     chrome.permissions.contains.mockResolvedValue(true);
     chrome.permissions.request.mockResolvedValue(true);
+    chrome.tabs.sendMessage.mockImplementation((_tabId, _message, callback) => {
+      callback?.();
+    });
   });
 
   it("paginates commit history and returns structured commit data", async () => {
@@ -157,6 +163,37 @@ describe("background GitHub commits fetch", () => {
       permissionRequired: true,
       promptUnavailable: true,
       originPattern: "https://example.com/*",
+    });
+  });
+
+  it("relays completed Firefox web-fetch permission requests back to the originating tab", async () => {
+    const registered = registerWebFetchPermissionRequest(
+      "req-1",
+      { tab: { id: 321 } },
+      "https://example.com/article",
+    );
+
+    const result = await completeWebFetchPermissionRequest("req-1", {
+      granted: true,
+      origin: "https://example.com",
+    });
+
+    expect(registered).toBe(true);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(
+      321,
+      {
+        type: "bds-web-fetch-permission-request-complete",
+        requestId: "req-1",
+        granted: true,
+        error: "",
+        origin: "https://example.com",
+        url: "https://example.com/article",
+      },
+      expect.any(Function),
+    );
+    expect(result).toMatchObject({
+      ok: true,
+      tabId: 321,
     });
   });
 });
