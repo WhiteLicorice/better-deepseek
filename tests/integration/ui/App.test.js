@@ -66,7 +66,9 @@ describe("App integration", () => {
       focus: vi.fn(),
     };
     vi.spyOn(window, "open").mockReturnValue(popupWindow);
-    chrome.runtime.sendMessage.mockReset();
+    chrome.runtime.sendMessage
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true, granted: true });
 
     const ui = mountUi();
     const permissionPromise = ui.requestWebFetchPermission({
@@ -88,33 +90,47 @@ describe("App integration", () => {
     expect(document.querySelector(".bds-permission-info").textContent).toContain(
       "permission window was opened",
     );
-    expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      type: "bds-register-web-fetch-permission-request",
+      requestId: expect.any(String),
+      url: "https://example.com/article",
+    });
 
     const helperUrl = new URL(window.open.mock.calls[0][0]);
     const requestId = helperUrl.searchParams.get("requestId");
     expect(helperUrl.searchParams.get("returnOrigin")).toBe("http://localhost:3000");
     expect(requestId).toBeTruthy();
 
-    window.dispatchEvent(new MessageEvent("message", {
-      data: {
-        type: "bds:web-fetch-permission-result",
+    const runtimeListener = chrome.runtime.onMessage.addListener.mock.calls.at(-1)[0];
+    runtimeListener(
+      {
+        type: "bds-web-fetch-permission-request-complete",
         requestId: "wrong-request",
         granted: true,
       },
-    }));
+      {},
+      () => {},
+    );
     await flushUi();
     expect(document.querySelector(".bds-permission-modal")).not.toBeNull();
 
-    window.dispatchEvent(new MessageEvent("message", {
-      data: {
-        type: "bds:web-fetch-permission-result",
+    runtimeListener(
+      {
+        type: "bds-web-fetch-permission-request-complete",
         requestId,
         granted: true,
       },
-    }));
+      {},
+      () => {},
+    );
     await flushUi();
 
     await expect(permissionPromise).resolves.toBe(true);
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      type: "bds-ensure-host-permission",
+      url: "https://example.com/article",
+      interactive: false,
+    });
     expect(popupWindow.close).toHaveBeenCalledOnce();
     expect(document.querySelector(".bds-permission-modal")).toBeNull();
   });
@@ -157,10 +173,9 @@ describe("App integration", () => {
       focus: vi.fn(),
     };
     vi.spyOn(window, "open").mockReturnValue(popupWindow);
-    chrome.runtime.sendMessage.mockResolvedValueOnce({
-      ok: true,
-      granted: true,
-    });
+    chrome.runtime.sendMessage
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true, granted: true });
 
     const ui = mountUi();
     const permissionPromise = ui.requestWebFetchPermission({

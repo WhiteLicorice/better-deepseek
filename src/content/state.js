@@ -7,6 +7,12 @@
 
 import { DEFAULT_SETTINGS, EMBEDDED_PRICING, CHARS_PER_TOKEN } from "../lib/constants.js";
 
+const CHAT_OBSERVER_OPTIONS = {
+  subtree: true,
+  childList: true,
+  characterData: true,
+};
+
 const state = {
   settings: { ...DEFAULT_SETTINGS },
   embeddedPricing: EMBEDDED_PRICING,
@@ -76,7 +82,7 @@ export function withObserverPaused(fn) {
     return fn();
   } finally {
     if (observer && document.body) {
-      observer.observe(document.body, { subtree: true, childList: true });
+      observer.observe(document.body, CHAT_OBSERVER_OPTIONS);
     }
   }
 }

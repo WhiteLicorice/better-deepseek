@@ -1,5 +1,14 @@
 import { fetchTranscript } from "youtube-transcript";
 
+const WEB_FETCH_PERMISSION_REGISTER_MESSAGE_TYPE =
+  "bds-register-web-fetch-permission-request";
+const WEB_FETCH_PERMISSION_COMPLETE_MESSAGE_TYPE =
+  "bds-complete-web-fetch-permission-request";
+const WEB_FETCH_PERMISSION_RELAY_MESSAGE_TYPE =
+  "bds-web-fetch-permission-request-complete";
+
+const pendingWebFetchPermissionRequests = new Map();
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !message.type) return false;
 
@@ -62,6 +71,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === WEB_FETCH_PERMISSION_REGISTER_MESSAGE_TYPE) {
+    registerWebFetchPermissionRequest(message.requestId, sender, message.url);
+    sendResponse({ ok: true });
+    return false;
+  }
+
+  if (message.type === WEB_FETCH_PERMISSION_COMPLETE_MESSAGE_TYPE) {
+    completeWebFetchPermissionRequest(message.requestId, {
+      granted: Boolean(message.granted),
+      error: String(message.error || "").trim(),
+      origin: String(message.origin || "").trim(),
+    })
+      .then((result) => {
+        sendResponse(result);
+      })
+      .catch((error) => {
+        sendResponse({
+          ok: false,
+          error: String(error && error.message ? error.message : error),
+        });
+      });
+    return true;
+  }
+
   return false;
 });
 
@@ -91,6 +124,67 @@ function createGithubFetchError(message, options = {}) {
     error.authRejected = true;
   }
   return error;
+}
+
+function sendRuntimeMessageToTab(tabId, message) {
+  const tabsApi = chrome && chrome.tabs ? chrome.tabs : null;
+  if (!tabsApi || typeof tabsApi.sendMessage !== "function") {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      tabsApi.sendMessage(tabId, message, () => {
+        const runtimeError = chrome.runtime && chrome.runtime.lastError;
+        if (runtimeError) {
+          reject(new Error(runtimeError.message));
+          return;
+        }
+        resolve(true);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+export function registerWebFetchPermissionRequest(requestId, sender, url) {
+  const safeRequestId = String(requestId || "").trim();
+  const tabId = sender && sender.tab && Number.isFinite(sender.tab.id)
+    ? Number(sender.tab.id)
+    : null;
+
+  if (!safeRequestId || tabId === null) {
+    return false;
+  }
+
+  pendingWebFetchPermissionRequests.set(safeRequestId, {
+    tabId,
+    url: String(url || "").trim(),
+    createdAt: Date.now(),
+  });
+  return true;
+}
+
+export async function completeWebFetchPermissionRequest(requestId, payload = {}) {
+  const safeRequestId = String(requestId || "").trim();
+  const request = pendingWebFetchPermissionRequests.get(safeRequestId);
+  if (!request) {
+    return { ok: false, missingRequest: true };
+  }
+
+  pendingWebFetchPermissionRequests.delete(safeRequestId);
+
+  await sendRuntimeMessageToTab(request.tabId, {
+    type: WEB_FETCH_PERMISSION_RELAY_MESSAGE_TYPE,
+    requestId: safeRequestId,
+    granted: Boolean(payload.granted),
+    error: String(payload.error || "").trim(),
+    origin: String(payload.origin || "").trim(),
+    url: request.url,
+  });
+
+  return { ok: true, tabId: request.tabId };
 }
 
 function buildOriginPermissionPattern(url) {

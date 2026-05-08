@@ -4,6 +4,7 @@
   const requestId = String(params.get("requestId") || "").trim();
   const returnOrigin = String(params.get("returnOrigin") || "").trim() || "*";
   const RESULT_MESSAGE_TYPE = "bds:web-fetch-permission-result";
+  const COMPLETE_MESSAGE_TYPE = "bds-complete-web-fetch-permission-request";
 
   const copyEl = document.getElementById("bds-copy");
   const originEl = document.getElementById("bds-origin");
@@ -49,6 +50,23 @@
     } catch {
       // Ignore cross-window notification failures. The opener has a focus
       // fallback that rechecks the granted permission when the popup closes.
+    }
+  }
+
+  async function notifyExtension(payload) {
+    if (!chrome.runtime || typeof chrome.runtime.sendMessage !== "function") {
+      return;
+    }
+
+    try {
+      await chrome.runtime.sendMessage({
+        type: COMPLETE_MESSAGE_TYPE,
+        requestId,
+        ...payload,
+      });
+    } catch {
+      // Ignore runtime relay failures. The opener still has postMessage and
+      // focus/visibility fallbacks for the same request.
     }
   }
 
@@ -98,10 +116,12 @@
   }
 
   cancelButton.addEventListener("click", () => {
-    notifyOpener({
+    const payload = {
       granted: false,
       error: `Permission request was cancelled for ${origin}.`,
-    });
+    };
+    void notifyExtension(payload);
+    notifyOpener(payload);
     window.close();
   });
 
@@ -114,28 +134,34 @@
       const granted = await requestPermission(originPattern);
       if (!granted) {
         setStatus(`Permission was not granted for ${origin}.`, "error");
-        notifyOpener({
+        const payload = {
           granted: false,
           error: `Permission was not granted for ${origin}.`,
-        });
+        };
+        void notifyExtension(payload);
+        notifyOpener(payload);
         return;
       }
 
       setStatus("Access granted. Returning to Better DeepSeek...", "success");
-      notifyOpener({
+      const payload = {
         granted: true,
         origin,
-      });
+      };
+      void notifyExtension(payload);
+      notifyOpener(payload);
       window.setTimeout(() => {
         window.close();
       }, 180);
     } catch (error) {
       const message = String(error && error.message ? error.message : error);
       setStatus(message, "error");
-      notifyOpener({
+      const payload = {
         granted: false,
         error: message,
-      });
+      };
+      void notifyExtension(payload);
+      notifyOpener(payload);
     } finally {
       if (statusEl.dataset.state !== "success") {
         allowButton.disabled = false;

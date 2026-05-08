@@ -4,6 +4,12 @@ const WEB_FETCH_PERMISSION_WINDOW_FEATURES =
   "popup=yes,width=480,height=720,resizable=yes,scrollbars=yes";
 export const WEB_FETCH_PERMISSION_WINDOW_MESSAGE_TYPE =
   "bds:web-fetch-permission-result";
+export const WEB_FETCH_PERMISSION_REGISTER_MESSAGE_TYPE =
+  "bds-register-web-fetch-permission-request";
+export const WEB_FETCH_PERMISSION_COMPLETE_MESSAGE_TYPE =
+  "bds-complete-web-fetch-permission-request";
+export const WEB_FETCH_PERMISSION_RELAY_MESSAGE_TYPE =
+  "bds-web-fetch-permission-request-complete";
 
 export function isFirefoxPermissionWindowFlow() {
   return (process.env.BDS_TARGET || "chrome") === "firefox";

@@ -10,8 +10,13 @@
     isFirefoxPermissionWindowFlow,
     isWebFetchPermissionWindowMessage,
     openWebFetchPermissionWindow,
+    WEB_FETCH_PERMISSION_REGISTER_MESSAGE_TYPE,
+    WEB_FETCH_PERMISSION_RELAY_MESSAGE_TYPE,
   } from "../web-fetch-permission.js";
   import appState from "../state.js";
+
+  const WEB_FETCH_PERMISSION_RECHECK_INTERVAL_MS = 180;
+  const WEB_FETCH_PERMISSION_RECHECK_MAX_ATTEMPTS = 30;
 
   let drawerOpen = $state(false);
   let whatsNewPending = $state(appState.whatsNewPending);
@@ -19,6 +24,7 @@
   let webFetchPermissionResolver = null;
   let webFetchPermissionPopup = null;
   let webFetchPermissionRequestCounter = 0;
+  let webFetchPermissionRecheckTimer = 0;
 
   /** @type {Array<{id: number, message: string}>} */
   let toasts = $state([]);
@@ -112,6 +118,11 @@
   }
 
   function cleanupWebFetchPermissionSideEffects() {
+    if (webFetchPermissionRecheckTimer) {
+      clearTimeout(webFetchPermissionRecheckTimer);
+      webFetchPermissionRecheckTimer = 0;
+    }
+
     if (webFetchPermissionPopup && !webFetchPermissionPopup.closed) {
       try {
         webFetchPermissionPopup.close();
@@ -137,9 +148,22 @@
     resolveWebFetchPermissionRequest(false);
   }
 
-  async function recheckAwaitingWebFetchPermissionRequest() {
+  function failWebFetchPermissionRequest(currentRequest, errorMessage) {
+    cleanupWebFetchPermissionSideEffects();
+    webFetchPermissionRequest = {
+      ...currentRequest,
+      busy: false,
+      awaitingExternalGrant: false,
+      errorMessage,
+    };
+  }
+
+  async function runWebFetchPermissionRecheck(requestId, attempt = 0) {
     const currentRequest = webFetchPermissionRequest;
-    if (!currentRequest?.awaitingExternalGrant) {
+    if (
+      !currentRequest?.awaitingExternalGrant ||
+      currentRequest.requestId !== requestId
+    ) {
       return;
     }
 
@@ -149,31 +173,44 @@
         resolveWebFetchPermissionRequest(true);
         return;
       }
-
-      if (
-        webFetchPermissionPopup &&
-        webFetchPermissionPopup.closed &&
-        webFetchPermissionRequest?.requestId === currentRequest.requestId
-      ) {
-        cleanupWebFetchPermissionSideEffects();
-        webFetchPermissionRequest = {
-          ...currentRequest,
-          busy: false,
-          awaitingExternalGrant: false,
-          errorMessage:
-            `Permission was not granted for ${currentRequest.origin}. ` +
-            "Reopen the permission window and approve the browser prompt to continue.",
-        };
-      }
     } catch (error) {
-      cleanupWebFetchPermissionSideEffects();
-      webFetchPermissionRequest = {
-        ...currentRequest,
-        busy: false,
-        awaitingExternalGrant: false,
-        errorMessage: String(error?.message || error),
-      };
+      failWebFetchPermissionRequest(
+        currentRequest,
+        String(error?.message || error),
+      );
+      return;
     }
+
+    const popupClosed = Boolean(
+      webFetchPermissionPopup && webFetchPermissionPopup.closed,
+    );
+    if (popupClosed && attempt >= WEB_FETCH_PERMISSION_RECHECK_MAX_ATTEMPTS) {
+      failWebFetchPermissionRequest(
+        currentRequest,
+        `Permission was not granted for ${currentRequest.origin}. ` +
+          "Reopen the permission window and approve the browser prompt to continue.",
+      );
+      return;
+    }
+
+    if (webFetchPermissionRecheckTimer) {
+      clearTimeout(webFetchPermissionRecheckTimer);
+    }
+    webFetchPermissionRecheckTimer = window.setTimeout(() => {
+      webFetchPermissionRecheckTimer = 0;
+      void runWebFetchPermissionRecheck(requestId, attempt + 1);
+    }, WEB_FETCH_PERMISSION_RECHECK_INTERVAL_MS);
+  }
+
+  function beginWebFetchPermissionRecheck(requestId) {
+    if (!requestId) {
+      return;
+    }
+    if (webFetchPermissionRecheckTimer) {
+      clearTimeout(webFetchPermissionRecheckTimer);
+      webFetchPermissionRecheckTimer = 0;
+    }
+    void runWebFetchPermissionRecheck(requestId, 0);
   }
 
   function handleWebFetchPermissionWindowMessage(event) {
@@ -191,22 +228,55 @@
     }
 
     if (data.granted) {
-      resolveWebFetchPermissionRequest(true);
+      beginWebFetchPermissionRecheck(data.requestId);
       return;
     }
 
-    cleanupWebFetchPermissionSideEffects();
-    webFetchPermissionRequest = {
-      ...webFetchPermissionRequest,
-      busy: false,
-      awaitingExternalGrant: false,
-      errorMessage:
-        String(data.error || "").trim() ||
+    failWebFetchPermissionRequest(
+      webFetchPermissionRequest,
+      String(data.error || "").trim() ||
         `Permission was not granted for ${webFetchPermissionRequest.origin}.`,
-    };
+    );
+  }
+
+  function handleRuntimeWebFetchPermissionMessage(message) {
+    if (!webFetchPermissionRequest) {
+      return false;
+    }
+
+    if (message?.type !== WEB_FETCH_PERMISSION_RELAY_MESSAGE_TYPE) {
+      return false;
+    }
+
+    if (message.requestId !== webFetchPermissionRequest.requestId) {
+      return false;
+    }
+
+    if (message.granted) {
+      beginWebFetchPermissionRecheck(message.requestId);
+      return false;
+    }
+
+    failWebFetchPermissionRequest(
+      webFetchPermissionRequest,
+      String(message.error || "").trim() ||
+        `Permission was not granted for ${webFetchPermissionRequest.origin}.`,
+    );
+    return false;
   }
 
   async function startExternalWebFetchPermissionFlow(currentRequest) {
+    try {
+      await chrome.runtime.sendMessage({
+        type: WEB_FETCH_PERMISSION_REGISTER_MESSAGE_TYPE,
+        requestId: currentRequest.requestId,
+        url: currentRequest.url,
+      });
+    } catch {
+      // The helper window still has postMessage/focus fallbacks if background
+      // request registration is unavailable.
+    }
+
     const popupWindow = openWebFetchPermissionWindow(currentRequest.url, {
       requestId: currentRequest.requestId,
       returnOrigin: window.location.origin,
@@ -298,12 +368,17 @@
   }
 
   function handleWindowFocus() {
-    void recheckAwaitingWebFetchPermissionRequest();
+    if (webFetchPermissionRequest?.awaitingExternalGrant) {
+      beginWebFetchPermissionRecheck(webFetchPermissionRequest.requestId);
+    }
   }
 
   function handleVisibilityChange() {
-    if (document.visibilityState === "visible") {
-      void recheckAwaitingWebFetchPermissionRequest();
+    if (
+      document.visibilityState === "visible" &&
+      webFetchPermissionRequest?.awaitingExternalGrant
+    ) {
+      beginWebFetchPermissionRecheck(webFetchPermissionRequest.requestId);
     }
   }
 
@@ -311,12 +386,14 @@
     window.addEventListener("message", handleWebFetchPermissionWindowMessage);
     window.addEventListener("focus", handleWindowFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    chrome.runtime.onMessage.addListener(handleRuntimeWebFetchPermissionMessage);
   });
 
   onDestroy(() => {
     window.removeEventListener("message", handleWebFetchPermissionWindowMessage);
     window.removeEventListener("focus", handleWindowFocus);
     document.removeEventListener("visibilitychange", handleVisibilityChange);
+    chrome.runtime.onMessage.removeListener(handleRuntimeWebFetchPermissionMessage);
     cleanupWebFetchPermissionSideEffects();
   });
 </script>

@@ -11,6 +11,12 @@ import AttachMenu from "./ui/AttachMenu.svelte";
 import { injectSearchInput } from "./ui/SidebarSearch.js";
 import { checkPendingExport } from "./tools/pending-export.js";
 
+const CHAT_OBSERVER_OPTIONS = {
+  subtree: true,
+  childList: true,
+  characterData: true,
+};
+
 /**
  * Collect all message nodes from the chat DOM.
  */
@@ -102,17 +108,18 @@ export function observeChatDom() {
 
   state.observer = new MutationObserver((records) => {
     for (const r of records) {
-      if (r.addedNodes.length || r.removedNodes.length) {
+      if (
+        r.type === "characterData" ||
+        r.addedNodes.length ||
+        r.removedNodes.length
+      ) {
         scheduleScan();
         return;
       }
     }
   });
 
-  state.observer.observe(document.body, {
-    subtree: true,
-    childList: true,
-  });
+  state.observer.observe(document.body, CHAT_OBSERVER_OPTIONS);
 }
 
 /**
@@ -341,5 +348,9 @@ export function startUrlWatcher() {
   window.addEventListener("focus", () => {
     scheduleScan();
   });
+}
+
+export function getChatObserverOptions() {
+  return { ...CHAT_OBSERVER_OPTIONS };
 }
 
