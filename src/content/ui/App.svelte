@@ -14,6 +14,7 @@
     WEB_FETCH_PERMISSION_REGISTER_MESSAGE_TYPE,
     WEB_FETCH_PERMISSION_RELAY_MESSAGE_TYPE,
   } from "../web-fetch-permission.js";
+  import SelectionOverlay from "./SelectionOverlay.svelte";
   import appState from "../state.js";
 
   const WEB_FETCH_PERMISSION_RECHECK_INTERVAL_MS = 500;
@@ -431,6 +432,12 @@
     chrome.runtime.onMessage.removeListener(handleRuntimeWebFetchPermissionMessage);
     cleanupWebFetchPermissionSideEffects();
   });
+
+  // Handle external selection mode toggle
+  window.addEventListener("bds:toggleSelectionMode", () => {
+    appState.selectionMode = true;
+    closeDrawer();
+  });
 </script>
 
 <button id="bds-toggle" type="button" onclick={toggleDrawer}>BDS</button>
@@ -451,3 +458,5 @@
 {#if whatsNewPending}
   <WhatsNewModal onDismiss={() => whatsNewPending = false} />
 {/if}
+
+<SelectionOverlay />

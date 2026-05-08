@@ -11,6 +11,7 @@ import { mount } from "svelte";
 import AttachMenu from "./ui/AttachMenu.svelte";
 import { injectSearchInput } from "./ui/SidebarSearch.js";
 import { checkPendingExport } from "./tools/pending-export.js";
+import { hideTagsInSidebar, hideTagsInHeader } from "./tags/tag-hider.js";
 
 const CHAT_OBSERVER_OPTIONS = {
   subtree: true,
@@ -166,6 +167,8 @@ function scanPage() {
     linkifyNewChatButton();
     injectSearchInput();
     scanInputArea();
+    hideTagsInSidebar();
+    hideTagsInHeader();
   });
 }
 
