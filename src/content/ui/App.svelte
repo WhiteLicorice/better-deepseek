@@ -1,14 +1,15 @@
 <script>
-  import { onDestroy } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import Drawer from "./Drawer.svelte";
   import ToastStack from "./ToastStack.svelte";
   import QuestionPanel from "./QuestionPanel.svelte";
   import WebFetchPermissionModal from "./WebFetchPermissionModal.svelte";
   import WhatsNewModal from "./WhatsNewModal.svelte";
   import {
+    checkWebFetchPermissionGrant,
     isFirefoxPermissionWindowFlow,
+    isWebFetchPermissionWindowMessage,
     openWebFetchPermissionWindow,
-    waitForWebFetchPermissionGrant,
   } from "../web-fetch-permission.js";
   import appState from "../state.js";
 
@@ -16,8 +17,8 @@
   let whatsNewPending = $state(appState.whatsNewPending);
   let webFetchPermissionRequest = $state(null);
   let webFetchPermissionResolver = null;
-  let webFetchPermissionAbortController = null;
   let webFetchPermissionPopup = null;
+  let webFetchPermissionRequestCounter = 0;
 
   /** @type {Array<{id: number, message: string}>} */
   let toasts = $state([]);
@@ -54,6 +55,7 @@
     return new Promise((resolve) => {
       webFetchPermissionResolver = resolve;
       webFetchPermissionRequest = {
+        requestId: createWebFetchPermissionRequestId(),
         url: safeUrl,
         origin,
         message,
@@ -62,6 +64,11 @@
         awaitingExternalGrant: false,
       };
     });
+  }
+
+  function createWebFetchPermissionRequestId() {
+    webFetchPermissionRequestCounter += 1;
+    return `bds-web-fetch-${Date.now()}-${webFetchPermissionRequestCounter}`;
   }
 
   // Settings/skills/memories refresh — forwarded to Drawer
@@ -105,11 +112,6 @@
   }
 
   function cleanupWebFetchPermissionSideEffects() {
-    if (webFetchPermissionAbortController) {
-      webFetchPermissionAbortController.abort();
-      webFetchPermissionAbortController = null;
-    }
-
     if (webFetchPermissionPopup && !webFetchPermissionPopup.closed) {
       try {
         webFetchPermissionPopup.close();
@@ -135,8 +137,80 @@
     resolveWebFetchPermissionRequest(false);
   }
 
+  async function recheckAwaitingWebFetchPermissionRequest() {
+    const currentRequest = webFetchPermissionRequest;
+    if (!currentRequest?.awaitingExternalGrant) {
+      return;
+    }
+
+    try {
+      const granted = await checkWebFetchPermissionGrant(currentRequest.url);
+      if (granted) {
+        resolveWebFetchPermissionRequest(true);
+        return;
+      }
+
+      if (
+        webFetchPermissionPopup &&
+        webFetchPermissionPopup.closed &&
+        webFetchPermissionRequest?.requestId === currentRequest.requestId
+      ) {
+        cleanupWebFetchPermissionSideEffects();
+        webFetchPermissionRequest = {
+          ...currentRequest,
+          busy: false,
+          awaitingExternalGrant: false,
+          errorMessage:
+            `Permission was not granted for ${currentRequest.origin}. ` +
+            "Reopen the permission window and approve the browser prompt to continue.",
+        };
+      }
+    } catch (error) {
+      cleanupWebFetchPermissionSideEffects();
+      webFetchPermissionRequest = {
+        ...currentRequest,
+        busy: false,
+        awaitingExternalGrant: false,
+        errorMessage: String(error?.message || error),
+      };
+    }
+  }
+
+  function handleWebFetchPermissionWindowMessage(event) {
+    if (!webFetchPermissionRequest) {
+      return;
+    }
+
+    const data = event?.data;
+    if (!isWebFetchPermissionWindowMessage(data)) {
+      return;
+    }
+
+    if (data.requestId !== webFetchPermissionRequest.requestId) {
+      return;
+    }
+
+    if (data.granted) {
+      resolveWebFetchPermissionRequest(true);
+      return;
+    }
+
+    cleanupWebFetchPermissionSideEffects();
+    webFetchPermissionRequest = {
+      ...webFetchPermissionRequest,
+      busy: false,
+      awaitingExternalGrant: false,
+      errorMessage:
+        String(data.error || "").trim() ||
+        `Permission was not granted for ${webFetchPermissionRequest.origin}.`,
+    };
+  }
+
   async function startExternalWebFetchPermissionFlow(currentRequest) {
-    const popupWindow = openWebFetchPermissionWindow(currentRequest.url);
+    const popupWindow = openWebFetchPermissionWindow(currentRequest.url, {
+      requestId: currentRequest.requestId,
+      returnOrigin: window.location.origin,
+    });
     if (!popupWindow) {
       webFetchPermissionRequest = {
         ...currentRequest,
@@ -151,8 +225,6 @@
 
     cleanupWebFetchPermissionSideEffects();
 
-    const abortController = new AbortController();
-    webFetchPermissionAbortController = abortController;
     webFetchPermissionPopup = popupWindow;
     webFetchPermissionRequest = {
       ...currentRequest,
@@ -160,48 +232,6 @@
       awaitingExternalGrant: true,
       errorMessage: "",
     };
-
-    try {
-      const granted = await waitForWebFetchPermissionGrant(currentRequest.url, {
-        popupWindow,
-        signal: abortController.signal,
-      });
-
-      if (abortController.signal.aborted) {
-        return;
-      }
-
-      if (granted) {
-        resolveWebFetchPermissionRequest(true);
-        return;
-      }
-
-      if (webFetchPermissionRequest?.url !== currentRequest.url) {
-        return;
-      }
-
-      cleanupWebFetchPermissionSideEffects();
-      webFetchPermissionRequest = {
-        ...currentRequest,
-        busy: false,
-        awaitingExternalGrant: false,
-        errorMessage:
-          `Permission was not granted for ${currentRequest.origin}. ` +
-          "Reopen the permission window and approve the browser prompt to continue.",
-      };
-    } catch (error) {
-      if (abortController.signal.aborted) {
-        return;
-      }
-
-      cleanupWebFetchPermissionSideEffects();
-      webFetchPermissionRequest = {
-        ...currentRequest,
-        busy: false,
-        awaitingExternalGrant: false,
-        errorMessage: String(error?.message || error),
-      };
-    }
   }
 
   async function confirmWebFetchPermissionRequest() {
@@ -267,7 +297,26 @@
     }
   }
 
+  function handleWindowFocus() {
+    void recheckAwaitingWebFetchPermissionRequest();
+  }
+
+  function handleVisibilityChange() {
+    if (document.visibilityState === "visible") {
+      void recheckAwaitingWebFetchPermissionRequest();
+    }
+  }
+
+  onMount(() => {
+    window.addEventListener("message", handleWebFetchPermissionWindowMessage);
+    window.addEventListener("focus", handleWindowFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+  });
+
   onDestroy(() => {
+    window.removeEventListener("message", handleWebFetchPermissionWindowMessage);
+    window.removeEventListener("focus", handleWindowFocus);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
     cleanupWebFetchPermissionSideEffects();
   });
 </script>

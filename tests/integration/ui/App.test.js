@@ -57,7 +57,6 @@ describe("App integration", () => {
   });
 
   it("uses the Firefox extension permission window flow and resolves after access is granted", async () => {
-    vi.useFakeTimers();
     process.env.BDS_TARGET = "firefox";
     const popupWindow = {
       closed: false,
@@ -67,16 +66,7 @@ describe("App integration", () => {
       focus: vi.fn(),
     };
     vi.spyOn(window, "open").mockReturnValue(popupWindow);
-    chrome.runtime.sendMessage
-      .mockResolvedValueOnce({
-        ok: false,
-        permissionRequired: true,
-        promptUnavailable: true,
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        granted: true,
-      });
+    chrome.runtime.sendMessage.mockReset();
 
     const ui = mountUi();
     const permissionPromise = ui.requestWebFetchPermission({
@@ -98,13 +88,30 @@ describe("App integration", () => {
     expect(document.querySelector(".bds-permission-info").textContent).toContain(
       "permission window was opened",
     );
-    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
-      type: "bds-ensure-host-permission",
-      url: "https://example.com/article",
-      interactive: false,
-    });
+    expect(chrome.runtime.sendMessage).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(301);
+    const helperUrl = new URL(window.open.mock.calls[0][0]);
+    const requestId = helperUrl.searchParams.get("requestId");
+    expect(helperUrl.searchParams.get("returnOrigin")).toBe("http://localhost:3000");
+    expect(requestId).toBeTruthy();
+
+    window.dispatchEvent(new MessageEvent("message", {
+      data: {
+        type: "bds:web-fetch-permission-result",
+        requestId: "wrong-request",
+        granted: true,
+      },
+    }));
+    await flushUi();
+    expect(document.querySelector(".bds-permission-modal")).not.toBeNull();
+
+    window.dispatchEvent(new MessageEvent("message", {
+      data: {
+        type: "bds:web-fetch-permission-result",
+        requestId,
+        granted: true,
+      },
+    }));
     await flushUi();
 
     await expect(permissionPromise).resolves.toBe(true);
@@ -138,5 +145,42 @@ describe("App integration", () => {
     await flushUi();
 
     await expect(permissionPromise).resolves.toBe(false);
+  });
+
+  it("rechecks granted Firefox permissions on focus if the helper window closes without posting back", async () => {
+    process.env.BDS_TARGET = "firefox";
+    const popupWindow = {
+      closed: false,
+      close: vi.fn(() => {
+        popupWindow.closed = true;
+      }),
+      focus: vi.fn(),
+    };
+    vi.spyOn(window, "open").mockReturnValue(popupWindow);
+    chrome.runtime.sendMessage.mockResolvedValueOnce({
+      ok: true,
+      granted: true,
+    });
+
+    const ui = mountUi();
+    const permissionPromise = ui.requestWebFetchPermission({
+      url: "https://example.com/article",
+      origin: "https://example.com",
+    });
+    await flushUi();
+
+    document.querySelector(".bds-permission-btn-primary").click();
+    await flushUi();
+
+    popupWindow.closed = true;
+    window.dispatchEvent(new Event("focus"));
+    await flushUi();
+
+    await expect(permissionPromise).resolves.toBe(true);
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      type: "bds-ensure-host-permission",
+      url: "https://example.com/article",
+      interactive: false,
+    });
   });
 });

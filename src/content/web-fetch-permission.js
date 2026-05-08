@@ -2,45 +2,30 @@ const WEB_FETCH_PERMISSION_WINDOW_PATH = "static/web-fetch-permission.html";
 const WEB_FETCH_PERMISSION_WINDOW_NAME = "bds-web-fetch-permission";
 const WEB_FETCH_PERMISSION_WINDOW_FEATURES =
   "popup=yes,width=480,height=720,resizable=yes,scrollbars=yes";
-const WEB_FETCH_PERMISSION_POLL_INTERVAL_MS = 300;
-const WEB_FETCH_PERMISSION_TIMEOUT_MS = 120000;
-
-function delay(ms, signal) {
-  return new Promise((resolve) => {
-    const timeoutId = setTimeout(() => {
-      cleanup();
-      resolve();
-    }, ms);
-
-    function cleanup() {
-      clearTimeout(timeoutId);
-      signal?.removeEventListener("abort", handleAbort);
-    }
-
-    function handleAbort() {
-      cleanup();
-      resolve();
-    }
-
-    signal?.addEventListener("abort", handleAbort, { once: true });
-  });
-}
+export const WEB_FETCH_PERMISSION_WINDOW_MESSAGE_TYPE =
+  "bds:web-fetch-permission-result";
 
 export function isFirefoxPermissionWindowFlow() {
   return (process.env.BDS_TARGET || "chrome") === "firefox";
 }
 
-export function buildWebFetchPermissionWindowUrl(url) {
+export function buildWebFetchPermissionWindowUrl(url, options = {}) {
   const helperUrl = new URL(
     chrome.runtime.getURL(WEB_FETCH_PERMISSION_WINDOW_PATH),
   );
   helperUrl.searchParams.set("url", String(url || "").trim());
+  if (options.requestId) {
+    helperUrl.searchParams.set("requestId", String(options.requestId));
+  }
+  if (options.returnOrigin) {
+    helperUrl.searchParams.set("returnOrigin", String(options.returnOrigin));
+  }
   return helperUrl.toString();
 }
 
-export function openWebFetchPermissionWindow(url) {
+export function openWebFetchPermissionWindow(url, options = {}) {
   const popup = window.open(
-    buildWebFetchPermissionWindowUrl(url),
+    buildWebFetchPermissionWindowUrl(url, options),
     WEB_FETCH_PERMISSION_WINDOW_NAME,
     WEB_FETCH_PERMISSION_WINDOW_FEATURES,
   );
@@ -52,47 +37,20 @@ export function openWebFetchPermissionWindow(url) {
   return popup;
 }
 
-export async function waitForWebFetchPermissionGrant(
-  url,
-  options = {},
-) {
-  const signal = options.signal || null;
-  const popupWindow = options.popupWindow || null;
-  const intervalMs =
-    Number.isFinite(options.intervalMs) && options.intervalMs > 0
-      ? Number(options.intervalMs)
-      : WEB_FETCH_PERMISSION_POLL_INTERVAL_MS;
-  const timeoutMs =
-    Number.isFinite(options.timeoutMs) && options.timeoutMs > 0
-      ? Number(options.timeoutMs)
-      : WEB_FETCH_PERMISSION_TIMEOUT_MS;
-  const startedAt = Date.now();
+export function isWebFetchPermissionWindowMessage(data) {
+  return Boolean(
+    data &&
+    typeof data === "object" &&
+    data.type === WEB_FETCH_PERMISSION_WINDOW_MESSAGE_TYPE,
+  );
+}
 
-  while (!signal?.aborted) {
-    const response = await chrome.runtime.sendMessage({
-      type: "bds-ensure-host-permission",
-      url,
-      interactive: false,
-    });
+export async function checkWebFetchPermissionGrant(url) {
+  const response = await chrome.runtime.sendMessage({
+    type: "bds-ensure-host-permission",
+    url,
+    interactive: false,
+  });
 
-    if (response?.ok && response?.granted) {
-      return true;
-    }
-
-    if (signal?.aborted) {
-      return false;
-    }
-
-    if (popupWindow && popupWindow.closed) {
-      return false;
-    }
-
-    if ((Date.now() - startedAt) >= timeoutMs) {
-      return false;
-    }
-
-    await delay(intervalMs, signal);
-  }
-
-  return false;
+  return Boolean(response?.ok && response?.granted);
 }

@@ -96,6 +96,9 @@ export function processMessageNode(node) {
   }
 
   const isLatestAssistant = role === "assistant" && isLatestAssistantMessage(node);
+  const networkGenerationActive =
+    isLatestAssistant &&
+    Number(state.network.activeCompletionRequests || 0) > 0;
 
   const now = Date.now();
   if (stateData.lastRawText !== rawText) {
@@ -108,7 +111,7 @@ export function processMessageNode(node) {
 
   // Fix false positives: a message cannot be completely settled if it's currently mutating
   let isSettled = isMessageFinished(node);
-  if (!isStalled) {
+  if (networkGenerationActive && !isStalled) {
     isSettled = false;
   }
 
@@ -364,10 +367,18 @@ function isSystemGenerating() {
 function isMessageFinished(node) {
   const hasCursor = !!node.querySelector('.ds-cursor');
   const isCurrentlyStreamingClass = node.classList.contains('_streaming');
+  const isLatest = isLatestAssistantMessage(node);
+  const networkGenerating = Number(state.network.activeCompletionRequests || 0) > 0;
   
   // If we see a cursor or the active streaming class, it's NOT finished, regardless of buttons.
   if (hasCursor || isCurrentlyStreamingClass) {
     return false;
+  }
+
+  // Network idle is the authoritative completion signal for the latest
+  // assistant message. The stop button DOM can lag behind the network event.
+  if (isLatest && !networkGenerating) {
+    return true;
   }
 
   const generating = isSystemGenerating();
@@ -383,7 +394,6 @@ function isMessageFinished(node) {
   const hasFooterButtons = !!node.querySelector('div[role="button"] svg, .ds-icon-copy, .ds-icon-regenerate, .ds-icon-share');
   
   // Backup check: if it's the latest message and the system is generating, it's usually NOT finished.
-  const isLatest = isLatestAssistantMessage(node);
   if (isLatest && generating) {
     return false;
   }

@@ -184,6 +184,21 @@ describe("message processor integration", () => {
     expect(mocks.handleAutoWebFetch).toHaveBeenCalledWith("https://example.com");
   });
 
+  it("settles the latest assistant message immediately once the network goes idle", () => {
+    state.network.activeCompletionRequests = 1;
+    const node = createMessageNode(
+      "<BDS:AUTO:REQUEST_WEB_FETCH>https://example.com</BDS:AUTO:REQUEST_WEB_FETCH>",
+    );
+
+    processMessageNode(node);
+    expect(mocks.handleAutoWebFetch).not.toHaveBeenCalled();
+
+    state.network.activeCompletionRequests = 0;
+    processMessageNode(node);
+
+    expect(mocks.handleAutoWebFetch).toHaveBeenCalledWith("https://example.com");
+  });
+
   it("dispatches clarifying questions and stores them on state", () => {
     const node = createMessageNode(
       '<BDS:ask_question>[{"id":"q1","question":"Pick one","type":"test","options":["A"]}]</BDS:ask_question>',
