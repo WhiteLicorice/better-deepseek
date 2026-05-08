@@ -6,6 +6,7 @@ import state, { withObserverPaused } from "./state.js";
 import { LONG_WORK_STALE_MS } from "../lib/constants.js";
 import { processMessageNode } from "./message-processor.svelte.js";
 import { enhanceCodeBlockDownloads } from "./files/code-blocks.js";
+import { resetAllAutoRequestState } from "./auto.js";
 import { mount } from "svelte";
 import AttachMenu from "./ui/AttachMenu.svelte";
 import { injectSearchInput } from "./ui/SidebarSearch.js";
@@ -307,6 +308,7 @@ export function startUrlWatcher() {
 
     const isNewSessionTransition = (oldUrl === "https://chat.deepseek.com/" || oldUrl === "https://chat.deepseek.com") && state.lastUrl.includes("/chat/s/");
 
+    resetAllAutoRequestState();
     state.longWork.active = false;
     state.longWork.files.clear();
     state.longWork.lastActivityAt = 0;

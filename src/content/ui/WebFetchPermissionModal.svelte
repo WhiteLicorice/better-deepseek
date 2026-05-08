@@ -1,5 +1,6 @@
 <script>
   import { onMount } from "svelte";
+  import { getSiteAccessGuide } from "../site-access-hint.js";
 
   let {
     request,
@@ -8,6 +9,7 @@
   } = $props();
 
   let modalRef = $state(null);
+  const siteAccessGuide = getSiteAccessGuide();
 
   function handleKeydown(event) {
     if (event.key === "Escape" && !request.busy) {
@@ -79,6 +81,19 @@
         Better DeepSeek only needs access to fetch this page and convert it
         into an attachment for the chat.
       </p>
+
+      {#if siteAccessGuide}
+        <div class="bds-permission-note">
+          <div class="bds-permission-note-title">Blanket access</div>
+          <p>
+            Tired of granting access for every site? Open
+            <code>{siteAccessGuide.location}</code> and use
+            {siteAccessGuide.pathTail} to {siteAccessGuide.action}. This removes
+            repeated permission prompts for Web Fetch, YouTube Fetch, and other
+            auto-tools.
+          </p>
+        </div>
+      {/if}
     </div>
 
     <div class="bds-permission-footer">
@@ -108,25 +123,39 @@
 
 <style>
   .bds-permission-backdrop {
+    --bds-permission-bg: #f5f7fb;
+    --bds-permission-surface: #ffffff;
+    --bds-permission-border: #000000;
+    --bds-permission-text: #000000;
+    --bds-permission-muted: #475569;
+    --bds-permission-accent: #1e3a8a;
+    --bds-permission-shadow: 4px 4px 0 #000000;
     position: fixed;
     inset: 0;
     z-index: 2147483647;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(9, 10, 14, 0.6);
-    backdrop-filter: blur(4px);
+    background: rgba(15, 23, 42, 0.34);
+    padding: 18px;
   }
 
   .bds-permission-modal {
     width: min(92vw, 440px);
-    background: #171920;
-    color: #f5f7fb;
-    border: 1px solid rgba(133, 147, 178, 0.22);
-    border-radius: 18px;
-    box-shadow: 0 24px 56px rgba(0, 0, 0, 0.4);
+    background: var(--bds-permission-surface);
+    color: var(--bds-permission-text);
+    border: 2px solid var(--bds-permission-border);
+    border-radius: 0;
+    box-shadow: var(--bds-permission-shadow);
     outline: none;
     overflow: hidden;
+    font-family:
+      "Inter",
+      "Segoe UI",
+      system-ui,
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
   }
 
   .bds-permission-header {
@@ -135,43 +164,48 @@
     justify-content: space-between;
     gap: 16px;
     padding: 20px 22px 16px;
-    border-bottom: 1px solid rgba(133, 147, 178, 0.18);
+    border-bottom: 2px solid var(--bds-permission-border);
   }
 
   .bds-permission-eyebrow {
     font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    font-weight: 900;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
-    color: #8fb2ff;
+    color: var(--bds-permission-accent);
     margin-bottom: 6px;
   }
 
   .bds-permission-header h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: 22px;
     line-height: 1.2;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .bds-permission-close {
-    border: none;
-    background: transparent;
-    color: #9aa4bb;
+    border: 2px solid var(--bds-permission-border);
+    background: var(--bds-permission-surface);
+    color: var(--bds-permission-text);
     cursor: pointer;
-    font-size: 18px;
+    font-size: 14px;
+    font-weight: 900;
     line-height: 1;
-    padding: 4px 6px;
-    border-radius: 8px;
+    padding: 8px 9px;
+    border-radius: 0;
+    box-shadow: 2px 2px 0 #000000;
+    text-transform: uppercase;
   }
 
   .bds-permission-close:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.06);
-    color: #ffffff;
+    transform: translate(-1px, -1px);
   }
 
   .bds-permission-close:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+    box-shadow: none;
   }
 
   .bds-permission-body {
@@ -185,39 +219,40 @@
     margin: 0;
     font-size: 14px;
     line-height: 1.55;
-    color: #e6ebf7;
+    color: var(--bds-permission-text);
   }
 
   .bds-permission-origin {
     display: inline-flex;
     align-self: flex-start;
     max-width: 100%;
-    padding: 7px 10px;
-    border-radius: 999px;
-    background: rgba(143, 178, 255, 0.12);
-    border: 1px solid rgba(143, 178, 255, 0.2);
-    color: #cfe0ff;
+    padding: 8px 10px;
+    border-radius: 0;
+    background: var(--bds-permission-bg);
+    border: 2px solid var(--bds-permission-border);
+    color: var(--bds-permission-accent);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 800;
     word-break: break-all;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
 
   .bds-permission-error {
-    border-radius: 12px;
     padding: 12px 13px;
-    background: rgba(255, 107, 107, 0.1);
-    border: 1px solid rgba(255, 107, 107, 0.2);
-    color: #ffb3b3;
+    background: #fff1f2;
+    border: 2px solid var(--bds-permission-border);
+    box-shadow: 4px 4px 0 #000000;
+    color: #991b1b;
     font-size: 13px;
     line-height: 1.5;
   }
 
   .bds-permission-info {
-    border-radius: 12px;
     padding: 12px 13px;
-    background: rgba(93, 149, 255, 0.12);
-    border: 1px solid rgba(93, 149, 255, 0.22);
-    color: #d8e5ff;
+    background: #eff6ff;
+    border: 2px solid var(--bds-permission-border);
+    box-shadow: 4px 4px 0 #000000;
+    color: var(--bds-permission-text);
     font-size: 13px;
     line-height: 1.5;
   }
@@ -226,7 +261,37 @@
     margin: 0;
     font-size: 12px;
     line-height: 1.5;
-    color: #9aa4bb;
+    color: var(--bds-permission-muted);
+  }
+
+  .bds-permission-note {
+    padding: 14px;
+    border: 2px solid var(--bds-permission-border);
+    background: var(--bds-permission-bg);
+    box-shadow: var(--bds-permission-shadow);
+  }
+
+  .bds-permission-note-title {
+    margin: 0 0 8px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bds-permission-accent);
+  }
+
+  .bds-permission-note p {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--bds-permission-text);
+  }
+
+  .bds-permission-note code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.95em;
+    font-weight: 700;
+    color: var(--bds-permission-accent);
   }
 
   .bds-permission-footer {
@@ -237,35 +302,38 @@
   }
 
   .bds-permission-btn {
-    border-radius: 11px;
+    border-radius: 0;
     padding: 10px 14px;
-    font-size: 13px;
-    font-weight: 700;
+    font-size: 12px;
+    font-weight: 900;
     cursor: pointer;
-    border: 1px solid transparent;
+    border: 2px solid var(--bds-permission-border);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    box-shadow: 4px 4px 0 #000000;
   }
 
   .bds-permission-btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+    box-shadow: none;
   }
 
   .bds-permission-btn-secondary {
-    background: transparent;
-    color: #d7def0;
-    border-color: rgba(133, 147, 178, 0.24);
+    background: var(--bds-permission-surface);
+    color: var(--bds-permission-text);
   }
 
   .bds-permission-btn-secondary:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.05);
+    transform: translate(-2px, -2px);
   }
 
   .bds-permission-btn-primary {
-    background: linear-gradient(135deg, #4d7cff 0%, #3f67dd 100%);
+    background: var(--bds-permission-accent);
     color: #ffffff;
   }
 
   .bds-permission-btn-primary:hover:not(:disabled) {
-    filter: brightness(1.06);
+    transform: translate(-2px, -2px);
   }
  </style>

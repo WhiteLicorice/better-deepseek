@@ -17,11 +17,93 @@ import {
 } from "./chat-send.js";
 import appState from "./state.js";
 
-// Keep track of already processing/processed URLs globally so we don't spam
-const processedWebFetches = new Set();
-const processedGitHubFetches = new Set();
-const processedTwitterFetches = new Set();
-const processedYouTubeFetches = new Set();
+const activeWebFetches = new Set();
+const activeGitHubFetches = new Set();
+const activeTwitterFetches = new Set();
+const activeYouTubeFetches = new Set();
+
+const handledWebFetchesThisTurn = new Set();
+const handledGitHubFetchesThisTurn = new Set();
+const handledTwitterFetchesThisTurn = new Set();
+const handledYouTubeFetchesThisTurn = new Set();
+
+const AUTO_REQUEST_CHANNELS = {
+  web: {
+    active: activeWebFetches,
+    handled: handledWebFetchesThisTurn,
+    duplicateActiveMessage:
+      "Already fetching this page. Waiting for the current Web Fetch to finish.",
+    duplicateHandledMessage:
+      "Skipping duplicate Web Fetch for this prompt. Send another message to fetch it again.",
+  },
+  github: {
+    active: activeGitHubFetches,
+    handled: handledGitHubFetchesThisTurn,
+    duplicateActiveMessage:
+      "Already fetching this repository. Waiting for the current GitHub fetch to finish.",
+    duplicateHandledMessage:
+      "Skipping duplicate GitHub fetch for this prompt. Send another message to fetch it again.",
+  },
+  twitter: {
+    active: activeTwitterFetches,
+    handled: handledTwitterFetchesThisTurn,
+    duplicateActiveMessage:
+      "Already fetching this tweet. Waiting for the current Twitter fetch to finish.",
+    duplicateHandledMessage:
+      "Skipping duplicate Twitter fetch for this prompt. Send another message to fetch it again.",
+  },
+  youtube: {
+    active: activeYouTubeFetches,
+    handled: handledYouTubeFetchesThisTurn,
+    duplicateActiveMessage:
+      "Already fetching this video. Waiting for the current YouTube fetch to finish.",
+    duplicateHandledMessage:
+      "Skipping duplicate YouTube fetch for this prompt. Send another message to fetch it again.",
+  },
+};
+
+function showAutoRequestToast(message) {
+  if (message && appState.ui?.showToast) {
+    appState.ui.showToast(message);
+  }
+}
+
+function beginAutoRequest(channel, key) {
+  if (channel.active.has(key)) {
+    showAutoRequestToast(channel.duplicateActiveMessage);
+    return false;
+  }
+
+  if (channel.handled.has(key)) {
+    showAutoRequestToast(channel.duplicateHandledMessage);
+    return false;
+  }
+
+  channel.active.add(key);
+  channel.handled.add(key);
+  return true;
+}
+
+function releaseAutoRequest(channel, key) {
+  channel.active.delete(key);
+}
+
+function forgetHandledAutoRequest(channel, key) {
+  channel.handled.delete(key);
+}
+
+export function resetAutoRequestTurnDedup() {
+  for (const channel of Object.values(AUTO_REQUEST_CHANNELS)) {
+    channel.handled.clear();
+  }
+}
+
+export function resetAllAutoRequestState() {
+  for (const channel of Object.values(AUTO_REQUEST_CHANNELS)) {
+    channel.active.clear();
+    channel.handled.clear();
+  }
+}
 
 function getOriginForUi(url, error) {
   if (error?.origin) {
@@ -36,8 +118,10 @@ function getOriginForUi(url, error) {
 }
 
 export async function handleAutoWebFetch(url) {
-  if (processedWebFetches.has(url)) return;
-  processedWebFetches.add(url);
+  const channel = AUTO_REQUEST_CHANNELS.web;
+  if (!beginAutoRequest(channel, url)) {
+    return;
+  }
 
   console.log(`[BDS:AUTO] Starting automatic web fetch for: ${url}`);
 
@@ -51,7 +135,6 @@ export async function handleAutoWebFetch(url) {
     }
   } catch (err) {
     console.error("[BDS:AUTO] Web Fetch Failed:", err);
-    processedWebFetches.delete(url);
 
     if (isWebFetchPermissionError(err)) {
       const origin = getOriginForUi(url, err);
@@ -66,6 +149,8 @@ export async function handleAutoWebFetch(url) {
         });
 
         if (granted) {
+          forgetHandledAutoRequest(channel, url);
+          releaseAutoRequest(channel, url);
           return await handleAutoWebFetch(url);
         }
 
@@ -82,12 +167,16 @@ export async function handleAutoWebFetch(url) {
     const errorBlob = new Blob([`Failed to fetch ${url}:\n\n${err.message}`], { type: "text/plain" });
     const errorFile = new File([errorBlob], `error_${url.replace(/[^a-zA-Z0-9]/g, "_")}.txt`, { type: "text/plain" });
     injectFileAndSend(errorFile, `<BetterDeepSeek>\n[BDS:AUTO] Web fetch failed for ${url}\n</BetterDeepSeek>`);
+  } finally {
+    releaseAutoRequest(channel, url);
   }
 }
 
 export async function handleAutoGitHubFetch(repoUrl) {
-  if (processedGitHubFetches.has(repoUrl)) return;
-  processedGitHubFetches.add(repoUrl);
+  const channel = AUTO_REQUEST_CHANNELS.github;
+  if (!beginAutoRequest(channel, repoUrl)) {
+    return;
+  }
 
   console.log(`[BDS:AUTO] Starting automatic GitHub fetch for: ${repoUrl}`);
 
@@ -109,12 +198,16 @@ export async function handleAutoGitHubFetch(repoUrl) {
     const errorBlob = new Blob([`Failed to fetch GitHub repo ${repoUrl}:\n\n${err.message}`], { type: "text/plain" });
     const errorFile = new File([errorBlob], `github_error_${repoUrl.replace(/[^a-zA-Z0-9]/g, "_")}.txt`, { type: "text/plain" });
     injectFileAndSend(errorFile, `<BetterDeepSeek>\n[BDS:AUTO] GitHub fetch failed for ${repoUrl}\n</BetterDeepSeek>`);
+  } finally {
+    releaseAutoRequest(channel, repoUrl);
   }
 }
 
 export async function handleAutoTwitterFetch(url) {
-  if (processedTwitterFetches.has(url)) return;
-  processedTwitterFetches.add(url);
+  const channel = AUTO_REQUEST_CHANNELS.twitter;
+  if (!beginAutoRequest(channel, url)) {
+    return;
+  }
 
   console.log(`[BDS:AUTO] Starting automatic Twitter fetch for: ${url}`);
 
@@ -128,12 +221,16 @@ export async function handleAutoTwitterFetch(url) {
     const errorBlob = new Blob([`Failed to fetch tweet ${url}:\n\n${err.message}`], { type: "text/plain" });
     const errorFile = new File([errorBlob], `twitter_error_${url.replace(/[^a-zA-Z0-9]/g, "_")}.md`, { type: "text/plain" });
     injectFileAndSend(errorFile, `<BetterDeepSeek>\n[BDS:AUTO] Twitter fetch failed for ${url}\n</BetterDeepSeek>`);
+  } finally {
+    releaseAutoRequest(channel, url);
   }
 }
 
 export async function handleAutoYouTubeFetch(url) {
-  if (processedYouTubeFetches.has(url)) return;
-  processedYouTubeFetches.add(url);
+  const channel = AUTO_REQUEST_CHANNELS.youtube;
+  if (!beginAutoRequest(channel, url)) {
+    return;
+  }
 
   console.log(`[BDS:AUTO] Starting automatic YouTube fetch for: ${url}`);
 
@@ -147,6 +244,8 @@ export async function handleAutoYouTubeFetch(url) {
     const errorBlob = new Blob([`Failed to fetch YouTube video ${url}:\n\n${err.message}`], { type: "text/plain" });
     const errorFile = new File([errorBlob], `youtube_error_${url.replace(/[^a-zA-Z0-9]/g, "_")}.txt`, { type: "text/plain" });
     injectFileAndSend(errorFile, `<BetterDeepSeek>\n[BDS:AUTO] YouTube fetch failed for ${url}\n</BetterDeepSeek>`);
+  } finally {
+    releaseAutoRequest(channel, url);
   }
 }
 

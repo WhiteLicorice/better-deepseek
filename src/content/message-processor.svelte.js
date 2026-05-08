@@ -20,7 +20,13 @@ import { upsertCharacters } from "./parser/character-parser.js";
 import { collectLongWorkFiles, finalizeLongWork, emitZipForFiles } from "./files/long-work.js";
 import { emitStandaloneFiles } from "./files/standalone.js";
 import { getOrCreateHost } from "./dom/host.js";
-import { handleAutoWebFetch, handleAutoGitHubFetch, handleAutoTwitterFetch, handleAutoYouTubeFetch } from "./auto.js";
+import {
+  handleAutoWebFetch,
+  handleAutoGitHubFetch,
+  handleAutoTwitterFetch,
+  handleAutoYouTubeFetch,
+  resetAutoRequestTurnDedup,
+} from "./auto.js";
 
 import { mount, unmount } from "svelte";
 import MessageOverlay from "./ui/MessageOverlay.svelte";
@@ -71,6 +77,11 @@ export function processMessageNode(node) {
 
   // --- USER MESSAGE: strip <BetterDeepSeek> system prompt from view ---
   if (role === "user") {
+    if (!stateData.autoRequestTurnReset) {
+      stateData.autoRequestTurnReset = true;
+      resetAutoRequestTurnDedup();
+    }
+
     const rawUserText = rawText;
     stripBdsTagsFromUserMessage(node);
     if (state.settings.tokenPriceDisplay && !stateData.priceInjected) {

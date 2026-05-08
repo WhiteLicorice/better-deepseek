@@ -87,6 +87,19 @@ describe("SettingsPanel integration", () => {
     cleanup();
   });
 
+  it("shows the blanket site-access hint inside advanced settings", async () => {
+    const { target, cleanup } = renderSvelte(SettingsPanel);
+
+    target.querySelector(".bds-advanced-toggle").click();
+    await flushUi();
+
+    const note = target.querySelector(".bds-site-access-note");
+    expect(note).not.toBeNull();
+    expect(note.textContent).toContain("chrome://extensions");
+    expect(note.textContent).toContain("On all sites");
+    cleanup();
+  });
+
   it("auto-saves active project instructions", async () => {
     vi.useFakeTimers();
     const { target, cleanup } = renderSvelte(SettingsPanel);

@@ -43,6 +43,9 @@ describe("App integration", () => {
     expect(document.querySelector(".bds-permission-copy").textContent).toContain(
       "Better DeepSeek needs permission",
     );
+    expect(document.querySelector(".bds-permission-note").textContent).toContain(
+      "chrome://extensions",
+    );
 
     document.querySelector(".bds-permission-btn-primary").click();
     await flushUi();
@@ -91,6 +94,9 @@ describe("App integration", () => {
     );
     expect(document.querySelector(".bds-permission-info").textContent).toContain(
       "permission window was opened",
+    );
+    expect(document.querySelector(".bds-permission-note").textContent).toContain(
+      "about:addons",
     );
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
       type: "bds-register-web-fetch-permission-request",
