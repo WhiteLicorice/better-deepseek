@@ -15,8 +15,8 @@
   } from "../web-fetch-permission.js";
   import appState from "../state.js";
 
-  const WEB_FETCH_PERMISSION_RECHECK_INTERVAL_MS = 180;
-  const WEB_FETCH_PERMISSION_RECHECK_MAX_ATTEMPTS = 30;
+  const WEB_FETCH_PERMISSION_RECHECK_INTERVAL_MS = 500;
+  const WEB_FETCH_PERMISSION_RECHECK_MAX_ATTEMPTS = 60;
 
   let drawerOpen = $state(false);
   let whatsNewPending = $state(appState.whatsNewPending);
@@ -168,6 +168,7 @@
     }
 
     try {
+      console.log("[BDS] polling for permission…")
       const granted = await checkWebFetchPermissionGrant(currentRequest.url);
       if (granted) {
         resolveWebFetchPermissionRequest(true);
@@ -181,14 +182,11 @@
       return;
     }
 
-    const popupClosed = Boolean(
-      webFetchPermissionPopup && webFetchPermissionPopup.closed,
-    );
-    if (popupClosed && attempt >= WEB_FETCH_PERMISSION_RECHECK_MAX_ATTEMPTS) {
+    if (attempt >= WEB_FETCH_PERMISSION_RECHECK_MAX_ATTEMPTS) {
       failWebFetchPermissionRequest(
         currentRequest,
         `Permission was not granted for ${currentRequest.origin}. ` +
-          "Reopen the permission window and approve the browser prompt to continue.",
+          "Open the extension permissions and allow that site or All Sites, then try again.",
       );
       return;
     }
@@ -302,6 +300,8 @@
       awaitingExternalGrant: true,
       errorMessage: "",
     };
+
+    beginWebFetchPermissionRecheck(currentRequest.requestId);
   }
 
   async function confirmWebFetchPermissionRequest() {
