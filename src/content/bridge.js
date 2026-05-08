@@ -4,7 +4,11 @@
 
 import state from "./state.js";
 import { BRIDGE_EVENTS } from "../lib/constants.js";
-import { findLatestAssistantMessageNode, collectMessageNodes } from "./scanner.js";
+import {
+  findLatestAssistantMessageNode,
+  collectMessageNodes,
+  scheduleScan,
+} from "./scanner.js";
 import { finalizeLongWork } from "./files/long-work.js";
 import { getActiveProject, getActiveFiles } from "./project-manager.js";
 
@@ -143,6 +147,10 @@ export function pushConfigToPage() {
  * Handle network state updates from the injected script.
  */
 export function handleNetworkState(detail) {
+  const previousActiveCompletionRequests = Math.max(
+    0,
+    Number(state.network.activeCompletionRequests || 0),
+  );
   const activeCompletionRequests = Math.max(
     0,
     Number(
@@ -155,11 +163,22 @@ export function handleNetworkState(detail) {
   state.network.activeCompletionRequests = activeCompletionRequests;
   state.network.lastEventAt = Date.now();
 
+  const completedGeneration =
+    previousActiveCompletionRequests > 0 && activeCompletionRequests === 0;
+
   if (activeCompletionRequests > 0) {
     if (state.longWork.active) {
       state.longWork.lastActivityAt = Date.now();
     }
     return;
+  }
+
+  if (completedGeneration) {
+    // Force a final settled scan when generation ends. Some features such as
+    // AUTO requests are intentionally deferred until the assistant message is
+    // fully settled, and Firefox/DeepSeek do not always emit a follow-up DOM
+    // mutation when the stop button disappears.
+    scheduleScan();
   }
 
   if (state.ui) {
