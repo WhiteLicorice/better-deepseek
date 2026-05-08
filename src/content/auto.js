@@ -18,6 +18,18 @@ const processedGitHubFetches = new Set();
 const processedTwitterFetches = new Set();
 const processedYouTubeFetches = new Set();
 
+function getOriginForUi(url, error) {
+  if (error?.origin) {
+    return error.origin;
+  }
+
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+}
+
 export async function handleAutoWebFetch(url) {
   if (processedWebFetches.has(url)) return;
   processedWebFetches.add(url);
@@ -34,9 +46,33 @@ export async function handleAutoWebFetch(url) {
     }
   } catch (err) {
     console.error("[BDS:AUTO] Web Fetch Failed:", err);
-    if (isWebFetchPermissionError(err) && appState.ui?.showToast) {
-      appState.ui.showToast(err.message);
+    processedWebFetches.delete(url);
+
+    if (isWebFetchPermissionError(err)) {
+      const origin = getOriginForUi(url, err);
+      const permissionRequest = appState.ui?.requestWebFetchPermission;
+
+      if (typeof permissionRequest === "function") {
+        const granted = await permissionRequest({
+          url,
+          origin,
+          message:
+            `Better DeepSeek needs permission to access ${origin} before Web Fetch can continue.`,
+        });
+
+        if (granted) {
+          return await handleAutoWebFetch(url);
+        }
+
+        return;
+      }
+
+      if (appState.ui?.showToast) {
+        appState.ui.showToast(err.message);
+      }
+      return;
     }
+
     // Optionally create a text file with the error so DeepSeek knows it failed
     const errorBlob = new Blob([`Failed to fetch ${url}:\n\n${err.message}`], { type: "text/plain" });
     const errorFile = new File([errorBlob], `error_${url.replace(/[^a-zA-Z0-9]/g, "_")}.txt`, { type: "text/plain" });

@@ -102,7 +102,71 @@ describe("auto integration", () => {
     expect(input.files[0].name).toContain("github_error_owner_repo");
   });
 
-  it("toasts permission guidance when automatic web fetch needs manual site access", async () => {
+  it("opens the permission dialog instead of sending a permission failure into chat", async () => {
+    const error = Object.assign(
+      new Error(
+        "Web Fetch needs permission to access https://example.com. Automatic Web Fetch cannot ask for that permission by itself.",
+      ),
+      {
+        bdsWebFetchPermissionError: true,
+        origin: "https://example.com",
+      },
+    );
+    readerMocks.fetchAndConvertWebPage.mockRejectedValue(error);
+    const { handleAutoWebFetch } = await importAutoModule();
+    const freshState = (await import("../../src/content/state.js")).default;
+    freshState.ui = {
+      showToast: vi.fn(),
+      requestWebFetchPermission: vi.fn(async () => false),
+    };
+
+    await handleAutoWebFetch("https://example.com");
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(readerMocks.isWebFetchPermissionError).toHaveBeenCalledWith(error);
+    expect(freshState.ui.requestWebFetchPermission).toHaveBeenCalledWith({
+      url: "https://example.com",
+      origin: "https://example.com",
+      message:
+        "Better DeepSeek needs permission to access https://example.com before Web Fetch can continue.",
+    });
+    expect(freshState.ui.showToast).not.toHaveBeenCalled();
+    expect(document.querySelector('input[type="file"]').files).toHaveLength(0);
+    expect(document.querySelector("button").click).not.toHaveBeenCalled();
+  });
+
+  it("retries automatic web fetch after the permission dialog grants access", async () => {
+    const permissionError = Object.assign(
+      new Error(
+        "Web Fetch needs permission to access https://example.com. Automatic Web Fetch cannot ask for that permission by itself.",
+      ),
+      {
+        bdsWebFetchPermissionError: true,
+        origin: "https://example.com",
+      },
+    );
+    const file = new File(["page"], "page.txt", { type: "text/plain" });
+    readerMocks.fetchAndConvertWebPage
+      .mockRejectedValueOnce(permissionError)
+      .mockResolvedValueOnce(file);
+    const { handleAutoWebFetch } = await importAutoModule();
+    const freshState = (await import("../../src/content/state.js")).default;
+    freshState.ui = {
+      showToast: vi.fn(),
+      requestWebFetchPermission: vi.fn(async () => true),
+    };
+
+    await handleAutoWebFetch("https://example.com");
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(readerMocks.fetchAndConvertWebPage).toHaveBeenCalledTimes(2);
+    expect(freshState.ui.requestWebFetchPermission).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('input[type="file"]').files).toHaveLength(1);
+    expect(document.querySelector('input[type="file"]').files[0].name).toBe("page.txt");
+    expect(document.querySelector("button").click).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to a toast when the permission dialog API is unavailable", async () => {
     const error = Object.assign(
       new Error(
         "Web Fetch needs permission to access https://example.com. Automatic Web Fetch cannot ask for that permission by itself.",
@@ -117,11 +181,8 @@ describe("auto integration", () => {
     await handleAutoWebFetch("https://example.com");
     await vi.advanceTimersByTimeAsync(600);
 
-    expect(readerMocks.isWebFetchPermissionError).toHaveBeenCalledWith(error);
     expect(freshState.ui.showToast).toHaveBeenCalledWith(error.message);
-    expect(document.querySelector('input[type="file"]').files[0].name).toContain(
-      "error_https___example_com",
-    );
+    expect(document.querySelector('input[type="file"]').files).toHaveLength(0);
   });
 
   it("prevents duplicate auto requests for the same url", async () => {
