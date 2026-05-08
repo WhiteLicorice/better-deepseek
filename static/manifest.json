@@ -26,7 +26,14 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["injected.js", "sandbox.html", "sandbox.js", "static/loading/*.svg"],
+      "resources": [
+        "injected.js",
+        "sandbox.html",
+        "sandbox.js",
+        "static/loading/*.svg",
+        "static/web-fetch-permission.html",
+        "static/web-fetch-permission.js"
+      ],
       "matches": ["https://chat.deepseek.com/*"]
     }
   ],

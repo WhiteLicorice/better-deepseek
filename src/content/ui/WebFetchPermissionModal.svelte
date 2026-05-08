@@ -64,6 +64,13 @@
       <p class="bds-permission-copy">{request.message}</p>
       <div class="bds-permission-origin">{request.origin}</div>
 
+      {#if request.awaitingExternalGrant}
+        <div class="bds-permission-info">
+          A Better DeepSeek permission window was opened. Grant access there and
+          this tab will continue automatically.
+        </div>
+      {/if}
+
       {#if request.errorMessage}
         <div class="bds-permission-error">{request.errorMessage}</div>
       {/if}
@@ -87,9 +94,13 @@
         class="bds-permission-btn bds-permission-btn-primary"
         type="button"
         onclick={onConfirm}
-        disabled={request.busy}
+        disabled={request.busy || request.awaitingExternalGrant}
       >
-        {request.busy ? "Requesting..." : "Allow access"}
+        {request.awaitingExternalGrant
+          ? "Waiting for access..."
+          : request.busy
+            ? "Requesting..."
+            : "Allow access"}
       </button>
     </div>
   </div>
@@ -197,6 +208,16 @@
     background: rgba(255, 107, 107, 0.1);
     border: 1px solid rgba(255, 107, 107, 0.2);
     color: #ffb3b3;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .bds-permission-info {
+    border-radius: 12px;
+    padding: 12px 13px;
+    background: rgba(93, 149, 255, 0.12);
+    border: 1px solid rgba(93, 149, 255, 0.22);
+    color: #d8e5ff;
     font-size: 13px;
     line-height: 1.5;
   }

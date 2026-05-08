@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Better DeepSeek Site Access</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: "Segoe UI", system-ui, sans-serif;
+        background:
+          radial-gradient(circle at top, rgba(79, 127, 255, 0.32), transparent 52%),
+          linear-gradient(180deg, #0d1119 0%, #111722 100%);
+        color: #f5f7fb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .bds-card {
+        width: min(100%, 460px);
+        padding: 28px;
+        border-radius: 24px;
+        background: rgba(18, 24, 36, 0.94);
+        border: 1px solid rgba(135, 153, 186, 0.2);
+        box-shadow: 0 28px 60px rgba(0, 0, 0, 0.34);
+      }
+
+      .bds-eyebrow {
+        margin: 0 0 8px;
+        color: #9db7ff;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 30px;
+        line-height: 1.05;
+      }
+
+      p {
+        margin: 0;
+        line-height: 1.6;
+        color: #dfe6f5;
+      }
+
+      .bds-origin {
+        margin-top: 16px;
+        display: inline-flex;
+        max-width: 100%;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(157, 183, 255, 0.12);
+        border: 1px solid rgba(157, 183, 255, 0.2);
+        color: #d7e4ff;
+        font-size: 13px;
+        font-weight: 700;
+        word-break: break-all;
+      }
+
+      .bds-status {
+        margin-top: 18px;
+        min-height: 22px;
+        font-size: 13px;
+        color: #9aa8c5;
+      }
+
+      .bds-status[data-state="error"] {
+        color: #ffb7b7;
+      }
+
+      .bds-status[data-state="success"] {
+        color: #b7f5c7;
+      }
+
+      .bds-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+        margin-top: 24px;
+      }
+
+      .bds-btn {
+        appearance: none;
+        border: 1px solid transparent;
+        border-radius: 12px;
+        padding: 11px 16px;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .bds-btn:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .bds-btn-secondary {
+        background: transparent;
+        color: #d7def0;
+        border-color: rgba(135, 153, 186, 0.24);
+      }
+
+      .bds-btn-primary {
+        background: linear-gradient(135deg, #4f7fff 0%, #3b63de 100%);
+        color: #ffffff;
+      }
+
+      .bds-hint {
+        margin-top: 18px;
+        font-size: 12px;
+        color: #95a3c0;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="bds-card">
+      <p class="bds-eyebrow">Better DeepSeek</p>
+      <h1>Allow site access</h1>
+      <p id="bds-copy">
+        Grant Better DeepSeek access to this site so Web Fetch can read the page
+        and attach it to the chat.
+      </p>
+      <div id="bds-origin" class="bds-origin"></div>
+      <div id="bds-status" class="bds-status" aria-live="polite"></div>
+      <div class="bds-actions">
+        <button id="bds-cancel" class="bds-btn bds-btn-secondary" type="button">
+          Cancel
+        </button>
+        <button id="bds-allow" class="bds-btn bds-btn-primary" type="button">
+          Allow access
+        </button>
+      </div>
+      <p class="bds-hint">
+        This only grants Better DeepSeek access to the current site. The chat
+        tab will continue automatically after access is granted.
+      </p>
+    </main>
+    <script src="./web-fetch-permission.js"></script>
+  </body>
+</html>

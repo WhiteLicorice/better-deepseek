@@ -1,15 +1,23 @@
 <script>
+  import { onDestroy } from "svelte";
   import Drawer from "./Drawer.svelte";
   import ToastStack from "./ToastStack.svelte";
   import QuestionPanel from "./QuestionPanel.svelte";
   import WebFetchPermissionModal from "./WebFetchPermissionModal.svelte";
   import WhatsNewModal from "./WhatsNewModal.svelte";
+  import {
+    isFirefoxPermissionWindowFlow,
+    openWebFetchPermissionWindow,
+    waitForWebFetchPermissionGrant,
+  } from "../web-fetch-permission.js";
   import appState from "../state.js";
 
   let drawerOpen = $state(false);
   let whatsNewPending = $state(appState.whatsNewPending);
   let webFetchPermissionRequest = $state(null);
   let webFetchPermissionResolver = null;
+  let webFetchPermissionAbortController = null;
+  let webFetchPermissionPopup = null;
 
   /** @type {Array<{id: number, message: string}>} */
   let toasts = $state([]);
@@ -35,8 +43,7 @@
     }
 
     if (webFetchPermissionResolver) {
-      webFetchPermissionResolver(false);
-      webFetchPermissionResolver = null;
+      resolveWebFetchPermissionRequest(false);
     }
 
     const origin = String(details.origin || deriveOrigin(safeUrl)).trim();
@@ -52,6 +59,7 @@
         message,
         errorMessage: "",
         busy: false,
+        awaitingExternalGrant: false,
       };
     });
   }
@@ -96,7 +104,25 @@
     }
   }
 
+  function cleanupWebFetchPermissionSideEffects() {
+    if (webFetchPermissionAbortController) {
+      webFetchPermissionAbortController.abort();
+      webFetchPermissionAbortController = null;
+    }
+
+    if (webFetchPermissionPopup && !webFetchPermissionPopup.closed) {
+      try {
+        webFetchPermissionPopup.close();
+      } catch {
+        // Ignore close failures from the browser.
+      }
+    }
+
+    webFetchPermissionPopup = null;
+  }
+
   function resolveWebFetchPermissionRequest(granted) {
+    cleanupWebFetchPermissionSideEffects();
     const resolve = webFetchPermissionResolver;
     webFetchPermissionResolver = null;
     webFetchPermissionRequest = null;
@@ -109,12 +135,91 @@
     resolveWebFetchPermissionRequest(false);
   }
 
+  async function startExternalWebFetchPermissionFlow(currentRequest) {
+    const popupWindow = openWebFetchPermissionWindow(currentRequest.url);
+    if (!popupWindow) {
+      webFetchPermissionRequest = {
+        ...currentRequest,
+        busy: false,
+        awaitingExternalGrant: false,
+        errorMessage:
+          `Better DeepSeek could not open its permission window for ${currentRequest.origin}. ` +
+          "Allow that site or All Sites from the extension permissions, then try again.",
+      };
+      return;
+    }
+
+    cleanupWebFetchPermissionSideEffects();
+
+    const abortController = new AbortController();
+    webFetchPermissionAbortController = abortController;
+    webFetchPermissionPopup = popupWindow;
+    webFetchPermissionRequest = {
+      ...currentRequest,
+      busy: false,
+      awaitingExternalGrant: true,
+      errorMessage: "",
+    };
+
+    try {
+      const granted = await waitForWebFetchPermissionGrant(currentRequest.url, {
+        popupWindow,
+        signal: abortController.signal,
+      });
+
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      if (granted) {
+        resolveWebFetchPermissionRequest(true);
+        return;
+      }
+
+      if (webFetchPermissionRequest?.url !== currentRequest.url) {
+        return;
+      }
+
+      cleanupWebFetchPermissionSideEffects();
+      webFetchPermissionRequest = {
+        ...currentRequest,
+        busy: false,
+        awaitingExternalGrant: false,
+        errorMessage:
+          `Permission was not granted for ${currentRequest.origin}. ` +
+          "Reopen the permission window and approve the browser prompt to continue.",
+      };
+    } catch (error) {
+      if (abortController.signal.aborted) {
+        return;
+      }
+
+      cleanupWebFetchPermissionSideEffects();
+      webFetchPermissionRequest = {
+        ...currentRequest,
+        busy: false,
+        awaitingExternalGrant: false,
+        errorMessage: String(error?.message || error),
+      };
+    }
+  }
+
   async function confirmWebFetchPermissionRequest() {
-    if (!webFetchPermissionRequest || webFetchPermissionRequest.busy) {
+    if (
+      !webFetchPermissionRequest ||
+      webFetchPermissionRequest.busy ||
+      webFetchPermissionRequest.awaitingExternalGrant
+    ) {
       return;
     }
 
     const currentRequest = webFetchPermissionRequest;
+
+    if (isFirefoxPermissionWindowFlow()) {
+      await startExternalWebFetchPermissionFlow(currentRequest);
+      return;
+    }
+
     webFetchPermissionRequest = {
       ...currentRequest,
       busy: true,
@@ -161,6 +266,10 @@
       };
     }
   }
+
+  onDestroy(() => {
+    cleanupWebFetchPermissionSideEffects();
+  });
 </script>
 
 <button id="bds-toggle" type="button" onclick={toggleDrawer}>BDS</button>

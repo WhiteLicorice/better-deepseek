@@ -12,10 +12,13 @@ describe("App integration", () => {
     document.body.innerHTML = "";
     chrome.runtime.sendMessage.mockReset();
     vi.stubGlobal("requestAnimationFrame", vi.fn(() => 0));
+    delete process.env.BDS_TARGET;
   });
 
   afterEach(() => {
     state.ui = null;
+    vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
     document.getElementById("bds-root")?.remove();
   });
@@ -50,6 +53,62 @@ describe("App integration", () => {
       url: "https://example.com/article",
       interactive: true,
     });
+    expect(document.querySelector(".bds-permission-modal")).toBeNull();
+  });
+
+  it("uses the Firefox extension permission window flow and resolves after access is granted", async () => {
+    vi.useFakeTimers();
+    process.env.BDS_TARGET = "firefox";
+    const popupWindow = {
+      closed: false,
+      close: vi.fn(() => {
+        popupWindow.closed = true;
+      }),
+      focus: vi.fn(),
+    };
+    vi.spyOn(window, "open").mockReturnValue(popupWindow);
+    chrome.runtime.sendMessage
+      .mockResolvedValueOnce({
+        ok: false,
+        permissionRequired: true,
+        promptUnavailable: true,
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        granted: true,
+      });
+
+    const ui = mountUi();
+    const permissionPromise = ui.requestWebFetchPermission({
+      url: "https://example.com/article",
+      origin: "https://example.com",
+    });
+    await flushUi();
+
+    document.querySelector(".bds-permission-btn-primary").click();
+    await flushUi();
+
+    expect(window.open).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "static/web-fetch-permission.html?url=https%3A%2F%2Fexample.com%2Farticle",
+      ),
+      "bds-web-fetch-permission",
+      expect.stringContaining("popup=yes"),
+    );
+    expect(document.querySelector(".bds-permission-info").textContent).toContain(
+      "permission window was opened",
+    );
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith({
+      type: "bds-ensure-host-permission",
+      url: "https://example.com/article",
+      interactive: false,
+    });
+
+    await vi.advanceTimersByTimeAsync(301);
+    await flushUi();
+
+    await expect(permissionPromise).resolves.toBe(true);
+    expect(popupWindow.close).toHaveBeenCalledOnce();
     expect(document.querySelector(".bds-permission-modal")).toBeNull();
   });
 

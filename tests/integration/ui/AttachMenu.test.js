@@ -13,6 +13,9 @@ const githubMocks = vi.hoisted(() => ({
 
 const webMocks = vi.hoisted(() => ({
   fetchAndConvertWebPage: vi.fn(),
+  isWebFetchPermissionError: vi.fn((error) =>
+    Boolean(error && error.bdsWebFetchPermissionError),
+  ),
 }));
 
 const projectFileBuilderMocks = vi.hoisted(() => ({
@@ -77,6 +80,9 @@ describe("AttachMenu integration", () => {
     githubMocks.fetchGitHubRepo.mockReset();
     githubMocks.parseGitHubUrl.mockReset();
     webMocks.fetchAndConvertWebPage.mockReset();
+    webMocks.isWebFetchPermissionError.mockImplementation((error) =>
+      Boolean(error && error.bdsWebFetchPermissionError),
+    );
     projectFileBuilderMocks.projectFilesToFile.mockReset();
     bridgeMocks.pushConfigToPage.mockReset();
     document.body.innerHTML = '<textarea id="chat-input"></textarea><button title="Send message"></button>';
@@ -121,6 +127,49 @@ describe("AttachMenu integration", () => {
       { token: "" },
     );
     expect(nativeInput.files).toHaveLength(1);
+    cleanup();
+  });
+
+  it("retries web import after the permission dialog grants site access", async () => {
+    const nativeInput = setupNativeInput();
+    const permissionError = Object.assign(
+      new Error("Web Fetch needs permission to access https://example.com."),
+      {
+        bdsWebFetchPermissionError: true,
+        origin: "https://example.com",
+      },
+    );
+    const file = new File(["page"], "page.md", { type: "text/markdown" });
+    webMocks.fetchAndConvertWebPage
+      .mockRejectedValueOnce(permissionError)
+      .mockResolvedValueOnce(file);
+    state.ui.requestWebFetchPermission = vi.fn(async () => true);
+    const { target, cleanup } = renderSvelte(AttachMenu, { nativeInput });
+
+    target.querySelector(".bds-plus-btn").click();
+    await flushUi();
+    const items = Array.from(document.querySelectorAll(".bds-attach-item"));
+    items.find((item) => item.textContent.includes("Fetch Web Page")).click();
+    await flushUi();
+
+    const dialogInput = document.querySelector(".bds-github-input");
+    dialogInput.value = "https://example.com/article";
+    dialogInput.dispatchEvent(new Event("input", { bubbles: true }));
+    await flushUi();
+
+    document.querySelector(".bds-github-btn-import").click();
+    await flushUi();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(state.ui.requestWebFetchPermission).toHaveBeenCalledWith({
+      url: "https://example.com/article",
+      origin: "https://example.com",
+      message:
+        "Better DeepSeek needs permission to access https://example.com before Web Fetch can continue.",
+    });
+    expect(webMocks.fetchAndConvertWebPage).toHaveBeenCalledTimes(2);
+    expect(nativeInput.files).toHaveLength(1);
+    expect(nativeInput.files[0].name).toBe("page.md");
     cleanup();
   });
 

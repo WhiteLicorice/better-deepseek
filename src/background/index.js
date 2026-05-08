@@ -156,6 +156,53 @@ export async function ensureHostPermission(url, interactive = false) {
     };
   }
 
+  if (interactive && typeof chrome.permissions.request === "function") {
+    try {
+      const granted = Boolean(
+        await callChromePermissions("request", { origins: [originPattern] })
+      );
+
+      if (granted) {
+        return {
+          ok: true,
+          granted: true,
+          requested: true,
+          originPattern,
+        };
+      }
+
+      const alreadyGranted = Boolean(
+        await callChromePermissions("contains", { origins: [originPattern] })
+      );
+      if (alreadyGranted) {
+        return {
+          ok: true,
+          granted: true,
+          originPattern,
+        };
+      }
+
+      return {
+        ok: false,
+        permissionRequired: true,
+        denied: true,
+        originPattern,
+      };
+    } catch (error) {
+      const message = String(error && error.message ? error.message : error);
+      if (/\buser (action|gesture)\b|input handler/i.test(message)) {
+        return {
+          ok: false,
+          permissionRequired: true,
+          promptUnavailable: true,
+          originPattern,
+          error: message,
+        };
+      }
+      throw error;
+    }
+  }
+
   const alreadyGranted = Boolean(
     await callChromePermissions("contains", { origins: [originPattern] })
   );
@@ -167,48 +214,11 @@ export async function ensureHostPermission(url, interactive = false) {
     };
   }
 
-  if (!interactive || typeof chrome.permissions.request !== "function") {
-    return {
-      ok: false,
-      permissionRequired: true,
-      originPattern,
-      promptUnavailable: !interactive,
-    };
-  }
-
-  let granted = false;
-  try {
-    granted = Boolean(
-      await callChromePermissions("request", { origins: [originPattern] })
-    );
-  } catch (error) {
-    const message = String(error && error.message ? error.message : error);
-    if (/\buser (action|gesture)\b|input handler/i.test(message)) {
-      return {
-        ok: false,
-        permissionRequired: true,
-        promptUnavailable: true,
-        originPattern,
-        error: message,
-      };
-    }
-    throw error;
-  }
-
-  if (granted) {
-    return {
-      ok: true,
-      granted: true,
-      requested: true,
-      originPattern,
-    };
-  }
-
   return {
     ok: false,
     permissionRequired: true,
-    denied: true,
     originPattern,
+    promptUnavailable: !interactive,
   };
 }
 function canSendGithubToken(url) {
