@@ -9,6 +9,7 @@ import state from "../state.js";
 /**
  * @typedef {object} UiApi
  * @property {(message: string) => void} showToast
+ * @property {(details: {url: string, origin?: string, message?: string}) => Promise<boolean>} requestWebFetchPermission
  * @property {() => void} refreshSettings
  * @property {() => void} refreshSkills
  * @property {() => void} refreshMemories
@@ -33,6 +34,8 @@ export function mountUi() {
   /** @type {UiApi} */
   const api = {
     showToast: (message) => app.showToast(message),
+    requestWebFetchPermission: (details) =>
+      app.requestWebFetchPermission(details),
     refreshSettings: () => app.refreshSettings(),
     refreshSkills: () => app.refreshSkills(),
     refreshCharacters: () => app.refreshCharacters(),
