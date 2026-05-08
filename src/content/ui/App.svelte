@@ -7,6 +7,7 @@
   import WhatsNewModal from "./WhatsNewModal.svelte";
   import {
     checkWebFetchPermissionGrant,
+    isDeadObjectAccessError,
     isFirefoxPermissionWindowFlow,
     isWebFetchPermissionWindowMessage,
     openWebFetchPermissionWindow,
@@ -30,7 +31,7 @@
   let toasts = $state([]);
   let toastId = 0;
 
-  // ── Public API (called from non-Svelte code via mount.js) ──
+  // Public API (called from non-Svelte code via mount.js)
 
   export function showToast(message) {
     const id = ++toastId;
@@ -77,7 +78,7 @@
     return `bds-web-fetch-${Date.now()}-${webFetchPermissionRequestCounter}`;
   }
 
-  // Settings/skills/memories refresh — forwarded to Drawer
+  // Settings/skills/memories refresh - forwarded to Drawer
   let drawerRef = $state(null);
 
   export function refreshSettings() {
@@ -117,21 +118,56 @@
     }
   }
 
+  function isWebFetchPermissionPopupClosed() {
+    if (!webFetchPermissionPopup) {
+      return true;
+    }
+
+    try {
+      const closed = Boolean(webFetchPermissionPopup.closed);
+      if (closed) {
+        webFetchPermissionPopup = null;
+      }
+      return closed;
+    } catch (error) {
+      if (isDeadObjectAccessError(error)) {
+        webFetchPermissionPopup = null;
+        return true;
+      }
+      throw error;
+    }
+  }
+
   function cleanupWebFetchPermissionSideEffects() {
     if (webFetchPermissionRecheckTimer) {
       clearTimeout(webFetchPermissionRecheckTimer);
       webFetchPermissionRecheckTimer = 0;
     }
 
-    if (webFetchPermissionPopup && !webFetchPermissionPopup.closed) {
-      try {
-        webFetchPermissionPopup.close();
-      } catch {
-        // Ignore close failures from the browser.
-      }
+    const popupWindow = webFetchPermissionPopup;
+    if (!popupWindow || isWebFetchPermissionPopupClosed()) {
+      webFetchPermissionPopup = null;
+      return;
+    }
+
+    try {
+      popupWindow.close();
+    } catch {
+      // Ignore close failures from the browser.
     }
 
     webFetchPermissionPopup = null;
+  }
+
+  function scheduleWebFetchPermissionRecheck(requestId, attempt) {
+    if (webFetchPermissionRecheckTimer) {
+      clearTimeout(webFetchPermissionRecheckTimer);
+    }
+
+    webFetchPermissionRecheckTimer = window.setTimeout(() => {
+      webFetchPermissionRecheckTimer = 0;
+      void runWebFetchPermissionRecheck(requestId, attempt + 1);
+    }, WEB_FETCH_PERMISSION_RECHECK_INTERVAL_MS);
   }
 
   function resolveWebFetchPermissionRequest(granted) {
@@ -168,13 +204,18 @@
     }
 
     try {
-      console.log("[BDS] polling for permission…")
+      isWebFetchPermissionPopupClosed();
       const granted = await checkWebFetchPermissionGrant(currentRequest.url);
       if (granted) {
         resolveWebFetchPermissionRequest(true);
         return;
       }
     } catch (error) {
+      if (isDeadObjectAccessError(error)) {
+        scheduleWebFetchPermissionRecheck(requestId, attempt);
+        return;
+      }
+
       failWebFetchPermissionRequest(
         currentRequest,
         String(error?.message || error),
@@ -191,13 +232,7 @@
       return;
     }
 
-    if (webFetchPermissionRecheckTimer) {
-      clearTimeout(webFetchPermissionRecheckTimer);
-    }
-    webFetchPermissionRecheckTimer = window.setTimeout(() => {
-      webFetchPermissionRecheckTimer = 0;
-      void runWebFetchPermissionRecheck(requestId, attempt + 1);
-    }, WEB_FETCH_PERMISSION_RECHECK_INTERVAL_MS);
+    scheduleWebFetchPermissionRecheck(requestId, attempt);
   }
 
   function beginWebFetchPermissionRecheck(requestId) {

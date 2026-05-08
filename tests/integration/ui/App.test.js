@@ -137,6 +137,42 @@ describe("App integration", () => {
     expect(document.querySelector(".bds-permission-modal")).toBeNull();
   });
 
+  it("resolves the Firefox permission flow when the popup becomes a dead object during cleanup", async () => {
+    vi.useFakeTimers();
+    process.env.BDS_TARGET = "firefox";
+    const popupWindow = {
+      close: vi.fn(),
+      focus: vi.fn(),
+    };
+    Object.defineProperty(popupWindow, "closed", {
+      get() {
+        throw new TypeError("can't access dead object");
+      },
+    });
+    vi.spyOn(window, "open").mockReturnValue(popupWindow);
+    chrome.runtime.sendMessage
+      .mockResolvedValueOnce({ ok: true })
+      .mockResolvedValueOnce({ ok: true, granted: false })
+      .mockResolvedValueOnce({ ok: true, granted: true });
+
+    const ui = mountUi();
+    const permissionPromise = ui.requestWebFetchPermission({
+      url: "https://example.com/article",
+      origin: "https://example.com",
+    });
+    await flushUi();
+
+    document.querySelector(".bds-permission-btn-primary").click();
+    await flushUi();
+
+    await vi.advanceTimersByTimeAsync(501);
+    await flushUi();
+
+    await expect(permissionPromise).resolves.toBe(true);
+    expect(popupWindow.close).not.toHaveBeenCalled();
+    expect(document.querySelector(".bds-permission-modal")).toBeNull();
+  });
+
   it("keeps the modal open with fallback guidance when the browser cannot show its own prompt", async () => {
     chrome.runtime.sendMessage.mockResolvedValueOnce({
       ok: false,
@@ -233,6 +269,39 @@ describe("App integration", () => {
       "permission window was opened",
     );
     expect(document.querySelector(".bds-permission-modal")).not.toBeNull();
+
+    await vi.advanceTimersByTimeAsync(501);
+    await flushUi();
+
+    await expect(permissionPromise).resolves.toBe(true);
+    expect(document.querySelector(".bds-permission-modal")).toBeNull();
+  });
+
+  it("keeps polling when Firefox permission checks hit a dead-object runtime error", async () => {
+    vi.useFakeTimers();
+    process.env.BDS_TARGET = "firefox";
+    const popupWindow = {
+      closed: false,
+      close: vi.fn(() => {
+        popupWindow.closed = true;
+      }),
+      focus: vi.fn(),
+    };
+    vi.spyOn(window, "open").mockReturnValue(popupWindow);
+    chrome.runtime.sendMessage
+      .mockResolvedValueOnce({ ok: true })
+      .mockRejectedValueOnce(new TypeError("can't access dead object"))
+      .mockResolvedValueOnce({ ok: true, granted: true });
+
+    const ui = mountUi();
+    const permissionPromise = ui.requestWebFetchPermission({
+      url: "https://example.com/article",
+      origin: "https://example.com",
+    });
+    await flushUi();
+
+    document.querySelector(".bds-permission-btn-primary").click();
+    await flushUi();
 
     await vi.advanceTimersByTimeAsync(501);
     await flushUi();

@@ -51,12 +51,24 @@ export function isWebFetchPermissionWindowMessage(data) {
   );
 }
 
-export async function checkWebFetchPermissionGrant(url) {
-  const response = await chrome.runtime.sendMessage({
-    type: "bds-ensure-host-permission",
-    url,
-    interactive: false,
-  });
+export function isDeadObjectAccessError(error) {
+  const message = String(error && error.message ? error.message : error);
+  return error instanceof TypeError && /dead object/i.test(message);
+}
 
-  return Boolean(response?.ok && response?.granted);
+export async function checkWebFetchPermissionGrant(url) {
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "bds-ensure-host-permission",
+      url,
+      interactive: false,
+    });
+
+    return Boolean(response?.ok && response?.granted);
+  } catch (error) {
+    if (isDeadObjectAccessError(error)) {
+      return false;
+    }
+    throw error;
+  }
 }
