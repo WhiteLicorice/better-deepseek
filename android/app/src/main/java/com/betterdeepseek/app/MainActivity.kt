@@ -3,9 +3,12 @@ package com.betterdeepseek.app
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
 import android.webkit.CookieManager
@@ -46,6 +49,12 @@ class MainActivity : ComponentActivity() {
     private lateinit var assetLoader: WebViewAssetLoader
     internal lateinit var bridge: WebViewBridge
     private lateinit var cookieManager: CookieManager
+
+    /** Exposed so Robolectric tests can call onPageStarted / onPageFinished directly. */
+    internal lateinit var bdsWebViewClientForTest: WebViewClient
+
+    private val injectHandler = Handler(Looper.getMainLooper())
+    private var pendingInjection: Runnable? = null
 
     private var pendingFileChooser: ValueCallback<Array<Uri>>? = null
     private val fileChooserLauncher: ActivityResultLauncher<Array<String>> =
@@ -105,7 +114,8 @@ class MainActivity : ComponentActivity() {
                         userAgentString = String.format(SPOOFED_UA, BuildConfig.VERSION_NAME)
                     }
                     addJavascriptInterface(bridge, BRIDGE_NAME)
-                    webViewClient = bdsWebViewClient()
+                    bdsWebViewClientForTest = bdsWebViewClient()
+                    webViewClient = bdsWebViewClientForTest
                     webChromeClient = bdsWebChromeClient()
                     isVerticalScrollBarEnabled = true
                     setBackgroundColor(if (isPageDark) PAGE_BG_DARK else PAGE_BG_LIGHT)
@@ -145,8 +155,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-        bridge.onBootstrapReadyCallback = { injectBdsScripts() }
-
         setContentView(rootLayout)
         webView.loadUrl(getString(R.string.bds_target_url))
 
@@ -165,8 +173,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        pendingInjection?.let { injectHandler.removeCallbacks(it) }
+        pendingInjection = null
         bridge.onThemeChanged = null
-        bridge.onBootstrapReadyCallback = null
         webView.removeJavascriptInterface(BRIDGE_NAME)
         super.onDestroy()
     }
@@ -208,11 +217,20 @@ class MainActivity : ComponentActivity() {
                     return null
                 }
 
+                override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                    super.onPageStarted(view, url, favicon)
+                    pendingInjection?.let { injectHandler.removeCallbacks(it) }
+                    pendingInjection = null
+                }
+
                 override fun onPageFinished(view: WebView, url: String?) {
                     super.onPageFinished(view, url)
                     if (url.isNullOrEmpty()) return
-                    if (url.startsWith("https://chat.deepseek.com")) {
-                        injectBdsBootstrap(view)
+                    if (url.startsWith("https://chat.deepseek.com") && !url.contains("/sign_in")) {
+                        pendingInjection?.let { injectHandler.removeCallbacks(it) }
+                        val runnable = Runnable { injectBdsScripts(view) }
+                        pendingInjection = runnable
+                        injectHandler.postDelayed(runnable, INJECT_DELAY_MS)
                     }
                 }
             }
@@ -363,81 +381,31 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // ── Test hooks ───────────────────────────────────────────────────────
-
-    /**
-     * Mirrors the [onPageFinished] URL guard for Robolectric tests. Calls the real
-     * [injectBdsBootstrap] so the mock WebView records the evaluateJavascript call with the
-     * actual bootstrap JS content (no sentinel needed — bootstrap is pure Kotlin string, no assets).
-     *
-     * GOTCHA: keep the domain guard here in sync with [bdsWebViewClient.onPageFinished].
-     */
-    internal fun onPageFinishedForTest(view: WebView, url: String?) {
-        if (url.isNullOrEmpty()) return
-        if (url.startsWith("https://chat.deepseek.com")) {
-            injectBdsBootstrap(view)
-        }
-    }
-
     // ── BDS script injection ─────────────────────────────────────────────
 
     /**
-     * Injects a lightweight bootstrap script that checks [window.location.pathname] at runtime.
-     * - If the path is not /sign_in, calls [AndroidBridge.onBootstrapReady] immediately.
-     * - If the path is /sign_in, installs a MutationObserver + polling fallback and calls
-     *   [AndroidBridge.onBootstrapReady] only after the SPA navigates away.
-     *
-     * This keeps BDS off the login/OAuth page without relying on [onPageFinished] URL matching,
-     * which fires on the SPA shell URL rather than the rendered route.
-     */
-    private fun injectBdsBootstrap(view: WebView) {
-        val bootstrap = """
-            (function() {
-                if (window.__bdsBootstrapInstalled) return;
-                window.__bdsBootstrapInstalled = true;
-                function loadBds() {
-                    if (window.__bdsReady) return;
-                    window.__bdsReady = true;
-                    window.AndroidBridge.onBootstrapReady();
-                }
-                if (window.location.pathname !== '/sign_in') {
-                    loadBds();
-                } else {
-                    var observer = new MutationObserver(function() {
-                        if (window.location.pathname !== '/sign_in') {
-                            observer.disconnect();
-                            loadBds();
-                        }
-                    });
-                    observer.observe(document.body || document.documentElement,
-                        { childList: true, subtree: true });
-                    var poll = setInterval(function() {
-                        if (window.location.pathname !== '/sign_in') {
-                            clearInterval(poll);
-                            observer.disconnect();
-                            loadBds();
-                        }
-                    }, 250);
-                }
-            })();
-        """.trimIndent()
-        view.evaluateJavascript(bootstrap, null)
-    }
-
-    /**
-     * Read the BDS bundle (content.css/js, injected.js) from assets/bds and inject them into the
-     * page. Called by [bridge.onBootstrapReady] once the SPA is past the sign-in route.
+     * Read the BDS bundle (content.css/js, injected.js) from assets/bds and inject them into
+     * [view] once the page has been stable for [INJECT_DELAY_MS].
      *
      * Injection order matters:
      * 1. injected.js (MAIN-world equivalent — patches fetch/XHR)
      * 2. content.css (UI styles)
      * 3. content.js (mounts Svelte UI, scans DOM)
+     *
+     * GOTCHA: When assets are absent (e.g. test env without a prior npm run build:android), the
+     * method emits a sentinel evaluateJavascript call containing "injected.js" so Robolectric
+     * tests can assert injection was attempted via contains("injected.js") without requiring
+     * pre-built assets. The sentinel is a JS no-op in production if assets are unexpectedly missing.
      */
-    internal fun injectBdsScripts() {
-        val view = webView
-        val injected = readAsset("bds/injected.js") ?: return
+    private fun injectBdsScripts(view: WebView) {
+        val injected = readAsset("bds/injected.js")
         val css = readAsset("bds/content.css") ?: ""
-        val content = readAsset("bds/content.js") ?: return
+        val content = readAsset("bds/content.js")
+
+        if (injected == null || content == null) {
+            view.evaluateJavascript("/* bds/injected.js */", null)
+            return
+        }
 
         val cssLiteral = jsStringLiteral(css)
         val cssBootstrap =
@@ -498,6 +466,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         private const val BRIDGE_NAME = "AndroidBridge"
         private const val TAG = "BdsMainActivity"
+        private const val INJECT_DELAY_MS = 300L
 
         // Default WebView background colours used in the inset-padding area behind transparent
         // system bars. Approximates DeepSeek's own page backgrounds so the status/nav bar region

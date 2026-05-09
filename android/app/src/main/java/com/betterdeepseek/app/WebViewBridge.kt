@@ -58,11 +58,6 @@ class WebViewBridge(
     /** Set by MainActivity to react to page theme changes without leaking the Activity window. */
     @Volatile var onThemeChanged: ((isDark: Boolean) -> Unit)? = null
 
-    /**
-     * Set by MainActivity so [onBootstrapReady] can trigger full BDS script injection without
-     * holding an Activity reference directly. Nulled out in [MainActivity.onDestroy].
-     */
-    @Volatile var onBootstrapReadyCallback: (() -> Unit)? = null
 
     /**
      * Returns the last DeepSeek page theme written by the extension's theme.js via
@@ -83,16 +78,6 @@ class WebViewBridge(
     @JavascriptInterface
     fun reportTheme(isDark: Boolean) {
         onThemeChanged?.invoke(isDark)
-    }
-
-    /**
-     * Called by the BDS bootstrap script once the SPA has navigated away from /sign_in and the
-     * full extension can safely initialise. Posts back to the UI thread so [onBootstrapReadyCallback]
-     * may safely call [WebView.evaluateJavascript].
-     */
-    @JavascriptInterface
-    fun onBootstrapReady() {
-        mainHandler.post { onBootstrapReadyCallback?.invoke() }
     }
 
     @JavascriptInterface
