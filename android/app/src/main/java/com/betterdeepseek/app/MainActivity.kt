@@ -209,7 +209,7 @@ class MainActivity : ComponentActivity() {
                 override fun onPageFinished(view: WebView, url: String?) {
                     super.onPageFinished(view, url)
                     if (url.isNullOrEmpty()) return
-                    if (url.startsWith("https://chat.deepseek.com")) {
+                    if (url.startsWith("https://chat.deepseek.com") && !url.contains("/sign_in")) {
                         injectBdsScripts(view)
                     }
                 }
@@ -358,6 +358,22 @@ class MainActivity : ComponentActivity() {
         } catch (t: Throwable) {
             Log.e(TAG, "OAuth proxy failed for ${request.url}", t)
             null
+        }
+    }
+
+    // ── Test hooks ───────────────────────────────────────────────────────
+
+    /**
+     * Mirrors the [onPageFinished] URL guard for Robolectric tests. Uses a sentinel string instead
+     * of loading real assets so [./gradlew test] passes without a prior [npm run build:android].
+     * Validates guard logic only — not script content.
+     *
+     * GOTCHA: keep this guard in sync with the one in [bdsWebViewClient.onPageFinished].
+     */
+    internal fun onPageFinishedForTest(view: WebView, url: String?) {
+        if (url.isNullOrEmpty()) return
+        if (url.startsWith("https://chat.deepseek.com") && !url.contains("/sign_in")) {
+            view.evaluateJavascript("/* injected.js sentinel */", null)
         }
     }
 
