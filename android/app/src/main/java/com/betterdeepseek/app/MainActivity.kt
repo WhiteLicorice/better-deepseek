@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private lateinit var assetLoader: WebViewAssetLoader
-    private lateinit var bridge: WebViewBridge
+    internal lateinit var bridge: WebViewBridge
     private lateinit var cookieManager: CookieManager
 
     private var pendingFileChooser: ValueCallback<Array<Uri>>? = null
@@ -145,6 +145,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        bridge.onBootstrapReadyCallback = { injectBdsScripts() }
 
         setContentView(rootLayout)
         webView.loadUrl(getString(R.string.bds_target_url))
@@ -165,6 +166,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         bridge.onThemeChanged = null
+        bridge.onBootstrapReadyCallback = null
         webView.removeJavascriptInterface(BRIDGE_NAME)
         super.onDestroy()
     }
@@ -209,8 +211,8 @@ class MainActivity : ComponentActivity() {
                 override fun onPageFinished(view: WebView, url: String?) {
                     super.onPageFinished(view, url)
                     if (url.isNullOrEmpty()) return
-                    if (url.startsWith("https://chat.deepseek.com") && !url.contains("/sign_in")) {
-                        injectBdsScripts(view)
+                    if (url.startsWith("https://chat.deepseek.com")) {
+                        injectBdsBootstrap(view)
                     }
                 }
             }
@@ -364,35 +366,81 @@ class MainActivity : ComponentActivity() {
     // ── Test hooks ───────────────────────────────────────────────────────
 
     /**
-     * Mirrors the [onPageFinished] URL guard for Robolectric tests. Uses a sentinel string instead
-     * of loading real assets so [./gradlew test] passes without a prior [npm run build:android].
-     * Validates guard logic only — not script content.
+     * Mirrors the [onPageFinished] URL guard for Robolectric tests. Calls the real
+     * [injectBdsBootstrap] so the mock WebView records the evaluateJavascript call with the
+     * actual bootstrap JS content (no sentinel needed — bootstrap is pure Kotlin string, no assets).
      *
-     * GOTCHA: keep this guard in sync with the one in [bdsWebViewClient.onPageFinished].
+     * GOTCHA: keep the domain guard here in sync with [bdsWebViewClient.onPageFinished].
      */
     internal fun onPageFinishedForTest(view: WebView, url: String?) {
         if (url.isNullOrEmpty()) return
-        if (url.startsWith("https://chat.deepseek.com") && !url.contains("/sign_in")) {
-            view.evaluateJavascript("/* injected.js sentinel */", null)
+        if (url.startsWith("https://chat.deepseek.com")) {
+            injectBdsBootstrap(view)
         }
     }
 
     // ── BDS script injection ─────────────────────────────────────────────
 
     /**
+     * Injects a lightweight bootstrap script that checks [window.location.pathname] at runtime.
+     * - If the path is not /sign_in, calls [AndroidBridge.onBootstrapReady] immediately.
+     * - If the path is /sign_in, installs a MutationObserver + polling fallback and calls
+     *   [AndroidBridge.onBootstrapReady] only after the SPA navigates away.
+     *
+     * This keeps BDS off the login/OAuth page without relying on [onPageFinished] URL matching,
+     * which fires on the SPA shell URL rather than the rendered route.
+     */
+    private fun injectBdsBootstrap(view: WebView) {
+        val bootstrap = """
+            (function() {
+                if (window.__bdsBootstrapInstalled) return;
+                window.__bdsBootstrapInstalled = true;
+                function loadBds() {
+                    if (window.__bdsReady) return;
+                    window.__bdsReady = true;
+                    window.AndroidBridge.onBootstrapReady();
+                }
+                if (window.location.pathname !== '/sign_in') {
+                    loadBds();
+                } else {
+                    var observer = new MutationObserver(function() {
+                        if (window.location.pathname !== '/sign_in') {
+                            observer.disconnect();
+                            loadBds();
+                        }
+                    });
+                    observer.observe(document.body || document.documentElement,
+                        { childList: true, subtree: true });
+                    var poll = setInterval(function() {
+                        if (window.location.pathname !== '/sign_in') {
+                            clearInterval(poll);
+                            observer.disconnect();
+                            loadBds();
+                        }
+                    }, 250);
+                }
+            })();
+        """.trimIndent()
+        view.evaluateJavascript(bootstrap, null)
+    }
+
+    /**
      * Read the BDS bundle (content.css/js, injected.js) from assets/bds and inject them into the
-     * page after every navigation. Order matters:
+     * page. Called by [bridge.onBootstrapReady] once the SPA is past the sign-in route.
+     *
+     * Injection order matters:
      * 1. injected.js (MAIN-world equivalent — patches fetch/XHR)
      * 2. content.css (UI styles)
      * 3. content.js (mounts Svelte UI, scans DOM)
      */
-    private fun injectBdsScripts(view: WebView) {
+    internal fun injectBdsScripts() {
+        val view = webView
         val injected = readAsset("bds/injected.js") ?: return
         val css = readAsset("bds/content.css") ?: ""
         val content = readAsset("bds/content.js") ?: return
 
         val cssLiteral = jsStringLiteral(css)
-        val bootstrap =
+        val cssBootstrap =
                 """
             (function () {
                 if (window.__bdsAndroidBootstrapped) return;
@@ -406,7 +454,7 @@ class MainActivity : ComponentActivity() {
         """.trimIndent()
 
         view.evaluateJavascript(injected, null)
-        view.evaluateJavascript(bootstrap, null)
+        view.evaluateJavascript(cssBootstrap, null)
         // content.js calls startThemeWatcher() which persists pageIsDark via chrome.storage and
         // fires AndroidBridge.reportTheme() for the live native bar-icon colour update.
         view.evaluateJavascript(content, null)
