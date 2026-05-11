@@ -66,6 +66,52 @@ describe("CodeRunner integration", () => {
     cleanup();
   });
 
+  it("shows no-output placeholder when execution finishes without output", async () => {
+    const { target, cleanup } = renderSvelte(CodeRunner, {
+      content: "x = 1",
+      language: "python",
+    });
+    await flushUi();
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { type: "STATUS", data: "FINISHED" },
+      }),
+    );
+    await flushUi();
+
+    expect(target.textContent).toContain("Execution finished with no output");
+    cleanup();
+  });
+
+  it("does not render a log entry when CONSOLE_LOG has empty text", async () => {
+    const { target, cleanup } = renderSvelte(CodeRunner, {
+      content: "x = 1",
+      language: "python",
+    });
+    await flushUi();
+
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: {
+          type: "CONSOLE_LOG",
+          data: { method: "log", args: [""] },
+        },
+      }),
+    );
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        data: { type: "STATUS", data: "FINISHED" },
+      }),
+    );
+    await flushUi();
+
+    // Empty log entry should not suppress the "no output" placeholder
+    const logLines = target.querySelectorAll(".bds-log-line:not(.dim)");
+    expect(logLines).toHaveLength(0);
+    cleanup();
+  });
+
   it("downloads the current script", () => {
     const { target, cleanup } = renderSvelte(CodeRunner, {
       content: "print('x')",

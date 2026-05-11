@@ -530,7 +530,7 @@ export function buildHeadlessRunnerDocument(language = "javascript") {
             }
             
             window.pyodide.globals.set("bds_user_code", code);
-            const result = await window.pyodide.runPythonAsync(
+            await window.pyodide.runPythonAsync(
               "import io, sys, traceback\\n" +
               "_buffer = io.StringIO()\\n" +
               "_old_stdout = sys.stdout\\n" +
@@ -544,12 +544,13 @@ export function buildHeadlessRunnerDocument(language = "javascript") {
               "finally:\\n" +
               "    sys.stdout = _old_stdout\\n" +
               "    sys.stderr = _old_stderr\\n" +
-              "_buffer.getvalue()"
+              "_bds_last_output = _buffer.getvalue()"
             );
-            
-            // Log the result (stdout/stderr)
-            if (result !== undefined && result !== null) {
-              console.log(String(result).trim());
+            const stdout = String(window.pyodide.globals.get("_bds_last_output") ?? "").trimEnd();
+            window.pyodide.globals.delete("bds_user_code");
+            window.pyodide.globals.delete("_bds_last_output");
+            if (stdout) {
+              console.log(stdout);
             }
           } else {
             let finalCode = code;

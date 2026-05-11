@@ -46,6 +46,30 @@ describe("buildHeadlessRunnerDocument", () => {
     expect(doc).toContain("runPythonAsync");
   });
 
+  it("python runner stores output in named global, not last-expression return", () => {
+    const doc = buildHeadlessRunnerDocument("python");
+    expect(doc).toContain("_bds_last_output = _buffer.getvalue()");
+    expect(doc).toContain('globals.get("_bds_last_output")');
+  });
+
+  it("python runner only sends CONSOLE_LOG for non-empty output", () => {
+    const doc = buildHeadlessRunnerDocument("python");
+    expect(doc).toContain("if (stdout)");
+    expect(doc).not.toContain("console.log(String(result)");
+  });
+
+  it("python runner uses trimEnd to preserve leading whitespace", () => {
+    const doc = buildHeadlessRunnerDocument("python");
+    expect(doc).toContain(".trimEnd()");
+    expect(doc).not.toContain(".trim()");
+  });
+
+  it("python runner cleans up pyodide globals after execution", () => {
+    const doc = buildHeadlessRunnerDocument("python");
+    expect(doc).toContain('globals.delete("bds_user_code")');
+    expect(doc).toContain('globals.delete("_bds_last_output")');
+  });
+
   it("builds a typescript runner document with babel", () => {
     const doc = buildHeadlessRunnerDocument("typescript");
     expect(doc).toContain("babel.min.js");

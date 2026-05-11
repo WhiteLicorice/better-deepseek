@@ -22,7 +22,8 @@
     if (id && id !== instanceId) return; // Ignore messages from other runners
 
     if (type === "CONSOLE_LOG") {
-      output = [...output, { method: data.method, text: data.args.join(" ") }];
+      const text = data.args.join(" ");
+      if (text) output = [...output, { method: data.method, text }];
     } else if (type === "STATUS") {
       status = data;
     }
