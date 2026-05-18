@@ -6,7 +6,7 @@ import state from "./state.js";
 import { BRIDGE_EVENTS } from "../lib/constants.js";
 import { findLatestAssistantMessageNode, collectMessageNodes } from "./scanner.js";
 import { finalizeLongWork } from "./files/long-work.js";
-import { getActiveProject, getActiveFiles } from "./project-manager.js";
+import { getActiveProject, getActiveFiles, getFilesForProject } from "./project-manager.js";
 import { discoverTags } from "./tags/tag-manager.js";
 
 /**
@@ -131,6 +131,11 @@ export function pushConfigToPage() {
     }
   }
 
+  const projectRagEnabled = Boolean(state.settings.projectRagEnabled);
+  const activeProjectFiles = activeProject
+    ? (projectRagEnabled ? getFilesForProject(activeProject.id) : getActiveFiles())
+    : [];
+
   const detail = {
     systemPrompt: String(activeSystemPrompt),
     skills: state.skills
@@ -147,11 +152,13 @@ export function pushConfigToPage() {
     disableMemory: Boolean(state.settings.disableMemory),
     systemPromptInjectionFrequency: String(state.settings.systemPromptInjectionFrequency || "first"),
     systemPromptInjectionInterval: Number(state.settings.systemPromptInjectionInterval || 3),
+    projectRagEnabled,
+    projectRagLimit: Number(state.settings.projectRagLimit || 5),
     activeProject: activeProject
       ? {
         name: activeProject.name,
         instructions: activeProject.customInstructions,
-        files: getActiveFiles().map((f) => ({ name: f.name, content: f.content })),
+        files: activeProjectFiles.map((f) => ({ name: f.name, content: f.content })),
       }
       : null,
   };

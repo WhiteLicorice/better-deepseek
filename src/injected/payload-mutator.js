@@ -6,6 +6,7 @@
  */
 
 import { buildOfficeSkillsBlock } from "../lib/office-skills/index.js";
+import { searchActiveProjectRAG, formatRagInjections } from "../lib/rag-engine.js";
 
 /**
  * @param {object} payload - The parsed JSON request body
@@ -358,6 +359,18 @@ export function buildHiddenPrefix(
         blocks.push(projectBlock);
       }
     }
+
+    // Inject RAG context dynamically based on user prompt if RAG is enabled
+    if (state.config.projectRagEnabled && Array.isArray(project.files) && project.files.length > 0) {
+      const limit = Number(state.config.projectRagLimit) || 5;
+      const matchedChunks = searchActiveProjectRAG(userPrompt, project.files, limit);
+      if (matchedChunks && matchedChunks.length > 0) {
+        const ragBlock = formatRagInjections(matchedChunks, project.name);
+        if (ragBlock) {
+          blocks.push(ragBlock);
+        }
+      }
+    }
   }
 
   if (forceSystemPrompt) {
@@ -564,5 +577,6 @@ export function stripInjectedBlocks(text) {
   );
   output = output.replace(/<BDS:RP>[\s\S]*?<\/BDS:RP>/gi, "");
   output = output.replace(/<BDS:PROJECT[^>]*>[\s\S]*?<\/BDS:PROJECT>/gi, "");
+  output = output.replace(/<BDS:PROJECT_CONTEXT>[\s\S]*?<\/BDS:PROJECT_CONTEXT>/gi, "");
   return output.trim();
 }

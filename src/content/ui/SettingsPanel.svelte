@@ -46,6 +46,8 @@
     Number(appState.settings.maxChatSessions) || 500,
   );
   let tokenPriceDisplay = $state(Boolean(appState.settings.tokenPriceDisplay));
+  let projectRagEnabled = $state(Boolean(appState.settings.projectRagEnabled));
+  let projectRagLimit = $state(Number(appState.settings.projectRagLimit) || 5);
   let advancedOpen = $state(false);
 
   let activeProject = $state(getActiveProject());
@@ -80,6 +82,8 @@
       Number(appState.settings.htmlToMarkdownMaxDepth) || 200;
     maxChatSessions = Number(appState.settings.maxChatSessions) || 500;
     tokenPriceDisplay = Boolean(appState.settings.tokenPriceDisplay);
+    projectRagEnabled = Boolean(appState.settings.projectRagEnabled);
+    projectRagLimit = Number(appState.settings.projectRagLimit) || 5;
   }
 
   export function refreshProject() {
@@ -137,6 +141,8 @@
       Math.floor(Number(maxChatSessions) || 500),
     );
     appState.settings.tokenPriceDisplay = tokenPriceDisplay;
+    appState.settings.projectRagEnabled = projectRagEnabled;
+    appState.settings.projectRagLimit = Number(projectRagLimit) || 5;
 
     await chrome.storage.local.set({
       [STORAGE_KEYS.settings]: appState.settings,
@@ -378,6 +384,36 @@
 
 <div class="bds-advanced-content" class:open={advancedOpen}>
   <div class="bds-advanced-inner">
+    <div class="bds-toggle-row">
+      <span class="bds-toggle-label">Project Auto-Context (Local RAG)</span>
+      <label class="bds-switch">
+        <input
+          id="bds-project-rag"
+          type="checkbox"
+          bind:checked={projectRagEnabled}
+        />
+        <span class="bds-switch-track"></span>
+      </label>
+    </div>
+
+    {#if projectRagEnabled}
+      <div
+        class="bds-toggle-row"
+        style="flex-direction: column; align-items: flex-start; gap: 6px; padding-left: 12px; border-left: 2px solid rgba(255, 255, 255, 0.1); margin-left: 4px;"
+      >
+        <span class="bds-toggle-label">Max RAG Chunks to Inject</span>
+        <select class="bds-select" bind:value={projectRagLimit}>
+          <option value={3}>3 chunks (~600 words)</option>
+          <option value={5}>5 chunks (~1000 words)</option>
+          <option value={8}>8 chunks (~1600 words)</option>
+          <option value={10}>10 chunks (~2000 words)</option>
+        </select>
+        <p style="font-size: 10px; opacity: 0.5; margin: 0;">
+          Automatically retrieves relevant pieces from your project files.
+        </p>
+      </div>
+    {/if}
+
     <div class="bds-toggle-row">
       <span class="bds-toggle-label">Auto download create_file outputs</span>
       <label class="bds-switch">

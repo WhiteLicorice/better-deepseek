@@ -532,6 +532,8 @@ export const DEFAULT_SETTINGS = {
   htmlToMarkdownMaxDepth: 200,
   maxChatSessions: 500,
   tokenPriceDisplay: false,
+  projectRagEnabled: false,
+  projectRagLimit: 5,
 };
 
 // ── Code language → file extension map ──

@@ -34,6 +34,8 @@ export function normalizeConfig(config) {
     systemPromptInjectionFrequency: String(config.systemPromptInjectionFrequency || "first"),
     systemPromptInjectionInterval: Number(config.systemPromptInjectionInterval) || 3,
     activeProject,
+    projectRagEnabled: Boolean(config.projectRagEnabled),
+    projectRagLimit: Number(config.projectRagLimit) || 5,
   };
 }
 
