@@ -371,6 +371,11 @@ async function fetchPageContent(url, options = {}) {
   return await resp.text();
 }
 
+// Open chat.deepseek.com when the extension toolbar icon is clicked
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({ url: "https://chat.deepseek.com" });
+});
+
 // Update detection for "What's New" popup
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === "update") {
