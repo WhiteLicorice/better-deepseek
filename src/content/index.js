@@ -29,6 +29,7 @@ import { initPricing } from "../lib/pricing.js";
 import { startStatusMonitor } from "./status-monitor.js";
 import { startThemeWatcher } from "./theme.js";
 import { i18n } from "../lib/i18n.svelte.js";
+import { remoteConfig, REMOTE_CONFIG_EVENT } from "../lib/remote-config.svelte.js";
 
 const CONTENT_BOOTSTRAP_KEY = "__bdsContentBootstrapped";
 
@@ -59,6 +60,11 @@ async function init() {
   pushConfigToPage();
   startStatusMonitor();
   startThemeWatcher();
+
+  // Keep state.remoteConfig in sync when the RemoteConfigManager updates
+  window.addEventListener(REMOTE_CONFIG_EVENT, () => {
+    state.remoteConfig = remoteConfig.raw;
+  });
 
   // Dynamically fetch pricing and update embedded fallback
   initPricing().then((pricing) => {

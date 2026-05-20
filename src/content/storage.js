@@ -10,10 +10,12 @@ import {
   DEFAULT_SYSTEM_PROMPT,
   SYSTEM_PROMPT_TEMPLATE_VERSION,
   DOWNLOAD_BEHAVIOR_VERSION,
+  DEFAULT_REMOTE_CONFIG,
 } from "../lib/constants.js";
 import { makeId } from "../lib/utils/helpers.js";
 import { setHtmlToMarkdownMaxDepth } from "./dom/message-text.js";
 import { i18n } from "../lib/i18n.svelte.js";
+import { remoteConfig } from "../lib/remote-config.svelte.js";
 
 // ── Load ──
 
@@ -105,6 +107,9 @@ export async function loadStateFromStorage() {
   state.chatTags = normalizeChatTags(values[STORAGE_KEYS.chatTags]);
   state.remoteAnnouncements = Array.isArray(values[STORAGE_KEYS.remoteAnnouncement]) ? values[STORAGE_KEYS.remoteAnnouncement] : [];
   state.dismissedAnnouncements = Array.isArray(values[STORAGE_KEYS.dismissedAnnouncements]) ? values[STORAGE_KEYS.dismissedAnnouncements] : [];
+
+  await remoteConfig.init();
+  state.remoteConfig = remoteConfig.raw;
 }
 
 function shouldUpgradeSystemPrompt(storedSettings) {
@@ -390,6 +395,14 @@ export function bindStorageChangeListener() {
 
     if (changes[STORAGE_KEYS.dismissedAnnouncements]) {
       state.dismissedAnnouncements = changes[STORAGE_KEYS.dismissedAnnouncements].newValue || [];
+    }
+
+    if (changes[STORAGE_KEYS.remoteConfig]) {
+      const newConfig = changes[STORAGE_KEYS.remoteConfig].newValue;
+      if (newConfig && typeof newConfig === "object") {
+        remoteConfig.replaceRemote(newConfig);
+        state.remoteConfig = remoteConfig.raw;
+      }
     }
 
     if (changes.bds_locale_updates) {

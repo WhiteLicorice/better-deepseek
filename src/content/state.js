@@ -5,7 +5,7 @@
  * Svelte UI components will read from this and trigger updates via callbacks.
  */
 
-import { DEFAULT_SETTINGS, EMBEDDED_PRICING, CHARS_PER_TOKEN } from "../lib/constants.js";
+import { DEFAULT_SETTINGS, EMBEDDED_PRICING, CHARS_PER_TOKEN, DEFAULT_REMOTE_CONFIG } from "../lib/constants.js";
 
 const state = {
   settings: { ...DEFAULT_SETTINGS },
@@ -74,6 +74,8 @@ const state = {
   },
   remoteAnnouncements: [],
   dismissedAnnouncements: [],
+  /** Remote config object (deep-merged with built-in defaults). Populated by RemoteConfigManager. */
+  remoteConfig: DEFAULT_REMOTE_CONFIG,
 };
 
 /**

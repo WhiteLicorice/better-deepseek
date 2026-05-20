@@ -406,8 +406,36 @@ async function fetchRemoteStatus() {
   }
 }
 
+// Remote config system — fetch the latest config from GitHub
+const REMOTE_CONFIG_URL = "https://raw.githubusercontent.com/EdgeTypE/better-deepseek/main/extension/remote-config.json";
+
+async function fetchRemoteConfig() {
+  try {
+    const response = await fetch(`${REMOTE_CONFIG_URL}?t=${Date.now()}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) return;
+    
+    const config = await response.json();
+    if (config && typeof config === "object") {
+      // Store full config; the content script will deep-merge with built-in defaults
+      await chrome.storage.local.set({ bds_remote_config: config });
+      
+      // Store fetch metadata for cache-busting
+      const meta = {
+        lastFetched: Date.now(),
+        version: config.meta?.version || 0,
+      };
+      await chrome.storage.local.set({ bds_remote_config_meta: meta });
+    }
+  } catch (err) {
+    console.error("Failed to fetch remote config:", err);
+  }
+}
+
 // Run once on startup
 fetchRemoteStatus();
+fetchRemoteConfig();
 
 const localeMods = import.meta.glob("../locales/*.json", { eager: true });
 const localeCodes = Object.keys(localeMods)

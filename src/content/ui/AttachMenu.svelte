@@ -27,6 +27,7 @@
   import appState from "../state.js";
   import { BRIDGE_EVENTS } from "../../lib/constants.js";
   import { t } from "../../lib/i18n.svelte.js";
+  import { getFlag, getConfig, REMOTE_CONFIG_EVENT } from "../../lib/remote-config.svelte.js";
 
   // The native input[type="file"] reference passed from scanner
   let { nativeInput } = $props();
@@ -82,6 +83,88 @@
   // Android native bridge re-enables folder upload when pickFiles exists.
   const supportsFolderUpload = !isAndroidTarget || isNativeFilePickerAvailable();
   const supportsVoiceInput = !isAndroidTarget;
+
+  // ── Remote Config: Model-aware visibility ──
+
+  let currentModelType = $state("instant");
+
+  function detectModelType() {
+    const switcherSel = getConfig("selectors.modelSwitcher");
+    if (switcherSel) {
+      const switcher = document.querySelector(switcherSel);
+      if (switcher) {
+        const checked = switcher.querySelector('[aria-checked="true"]');
+        if (checked) {
+          const dt = checked.getAttribute("data-model-type");
+          if (dt === "expert") return "expert";
+          if (dt === "deepthink") return "deepthink";
+          return "instant";
+        }
+      }
+    }
+    const modelBadgeSelector = getConfig("selectors.modelBadge");
+    if (modelBadgeSelector) {
+      const el = document.querySelector(modelBadgeSelector);
+      if (el) {
+        const text = (el.textContent || "").toLowerCase().trim();
+        if (text === "expert" || text === "deepseek-reasoner") return "expert";
+        if (text === "instant" || text === "deepseek-chat") return "instant";
+        if (text.includes("deepthink") || text.includes("deep think")) return "deepthink";
+      }
+    }
+    const modelName = appState.pricing?.modelName || "";
+    const lo = modelName.toLowerCase();
+    if (lo.includes("pro") || lo.includes("reasoner") || lo === "expert") return "expert";
+    if (lo.includes("flash") || lo.includes("chat") || lo === "instant") return "instant";
+    if (lo.includes("deepthink")) return "deepthink";
+    return "instant";
+  }
+
+  let shouldShowAttach = $state(true);
+  let shouldShowGithub = $state(true);
+  let shouldShowWeb = $state(true);
+  let shouldShowFolder = $state(true);
+
+  function updateVisibility() {
+    try {
+      const enabled = getFlag("features.attachMenu.enabled");
+      const modelKey = currentModelType === "expert" ? "expertMode" : currentModelType === "instant" ? "instantMode" : "deepthinkMode";
+      shouldShowAttach = !!(enabled && getFlag(`features.attachMenu.${modelKey}.show`));
+      shouldShowGithub = shouldShowAttach && !!getFlag(`features.attachMenu.${modelKey}.showGithub`);
+      shouldShowWeb = shouldShowAttach && !!getFlag(`features.attachMenu.${modelKey}.showWeb`);
+      shouldShowFolder = shouldShowAttach && !!getFlag(`features.attachMenu.${modelKey}.showFolder`);
+    } catch (e) {
+      console.warn("[BDS] Failed to evaluate attach menu visibility:", e);
+    }
+  }
+
+  let modelObserver = $state(null);
+
+  function recheckModelType() {
+    const prev = currentModelType;
+    currentModelType = detectModelType();
+    if (currentModelType !== prev) updateVisibility();
+  }
+
+  function startModelWatcher() {
+    const poll = () => {
+      const switcher = document.querySelector('[role="radiogroup"]');
+      if (switcher) {
+        recheckModelType();
+        if (modelObserver) modelObserver.disconnect();
+        const obs = new MutationObserver(() => recheckModelType());
+        obs.observe(switcher, {
+          subtree: true,
+          attributes: true,
+          attributeFilter: ["aria-checked"],
+        });
+        modelObserver = obs;
+      } else {
+        requestAnimationFrame(poll);
+      }
+    };
+    requestAnimationFrame(poll);
+  }
 
   function hasGithubToken() {
     return Boolean(String(appState.settings.githubToken || "").trim());
@@ -258,12 +341,22 @@
     document.addEventListener("click", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
     appState.heroBarRef = { refresh: refreshProjectPanel };
+
+    currentModelType = detectModelType();
+    updateVisibility();
+    startModelWatcher();
+
+    const onConfigOrStateUpdate = () => { recheckModelType(); };
+    window.addEventListener(REMOTE_CONFIG_EVENT, onConfigOrStateUpdate);
+
     return () => {
       document.removeEventListener("click", handleClickOutside);
       document.removeEventListener("keydown", handleEscape);
+      window.removeEventListener(REMOTE_CONFIG_EVENT, onConfigOrStateUpdate);
       if (appState.heroBarRef?.refresh === refreshProjectPanel) {
         appState.heroBarRef = null;
       }
+      if (modelObserver) modelObserver.disconnect();
     };
   });
 
@@ -593,6 +686,7 @@
   }
 </script>
 
+{#if shouldShowAttach}
 <div class="bds-attach-wrapper" bind:this={menuRef}>
   <button class="bds-plus-btn" on:click={toggleMenu} title={t('attachMenu.buttonTitle')}>
     <svg
@@ -694,7 +788,7 @@
         >
         {t('attachMenu.uploadFile')}
       </button>
-      {#if supportsFolderUpload}
+      {#if shouldShowFolder && supportsFolderUpload}
         <button class="bds-attach-item" on:click={handleUploadFolder}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -719,7 +813,10 @@
           {t('attachMenu.uploadFolder')}
         </button>
       {/if}
-      <div class="bds-attach-divider"></div>
+      {#if shouldShowGithub || shouldShowWeb}
+        <div class="bds-attach-divider"></div>
+      {/if}
+      {#if shouldShowGithub}
       <button class="bds-attach-item" on:click={handleGithubImport}>
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -758,6 +855,8 @@
           {/if}
         </span>
       </button>
+      {/if}
+      {#if shouldShowWeb}
       <button class="bds-attach-item" on:click={handleWebImport}>
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -781,9 +880,11 @@
         >
         {t('attachMenu.fetchWebPage')}
       </button>
+      {/if}
     </div>
   {/if}
 </div>
+{/if}
 
 {#if showGithubDialog}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
