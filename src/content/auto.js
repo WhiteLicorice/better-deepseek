@@ -220,7 +220,7 @@ function injectPureTextAndSend(autoMessage) {
 async function injectFileAndSend(file, autoMessage = "") {
   const nativeInput = document.querySelector('input[type="file"][multiple]');
 
-  // ── FALLBACK: file input yoksa içeriği direkt mesaj olarak gönder ──
+  // // FALLBACK: inject file and send message directly if no file input is found
   if (!nativeInput) {
     let fileContent;
     try {
@@ -238,7 +238,7 @@ async function injectFileAndSend(file, autoMessage = "") {
     return;
   }
 
-  // ── NORMAL PATH: file input varsa dosyayı yükle ──
+  // normal path: file input exists, load the file
 
   // Inject the file
   const dt = new DataTransfer();
