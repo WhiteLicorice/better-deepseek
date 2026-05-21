@@ -439,9 +439,13 @@ export function buildMemoryCallsBlock(userPrompt, state) {
   }
 
   const blocks = selected
-    .map((item) => `<BDS:memory_calls importance="${item.importance}">${item.key}: ${item.value}</BDS:memory_calls>`)
+    .map((item) => `<BDS:memory_calls importance="${item.importance}">${item.key}: ${sanitizeMemoryValue(item.value)}</BDS:memory_calls>`)
     .join("\n");
   return `<BetterDeepSeek>\n${blocks}\n</BetterDeepSeek>`;
+}
+
+function sanitizeMemoryValue(value) {
+  return String(value).replace(/<\//g, '<\\/').trim();
 }
 
 /**

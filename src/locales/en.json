@@ -424,7 +424,9 @@
       "questionsAsked": "Clarifying questions asked.",
       "questionsSubtitle": "Please provide your answers in the interaction panel below.",
       "characterCreated": "Character/Persona created.",
-      "characterActive": "Active character: <strong>{{name}}</strong>"
+      "characterActive": "Active character: <strong>{{name}}</strong>",
+      "webFetchRequested": "Web page is being fetched",
+      "githubFetchRequested": "GitHub repository is being fetched"
     },
     "sidebarMenu": {
       "tags": "Tags (BDS)",

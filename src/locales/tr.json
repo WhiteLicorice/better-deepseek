@@ -420,7 +420,9 @@
       "questionsAsked": "Açıklık getirilmesi gereken sorular soruldu.",
       "questionsSubtitle": "Lütfen yanıtlarınızı aşağıdaki etkileşim panelinden girin.",
       "characterCreated": "Karakter/Persona oluşturuldu.",
-      "characterActive": "Aktif karakter: <strong>{{name}}</strong>"
+      "characterActive": "Aktif karakter: <strong>{{name}}</strong>",
+      "webFetchRequested": "Web sayfası getiriliyor",
+      "githubFetchRequested": "GitHub deposu getiriliyor"
     },
     "sidebarMenu": {
       "tags": "Etiketler (BDS)",
