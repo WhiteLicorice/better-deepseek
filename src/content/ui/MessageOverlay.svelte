@@ -151,12 +151,12 @@
     flex-direction: column;
     gap: 12px;
     font-family: inherit;
-    color: #333; 
+    color: inherit;
   }
 
   .bds-sanitized-text {
-    font-size: 14px;
-    line-height: 1.6;
+    font-size: inherit;
+    line-height: inherit;
     color: inherit;
     background: transparent;
   }
@@ -179,8 +179,8 @@
   }
 
   .bds-sanitized-text :global(code) {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-    font-size: 0.9em;
+    font-family: inherit;
+    font-size: inherit;
     background: var(--bds-bg-hover, rgba(255, 255, 255, 0.08));
     padding: 0.2em 0.4em;
     border-radius: 4px;
@@ -251,11 +251,5 @@
   .bds-sanitized-text :global(h1) { font-size: 1.5em; }
   .bds-sanitized-text :global(h2) { font-size: 1.3em; }
   .bds-sanitized-text :global(h3) { font-size: 1.1em; }
-
-  /* DeepSeek color sync */
-  :global(.dark) .bds-message-overlay {
-    color: #ececec;
-  }
-
 
 </style>

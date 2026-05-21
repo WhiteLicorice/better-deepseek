@@ -28,7 +28,7 @@
   h4 {
     margin: 0 0 8px 0;
     font-size: 13px;
-    color: inherit;
+    color: var(--bds-text-primary);
   }
 
   .bds-tool-body {

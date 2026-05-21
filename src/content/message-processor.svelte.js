@@ -348,6 +348,9 @@ export function processMessageNode(node) {
         const host = getOrCreateHost(node, "bds-overlay-host");
         removeStaleMessageOverlays(host);
         
+        // Copy DeepSeek's markdown computed styles so the overlay matches
+        matchNativeStyles(node, host);
+        
         // Create reactive props object
         const props = $state({
           text: newText,
@@ -384,6 +387,23 @@ export function processMessageNode(node) {
       }
     }
   }
+}
+
+/**
+ * Read computed font/color styles from DeepSeek's native .ds-markdown
+ * and apply them as inline styles on the overlay host so the overlay
+ * visually matches the surrounding message text.
+ */
+function matchNativeStyles(node, host) {
+  const md = node.querySelector('.ds-markdown, [class*="markdown"]');
+  if (!md) return;
+  const cs = getComputedStyle(md);
+  host.style.fontFamily = cs.fontFamily;
+  host.style.fontSize = cs.fontSize;
+  host.style.lineHeight = cs.lineHeight;
+  host.style.fontWeight = cs.fontWeight;
+  host.style.letterSpacing = cs.letterSpacing;
+  host.style.color = cs.color;
 }
 
 function removeStaleMessageOverlays(host) {
