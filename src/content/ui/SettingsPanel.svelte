@@ -688,6 +688,7 @@
         <option value="en-GB">English (UK)</option>
         <option value="tr-TR">Türkçe (TR)</option>
         <option value="de-DE">Deutsch (DE)</option>
+        <option value="ru-RU">Русский (RU)</option>
         <option value="fr-FR">Français (FR)</option>
         <option value="es-ES">Español (ES)</option>
         <option value="it-IT">Italiano (IT)</option>
