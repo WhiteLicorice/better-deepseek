@@ -217,12 +217,28 @@ function injectPureTextAndSend(autoMessage) {
 }
 
 
-function injectFileAndSend(file, autoMessage = "") {
+async function injectFileAndSend(file, autoMessage = "") {
   const nativeInput = document.querySelector('input[type="file"][multiple]');
+
+  // ── FALLBACK: file input yoksa içeriği direkt mesaj olarak gönder ──
   if (!nativeInput) {
-    console.error("[BDS:AUTO] Could not find native file input.");
+    let fileContent;
+    try {
+      fileContent = await file.text();
+    } catch (err) {
+      fileContent = `(Error reading file content: ${err.message})`;
+    }
+
+    const ext = String(file.name || "").split('.').pop() || '';
+    const LANG_HINTS = { md: 'markdown', json: 'json', html: 'html', xml: 'xml', yaml: 'yaml', yml: 'yaml', csv: 'csv', txt: 'text', js: 'javascript', ts: 'typescript', py: 'python', css: 'css' };
+    const langHint = LANG_HINTS[ext] || 'text';
+
+    const fullMessage = `${autoMessage}\n\`\`\`${langHint}\n${fileContent}\n\`\`\``;
+    injectPureTextAndSend(fullMessage);
     return;
   }
+
+  // ── NORMAL PATH: file input varsa dosyayı yükle ──
 
   // Inject the file
   const dt = new DataTransfer();
