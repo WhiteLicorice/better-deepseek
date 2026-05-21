@@ -313,7 +313,7 @@ export function processMessageNode(node) {
       }
     }
 
-    if (!isSystemGenerating() && parsed.askQuestions.length > 0 && isLatestAssistantMessage(node)) {
+    if (!state.activeQuestions && !isSystemGenerating() && parsed.askQuestions.length > 0 && isLatestAssistantMessage(node)) {
       state.activeQuestions = parsed.askQuestions;
       window.dispatchEvent(new CustomEvent('bds-ask-questions', { 
         detail: { 

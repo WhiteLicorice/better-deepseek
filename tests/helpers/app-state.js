@@ -35,7 +35,7 @@ export function resetAppState(overrides = {}) {
   state.ui = null;
   state.heroBarRef = null;
   state.chatSessions = [];
-  state.activeQuestions = [];
+  state.activeQuestions = null;
   state.pricing = {
     modelName: null,
     sessionTotals: { inputCost: 0, outputCost: 0, totalCost: 0 },
