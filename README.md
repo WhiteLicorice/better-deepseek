@@ -342,7 +342,7 @@ Better DeepSeek does not collect, transmit, or sell any personal data. All setti
 ## Changelog
 
 ### v0.1.7 (2026-05-22)
-- **New Feature**: Localization System. Better DeepSeek now supports multiple languages. Help us improve translations or add your own language, visit [Localization](extension/LOCALIZATION.md) page.
+- **New Feature**: Localization System. Better DeepSeek now supports multiple languages. Help us improve translations or add your own language, visit [Localization](LOCALIZATION.md) page.
 - **New Feature**: Custom Prompts. Create, save, and switch between multiple system prompts with ease.
 - **New Feature**: Project RAG Search. A primitive RAG system for searching through project files and local folders.
 - **New Feature**: Server status checker that notifies you when DeepSeek servers are experiencing issues.
