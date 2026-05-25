@@ -147,9 +147,23 @@
       "import": "Импорт",
       "empty": "Нет записей в памяти.",
       "delete": "Удалить",
+      "edit": "Редактировать",
+      "editTitle": "Редактировать память",
+      "saved": "Сохранено: {{key}}",
       "importSuccess": "Память успешно импортирована.",
       "importFailed": "Ошибка импорта: неверный формат JSON.",
-      "deleted": "Удалена запись памяти: {{key}}"
+      "deleted": "Удалена запись памяти: {{key}}",
+      "more": "+{{count}} ещё"
+    },
+    "memoryImport": {
+      "title": "Импорт памяти из ИИ",
+      "step1Title": "1. Скопируйте промпт и вставьте в другой ИИ",
+      "copyPrompt": "Копировать",
+      "copied": "Скопировано!",
+      "step2Title": "2. Вставьте ответ ИИ ниже",
+      "placeholder": "Вставьте ответ ИИ сюда...",
+      "importButton": "Импорт и запуск Expert сессии",
+      "importError": "Пожалуйста, сначала вставьте ответ ИИ."
     },
     "projectsManager": {
       "back": "Назад",
@@ -425,7 +439,8 @@
       "skillCreated": "Навык создан.",
       "skillActive": "Активный навык: <strong>{{name}}</strong>",
       "webFetchRequested": "Веб-страница загружается",
-      "githubFetchRequested": "GitHub репозиторий загружается"
+      "githubFetchRequested": "GitHub репозиторий загружается",
+      "memoryStored": "Память сохранена ({{count}})."
     },
     "savedItems": {
       "title": "Сохранённое",

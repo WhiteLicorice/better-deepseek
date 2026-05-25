@@ -147,9 +147,23 @@
       "import": "Import",
       "empty": "No memory entries yet.",
       "delete": "Delete",
+      "edit": "Edit",
+      "editTitle": "Edit Memory",
+      "saved": "Saved memory: {{key}}",
       "importSuccess": "Memories imported successfully.",
       "importFailed": "Import failed: JSON format error.",
-      "deleted": "Deleted memory: {{key}}"
+      "deleted": "Deleted memory: {{key}}",
+      "more": "+{{count}} more"
+    },
+    "memoryImport": {
+      "title": "Import Memory from Another AI",
+      "step1Title": "1. Copy prompt & paste into another AI",
+      "copyPrompt": "Copy",
+      "copied": "Copied!",
+      "step2Title": "2. Paste the AI response below",
+      "placeholder": "Paste the AI response here...",
+      "importButton": "Import & Start Expert Session",
+      "importError": "Please paste the AI response first."
     },
     "projectsManager": {
       "back": "Back",
@@ -428,7 +442,8 @@
       "skillCreated": "Skill created.",
       "skillActive": "Active skill: <strong>{{name}}</strong>",
       "webFetchRequested": "Web page is being fetched",
-      "githubFetchRequested": "GitHub repository is being fetched"
+      "githubFetchRequested": "GitHub repository is being fetched",
+      "memoryStored": "Memory stored ({{count}})."
     },
     "sidebarMenu": {
       "tags": "Tags (BDS)",

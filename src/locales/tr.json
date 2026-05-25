@@ -147,9 +147,23 @@
       "import": "İçe Aktar",
       "empty": "Henüz bellek kaydı bulunmuyor.",
       "delete": "Sil",
+      "edit": "Düzenle",
+      "editTitle": "Bellek Düzenle",
+      "saved": "Kaydedilen bellek: {{key}}",
       "importSuccess": "Bellek başarıyla içe aktarıldı.",
       "importFailed": "İçe aktarma başarısız: JSON formatı hatalı.",
-      "deleted": "Silinen bellek kaydı: {{key}}"
+      "deleted": "Silinen bellek kaydı: {{key}}",
+      "more": "+{{count}} daha"
+    },
+    "memoryImport": {
+      "title": "AI'dan Bellek Aktar",
+      "step1Title": "1. Prompt'u kopyala & başka bir AI'ya yapıştır",
+      "copyPrompt": "Kopyala",
+      "copied": "Kopyalandı!",
+      "step2Title": "2. AI yanıtını aşağıya yapıştırın",
+      "placeholder": "AI yanıtını buraya yapıştırın...",
+      "importButton": "Import & Expert Session Başlat",
+      "importError": "Lütfen önce AI yanıtını yapıştırın."
     },
     "projectsManager": {
       "back": "Geri",
@@ -425,7 +439,8 @@
       "skillCreated": "Yetenek oluşturuldu.",
       "skillActive": "Aktif yetenek: <strong>{{name}}</strong>",
       "webFetchRequested": "Web sayfası getiriliyor",
-      "githubFetchRequested": "GitHub deposu getiriliyor"
+      "githubFetchRequested": "GitHub deposu getiriliyor",
+      "memoryStored": "Bellek kaydedildi ({{count}})."
     },
     "savedItems": {
       "title": "Kaydedilenler",

@@ -127,6 +127,19 @@
             <div class="bds-question-subtitle">{block.content}</div>
           </div>
         </div>
+      {:else if block.name === 'memory_write'}
+        <div class="bds-question-info-card bds-memory-card">
+          <div class="bds-question-icon bds-memory-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <ellipse cx="12" cy="5" rx="9" ry="3"/>
+              <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+              <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+            </svg>
+          </div>
+          <div class="bds-question-content">
+            <div class="bds-question-title">{t('messageOverlay.memoryStored', { count: block.attrs.count })}</div>
+          </div>
+        </div>
       {:else}
         <ToolCard name={block.name} content={block.content} />
       {/if}
@@ -212,6 +225,15 @@
 
   .bds-github-fetch-card {
     border-left: 3px solid #6e40c9;
+  }
+
+  .bds-memory-icon {
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+  }
+
+  .bds-memory-card {
+    border-left: 3px solid #f59e0b;
   }
 
   .bds-message-overlay {

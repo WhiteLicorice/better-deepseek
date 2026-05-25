@@ -290,5 +290,13 @@ export function parseBdsMessage(rawText, isSettled = false) {
     result.visibleText = sanitizeVisibleText(text.substring(0, streamingTagStartIdx));
   }
 
+  // Summary card for memory_write if more than 3 in one message
+  if (result.memoryWrites.length > 3) {
+    result.renderableBlocks.push({
+      name: "memory_write",
+      attrs: { count: result.memoryWrites.length }
+    });
+  }
+
   return result;
 }

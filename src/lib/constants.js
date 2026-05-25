@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   // Last observed DeepSeek page theme. Written on all platforms so desktop modals and Android
   // native bars can both read it without relying on OS-level dark-mode assumptions.
   pageIsDark: "bds_page_is_dark",
+  pendingMemoryImport: "bds_pending_memory_import",
 };
 
 
@@ -31,6 +32,58 @@ export const BRIDGE_EVENTS = {
 export const SYSTEM_PROMPT_TEMPLATE_VERSION = 12;
 export const DOWNLOAD_BEHAVIOR_VERSION = 2;
 export const LONG_WORK_STALE_MS = 30000;
+
+// ── Memory Export Prompt (for exporting to other AIs) ──
+export const MEMORY_EXPORT_PROMPT = [
+  "The assistant is tasked with importing context from one AI system to another. The objective is to review all prior interactions and produce a concise, factual summary of what has been learned about the user.",
+  "",
+  "In the output, all first-person pronouns (I, my, me, mine) and second-person pronouns (you, your, yours) must be replaced. Refer to the individual solely as \"the user\" or with equivalent neutral phrasing. Preserve the user's own words verbatim whenever feasible, particularly for instructions and stated preferences.",
+  "",
+  "Categories (presented in this order):",
+  "1. **Demographics Information** – Preferred names, profession, education, and general location of residence.",
+  "2. **Interests & Preferences** – Sustained, active engagements (not one-time purchases or passive ownership).",
+  "3. **Relationships** – Confirmed, sustained interpersonal connections.",
+  "4. **Dated Events, Projects & Plans** – A log of significant, recent activities.",
+  "5. **Instructions** – Explicit behavioral rules the user has set for future interactions, such as \"always do X,\" \"never do Y,\" and corrections to assistant behavior. Only include rules derived from stored memories, not from the current conversation.",
+  "",
+  "Format:",
+  "Organize the content into the labeled sections above. Whenever possible, include verbatim quotes from the user's prompts to substantiate each entry. Use the following structure for each entry:",
+  "* The user's name is <name>.",
+  "    * Evidence: User said \"call me <name>\". Date: [YYYY-MM-DD].",
+  "    * Importance: Always",
+  "",
+  "Importance Levels:",
+  "Each entry must carry one of the following importance designations:",
+  "- **Always** – Critical facts injected into every session. Use for defining characteristics: name, profession, language preference, core identity markers, and standing behavioral rules. These are always active regardless of conversational context.",
+  "- **Called** – Contextual facts injected only when the surrounding conversation matches the entry's domain. Use for active projects, domain-specific preferences, temporary plans, and relationship details that are not universally relevant. These activate solely upon keyword or topic match.",
+  "",
+  "Output constraints:",
+  "- Deliver only the requested information. Do not add any conversational filler, introductory remarks, or concluding comments.",
+  "",
+  "Conclude by completing the sentence \"Imported from: [assistant name]\", where [assistant name] is the source assistant (e.g., Gemini, ChatGPT, Claude, Grok). This sentence must be the absolute final text of the response."
+].join("\n");
+
+// ── Memory Import: Prompt prepended when importing from another AI ──
+export const MEMORY_PROCESS_PROMPT = [
+  "I have imported a structured profile from another AI. Please process the following information carefully.",
+  "",
+  "For each piece of information in the profile, create an appropriate <BDS:memory_write> tag.",
+  "",
+  "Guidelines for creating memory_write entries:",
+  "1. Demographics → key names like \"user_name\", \"profession\", \"education\", \"location\"",
+  "2. Interests → key names like \"interest_hobby\", \"preferred_language\"",
+  "3. Relationships → key names like \"relationship_person\"",
+  "4. Projects/Events → key names like \"project_name\", \"event_name\"",
+  "5. Instructions → key names like \"instruction_topic\"",
+  "",
+  "Use importance=\"always\" for defining characteristics (name, profession, language, core identity).",
+  "Use importance=\"called\" for contextual facts (projects, interests, relationships, temporary plans).",
+  "",
+  "Always include verbatim evidence quotes from the user when provided.",
+  "",
+  "Here is the imported profile:",
+  ""
+].join("\n");
 
 // ── Default System Prompt ──
 export const DEFAULT_SYSTEM_PROMPT = [
