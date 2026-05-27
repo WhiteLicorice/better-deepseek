@@ -17,6 +17,9 @@ export const STORAGE_KEYS = {
   // native bars can both read it without relying on OS-level dark-mode assumptions.
   pageIsDark: "bds_page_is_dark",
   pendingMemoryImport: "bds_pending_memory_import",
+  apiPlaygroundKeys: "bds_api_playground_keys",
+  apiPlaygroundHistory: "bds_api_playground_history",
+  apiPlaygroundSaved: "bds_api_playground_saved",
 };
 
 
@@ -638,6 +641,7 @@ export const DEFAULT_SETTINGS = {
 // without releasing a new extension version.
 export const DEFAULT_REMOTE_CONFIG = {
   features: {
+    apiPlayground: { enabled: true },
     attachMenu: {
       enabled: true,
       expertMode: { show: false, showGithub: true, showWeb: true, showFolder: false },

@@ -9,7 +9,12 @@
   import appState from "../state.js";
   import { t } from "../../lib/i18n.svelte.js";
 
-  let { open = false, onclose } = $props();
+  let { open = false, onclose, onopenapiplayground } = $props();
+
+  function openApiPlayground() {
+    onclose();
+    onopenapiplayground();
+  }
 
   let settingsRef = $state(null);
   let charactersRef = $state(null);
@@ -75,7 +80,7 @@
   {:else}
 
 
-    <SettingsPanel bind:this={settingsRef} />
+    <SettingsPanel bind:this={settingsRef} onapiplayground={openApiPlayground} />
 
     <hr />
 

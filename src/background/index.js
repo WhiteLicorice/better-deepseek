@@ -1,3 +1,4 @@
+import "./api-proxy.js";
 import { fetchTranscript } from "youtube-transcript";
 import {
   DEFAULT_GITHUB_COMMIT_COUNT,

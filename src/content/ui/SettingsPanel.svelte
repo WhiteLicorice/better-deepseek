@@ -11,6 +11,8 @@
   import { getActiveProject, updateProject } from "../project-manager.js";
   import { t, i18n, availableLocaleCodes } from "../../lib/i18n.svelte.js";
 
+  let { onapiplayground } = $props();
+
   let customSystemPrompts = $state(appState.settings.customSystemPrompts || []);
   let activeSystemPromptId = $state(appState.settings.activeSystemPromptId || "default");
   
@@ -820,6 +822,17 @@
       {t('settings.tokenPriceHint')}
     </p>
 
+    <div
+      class="bds-toggle-row"
+      role="button"
+      tabindex="0"
+      onclick={onapiplayground}
+      onkeydown={(e) => e.key === 'Enter' && onapiplayground?.()}
+      style="cursor: pointer;"
+    >
+      <span class="bds-toggle-label">API Playground</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
 
   </div>
 </div>

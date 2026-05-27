@@ -6,9 +6,11 @@
   import SelectionOverlay from "./SelectionOverlay.svelte";
   import StatusBanner from "./StatusBanner.svelte";
   import AnnouncementBanner from "./AnnouncementBanner.svelte";
+  import ApiPlayground from "../api-playground/ApiPlayground.svelte";
   import appState from "../state.js";
 
   let drawerOpen = $state(false);
+  let apiPlaygroundOpen = $state(false);
   let whatsNewPending = $state(appState.whatsNewPending);
 
   /** @type {Array<{id: number, message: string}>} */
@@ -71,6 +73,14 @@
     drawerOpen = false;
   }
 
+  function openApiPlayground() {
+    apiPlaygroundOpen = true;
+  }
+
+  function closeApiPlayground() {
+    apiPlaygroundOpen = false;
+  }
+
   // Handle external selection mode toggle
   window.addEventListener("bds:toggleSelectionMode", () => {
     appState.selectionMode = true;
@@ -83,7 +93,11 @@
   <span class="bds-toggle-short" aria-hidden="true">B</span>
 </button>
 
-<Drawer bind:this={drawerRef} open={drawerOpen} onclose={closeDrawer} />
+<Drawer bind:this={drawerRef} open={drawerOpen} onclose={closeDrawer} onopenapiplayground={openApiPlayground} />
+
+{#if apiPlaygroundOpen}
+  <ApiPlayground onclose={closeApiPlayground} />
+{/if}
 
 <ToastStack {toasts} />
 <QuestionPanel />
