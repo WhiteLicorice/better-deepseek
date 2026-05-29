@@ -109,6 +109,15 @@ class I18nManager {
   }
 
   /**
+   * Returns the native name of a locale (from its own data), falling back to the code itself.
+   * @param {string} code Locale code
+   * @returns {string}
+   */
+  getNativeName(code) {
+    return locales[code]?.messages?.language?.[code] || code;
+  }
+
+  /**
    * Resolves a dotted-path localization key and performs template variable interpolation.
    * Supports falling back to English if the translation is missing in the active language.
    * 

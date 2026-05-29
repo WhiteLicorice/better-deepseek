@@ -515,7 +515,7 @@
         <span class="bds-toggle-label">{t('settings.selectLanguage')}</span>
         <select class="bds-select" bind:value={locale} style="width: 140px;">
           {#each availableLocaleCodes as code}
-            <option value={code}>{t(`language.${code}`)}</option>
+            <option value={code}>{i18n.getNativeName(code)}</option>
           {/each}
         </select>
       </div>
