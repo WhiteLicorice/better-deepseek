@@ -102,7 +102,15 @@
       "unsavedTitle": "未保存的更改",
       "unsavedMessage": "你有尚未保存的设置更改，确定要放弃吗？",
       "discard": "放弃",
-      "keepEditing": "继续编辑"
+      "keepEditing": "继续编辑",
+      "customCSS": "自定义 CSS",
+      "customCSSPlaceholder": "/* 在此粘贴你的 CSS 覆盖，或从上方选择一个预设 */",
+      "cssPresets": "预设",
+      "presetNone": "无",
+      "presetReducePadding": "减少聊天内边距",
+      "presetWiderMessages": "更宽的消息",
+      "presetCompact": "紧凑界面",
+      "presetBetterCodeFont": "更好的代码字体"
     },
     "skillList": {
       "title": "技能管理",

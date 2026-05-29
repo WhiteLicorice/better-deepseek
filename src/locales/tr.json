@@ -102,7 +102,15 @@
       "unsavedTitle": "Kaydedilmemiş Değişiklikler",
       "unsavedMessage": "Kaydedilmemiş ayar değişiklikleriniz bulunuyor. Değişiklikleri kaybetmek istediğinizden emin misiniz?",
       "discard": "Değişiklikleri İptal Et",
-      "keepEditing": "Düzenlemeye Devam Et"
+      "keepEditing": "Düzenlemeye Devam Et",
+      "customCSS": "Özel CSS",
+      "customCSSPlaceholder": "/* CSS kodunuzu buraya yapıştırın veya yukarıdan bir hazır şablon seçin */",
+      "cssPresets": "Hazır Şablonlar",
+      "presetNone": "Yok",
+      "presetReducePadding": "Daraltılmış Boşluk",
+      "presetWiderMessages": "Geniş Mesajlar",
+      "presetCompact": "Kompakt Arayüz",
+      "presetBetterCodeFont": "Daha İyi Kod Yazı Tipi"
     },
     "skillList": {
       "title": "Yetenek Seti",

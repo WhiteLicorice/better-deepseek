@@ -102,7 +102,15 @@
       "unsavedTitle": "Несохранённые изменения",
       "unsavedMessage": "У вас есть несохранённые изменения настроек. Вы уверены, что хотите отменить их?",
       "discard": "Отменить",
-      "keepEditing": "Продолжить редактирование"
+      "keepEditing": "Продолжить редактирование",
+      "customCSS": "Пользовательский CSS",
+      "customCSSPlaceholder": "/* Вставьте ваш CSS или выберите пресет выше */",
+      "cssPresets": "Пресеты",
+      "presetNone": "Нет",
+      "presetReducePadding": "Уменьшить отступы",
+      "presetWiderMessages": "Широкие сообщения",
+      "presetCompact": "Компактный интерфейс",
+      "presetBetterCodeFont": "Лучший шрифт для кода"
     },
     "skillList": {
       "title": "Набор навыков",

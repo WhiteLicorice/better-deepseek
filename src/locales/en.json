@@ -102,7 +102,15 @@
       "unsavedTitle": "Unsaved Changes",
       "unsavedMessage": "You have unsaved settings changes. Are you sure you want to discard them?",
       "discard": "Discard",
-      "keepEditing": "Keep Editing"
+      "keepEditing": "Keep Editing",
+      "customCSS": "Custom CSS",
+      "customCSSPlaceholder": "/* Paste your CSS overrides here or pick a preset above */",
+      "cssPresets": "Presets",
+      "presetNone": "None",
+      "presetReducePadding": "Reduce Chat Padding",
+      "presetWiderMessages": "Wider Messages",
+      "presetCompact": "Compact UI",
+      "presetBetterCodeFont": "Better Code Font"
     },
     "skillList": {
       "title": "Skill Set",

@@ -683,6 +683,7 @@ export const DEFAULT_SETTINGS = {
   syncLocale: true,
   processGitignoreOnUpload: true,
   collapseLongUserMessages: true,
+  customCSS: "",
 };
 
 // ── Default Remote Config (built-in fallback) ──
@@ -801,6 +802,81 @@ export const DEFAULT_REMOTE_CONFIG = {
     "deepseek-v4-pro": { input: 0.435, output: 0.87 },
     "deepseek-chat": { input: 0.14, output: 0.28 },
     "deepseek-reasoner": { input: 0.435, output: 0.87 },
+  },
+};
+
+export const CSS_PRESETS = {
+  none: { name: "presetNone", css: "" },
+  reducePadding: {
+    name: "presetReducePadding",
+    css: `/* Reduce unused padding in chat message list */
+.ds-virtual-list-items {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+}
+
+/* Increase width of expanded input fields */
+._871cbca:has(.bds-prompt-expanded) {
+    padding: 0 !important;
+}
+
+._9a2f8e4:has(.bds-prompt-expanded) {
+    max-width: 100% !important;
+}`,
+  },
+  widerMessages: {
+    name: "presetWiderMessages",
+    css: `/* Let messages stretch edge-to-edge */
+.ds-chat-conversation {
+    max-width: 100% !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+}
+
+.ds-chat-conversation .ds-chat-conversation__header {
+    max-width: 100% !important;
+}
+
+.ds-chat-conversation .ds-chat-conversation__messages {
+    max-width: 100% !important;
+}`,
+  },
+  compact: {
+    name: "presetCompact",
+    css: `/* Compact UI — tighter spacing */
+.ds-chat-input, .chat-input-container {
+    margin-bottom: 4px !important;
+}
+
+.ds-chat-sidebar {
+    font-size: 12px !important;
+}
+
+.ds-chat-sidebar .ds-chat-sidebar-item {
+    padding: 6px 10px !important;
+}
+
+.ds-chat-header {
+    padding: 4px 12px !important;
+    min-height: 40px !important;
+}
+
+.ds-chat-conversation .ds-chat-conversation__messages .ds-chat-message {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+}`,
+  },
+  betterCodeFont: {
+    name: "presetBetterCodeFont",
+    css: `/* Better code block font */
+.ds-chat-conversation pre code, 
+.ds-chat-conversation pre,
+.ds-markdown pre code,
+.ds-markdown pre {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Consolas', 'Monaco', 'Andale Mono', 'Ubuntu Mono', monospace !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+}`,
   },
 };
 

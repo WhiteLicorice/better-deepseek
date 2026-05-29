@@ -10,6 +10,7 @@
   } from "../../lib/constants.js";
   import { getActiveProject, updateProject } from "../project-manager.js";
   import { t, i18n, availableLocaleCodes } from "../../lib/i18n.svelte.js";
+  import { CSS_PRESETS } from "../../lib/constants.js";
 
   let { onapiplayground } = $props();
 
@@ -56,6 +57,7 @@
   let processGitignoreOnUpload = $state(Boolean(appState.settings.processGitignoreOnUpload));
   let locale = $state(appState.settings.locale || availableLocaleCodes[0] || "en");
   let syncLocale = $state(Boolean(appState.settings.syncLocale));
+  let customCSS = $state(appState.settings.customCSS || "");
   let advancedOpen = $state(false);
   let lastCheckedDate = $state("");
   let updatingLanguages = $state(false);
@@ -71,7 +73,8 @@
       systemPromptInjectionFrequency, systemPromptInjectionInterval,
       disableMemory, htmlToMarkdownMaxDepth, maxChatSessions,
       tokenPriceDisplay, projectRagEnabled, projectRagLimit,
-      processGitignoreOnUpload, locale, syncLocale, collapseLongUserMessages
+      processGitignoreOnUpload, locale, syncLocale, collapseLongUserMessages,
+      customCSS
     });
   }
 
@@ -144,6 +147,7 @@
     processGitignoreOnUpload = Boolean(appState.settings.processGitignoreOnUpload);
     locale = appState.settings.locale || availableLocaleCodes[0] || "en";
     syncLocale = Boolean(appState.settings.syncLocale);
+    customCSS = appState.settings.customCSS || "";
     chrome.storage.local.get("bds_locale_update_last_checked", (data) => {
       lastCheckedDate = data.bds_locale_update_last_checked || "";
     });
@@ -254,6 +258,7 @@
     appState.settings.processGitignoreOnUpload = processGitignoreOnUpload;
     appState.settings.locale = locale;
     appState.settings.syncLocale = syncLocale;
+    appState.settings.customCSS = customCSS;
 
     await chrome.storage.local.set({
       [STORAGE_KEYS.settings]: appState.settings,
@@ -822,6 +827,30 @@
       {t('settings.tokenPriceHint')}
     </p>
 
+    <div class="bds-toggle-row" style="flex-direction: column; align-items: stretch; gap: 8px;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <span class="bds-toggle-label">{t('settings.customCSS')}</span>
+        <select class="bds-select" style="width: auto; font-size: 11px;" onchange={(e) => {
+          const key = e.currentTarget.value;
+          if (key && CSS_PRESETS[key]) {
+            customCSS = CSS_PRESETS[key].css;
+          }
+          e.currentTarget.value = "";
+        }}>
+          <option value="">{t('settings.cssPresets')}...</option>
+          {#each Object.entries(CSS_PRESETS) as [key, preset]}
+            <option value={key}>{t('settings.' + preset.name)}</option>
+          {/each}
+        </select>
+      </div>
+      <textarea
+        class="bds-input bds-css-editor"
+        spellcheck="false"
+        bind:value={customCSS}
+        placeholder={t('settings.customCSSPlaceholder')}
+      ></textarea>
+    </div>
+
     <div
       class="bds-toggle-row"
       role="button"
@@ -1012,6 +1041,22 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+  }
+
+  .bds-css-editor {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    min-height: 200px !important;
+    tab-size: 2 !important;
+    resize: vertical !important;
+    background: var(--bds-bg-card, #1a1a2e) !important;
+    color: var(--bds-text-primary, #e0e0e0) !important;
+    border: 1px solid var(--bds-border, #2a2a3e) !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    white-space: pre !important;
+    overflow: auto !important;
   }
 
   @media (max-width: 560px) {

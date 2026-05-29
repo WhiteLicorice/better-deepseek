@@ -30,7 +30,7 @@ import { startStatusMonitor } from "./status-monitor.js";
 import { startThemeWatcher } from "./theme.js";
 import { i18n } from "../lib/i18n.svelte.js";
 import { remoteConfig, REMOTE_CONFIG_EVENT, detectModelType } from "../lib/remote-config.svelte.js";
-import { STORAGE_KEYS } from "../lib/constants.js";
+import { STORAGE_KEYS, CSS_PRESETS } from "../lib/constants.js";
 
 const CONTENT_BOOTSTRAP_KEY = "__bdsContentBootstrapped";
 
@@ -44,6 +44,8 @@ if (!window[CONTENT_BOOTSTRAP_KEY]) {
 async function init() {
   await waitForBody();
   await loadStateFromStorage();
+
+  applyCustomCSS(state.settings.customCSS);
 
   // Initialize localization locale
   i18n.init(state.settings.syncLocale ? null : state.settings.locale);
@@ -71,6 +73,11 @@ async function init() {
   // Keep state.remoteConfig in sync when the RemoteConfigManager updates
   window.addEventListener(REMOTE_CONFIG_EVENT, () => {
     state.remoteConfig = remoteConfig.raw;
+  });
+
+  // Live-update custom CSS when settings change
+  window.addEventListener("bds:settingsChanged", () => {
+    applyCustomCSS(state.settings.customCSS);
   });
 
   // Debug API — listen for requests from MAIN-world injected script
@@ -233,4 +240,15 @@ async function waitForBody() {
       subtree: true,
     });
   });
+}
+
+function applyCustomCSS(css) {
+  const id = "bds-custom-css";
+  let style = document.getElementById(id);
+  if (!style) {
+    style = document.createElement("style");
+    style.id = id;
+    document.head.appendChild(style);
+  }
+  style.textContent = css || "";
 }
