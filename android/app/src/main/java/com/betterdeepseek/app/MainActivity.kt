@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -122,6 +123,7 @@ class MainActivity : ComponentActivity() {
         bridge = WebViewBridge(applicationContext)
         cookieManager = CookieManager.getInstance()
         cookieManager.setAcceptCookie(true)
+        restoreDeepSeekLocale()
 
         bridge.onPickFiles = { mode, requestId ->
             pendingPickFilesRequestId = requestId
@@ -170,6 +172,10 @@ class MainActivity : ComponentActivity() {
                     isVerticalScrollBarEnabled = true
                     setBackgroundColor(if (isPageDark) PAGE_BG_DARK else PAGE_BG_LIGHT)
                 }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            cookieManager.setAcceptThirdPartyCookies(webView, true)
+        }
 
         // FrameLayout wrapper receives system-bar padding and expands its bottom inset for IME.
         // WebView.setPadding() does not shift the viewport reliably, so the wrapper is the
@@ -222,6 +228,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         if (::cookieManager.isInitialized) {
+            restoreDeepSeekLocale()
             cookieManager.flush()
         }
     }
@@ -229,6 +236,7 @@ class MainActivity : ComponentActivity() {
     override fun onPause() {
         super.onPause()
         if (::cookieManager.isInitialized) {
+            persistDeepSeekLocale()
             cookieManager.flush()
         }
     }
@@ -239,9 +247,54 @@ class MainActivity : ComponentActivity() {
         bridge.onPickFiles = null
         webView.removeJavascriptInterface(BRIDGE_NAME)
         if (::cookieManager.isInitialized) {
+            persistDeepSeekLocale()
             cookieManager.flush()
         }
         super.onDestroy()
+    }
+
+    private fun restoreDeepSeekLocale() {
+        val sharedPrefs = getSharedPreferences("bds_storage", MODE_PRIVATE)
+        var savedLocale = sharedPrefs.getString("bds_deepseek_locale", null)
+        if (savedLocale.isNullOrEmpty()) {
+            val systemLocale = java.util.Locale.getDefault().language
+            if (!systemLocale.isNullOrEmpty()) {
+                savedLocale = systemLocale
+            }
+        }
+        if (!savedLocale.isNullOrEmpty()) {
+            applyPersistentLocaleCookie(savedLocale)
+        }
+    }
+
+    private fun persistDeepSeekLocale() {
+        if (!::cookieManager.isInitialized) return
+        val url = getString(R.string.bds_target_url)
+        val cookies = cookieManager.getCookie(url) ?: return
+        val localeValue = cookies.split(";")
+                .map { it.trim() }
+                .firstOrNull { it.startsWith("NEXT_LOCALE=") }
+                ?.substringAfter("NEXT_LOCALE=")
+                ?.trim()
+
+        if (!localeValue.isNullOrEmpty()) {
+            val sharedPrefs = getSharedPreferences("bds_storage", MODE_PRIVATE)
+            val currentSavedLocale = sharedPrefs.getString("bds_deepseek_locale", null)
+            if (localeValue != currentSavedLocale) {
+                sharedPrefs.edit().putString("bds_deepseek_locale", localeValue).apply()
+            }
+            applyPersistentLocaleCookie(localeValue)
+        }
+    }
+
+    private fun applyPersistentLocaleCookie(localeValue: String) {
+        if (!::cookieManager.isInitialized) return
+        val url = getString(R.string.bds_target_url)
+        cookieManager.setCookie(
+                url,
+                "NEXT_LOCALE=$localeValue; Path=/; Max-Age=31536000; Secure; SameSite=Lax"
+        )
+        cookieManager.flush()
     }
 
     /**
@@ -286,6 +339,7 @@ class MainActivity : ComponentActivity() {
                     if (url.isNullOrEmpty()) return
                     if (url.startsWith("https://chat.deepseek.com")) {
                         injectBdsScripts(view)
+                        persistDeepSeekLocale()
                     }
                 }
             }
