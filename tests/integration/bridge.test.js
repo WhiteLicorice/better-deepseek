@@ -34,7 +34,6 @@ describe("bridge integration", () => {
   });
 
   it("pushes the current config to the page as a stringified custom event", () => {
-    state.settings.systemPrompt = "Prompt";
     state.settings.preferredLang = "English";
     state.skills = [
       { name: "Active", content: "Use me", active: true },
@@ -47,6 +46,11 @@ describe("bridge integration", () => {
     state.activeProjectId = "p1";
     state.activeFileIds = ["f1"];
 
+    // Activate a custom prompt so the system prompt resolves from customSystemPrompts
+    const customPrompt = { id: "cp1", name: "Custom", content: "You are a test assistant." };
+    state.settings.customSystemPrompts = [customPrompt];
+    state.settings.activeSystemPromptId = "cp1";
+
     let received = null;
     window.addEventListener(BRIDGE_EVENTS.configUpdate, (event) => {
       received = JSON.parse(event.detail);
@@ -55,7 +59,7 @@ describe("bridge integration", () => {
     pushConfigToPage();
 
     expect(received).toMatchObject({
-      systemPrompt: "Prompt",
+      systemPrompt: "You are a test assistant.",
       preferredLang: "English",
       skills: [{ name: "Active", content: "Use me" }],
       memories: [{ key: "user_name", value: "Alex", importance: "always" }],

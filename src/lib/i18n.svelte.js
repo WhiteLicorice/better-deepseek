@@ -65,16 +65,25 @@ class I18nManager {
 
     let detectedLang = null;
 
-    // 1. Try to get DeepSeek web language from NEXT_LOCALE cookie
-    if (typeof document !== "undefined" && document.cookie) {
-      const cookies = document.cookie.split(";");
-      for (const cookie of cookies) {
-        const [name, val] = cookie.trim().split("=");
-        if (name === "NEXT_LOCALE" && val) {
-          detectedLang = val.trim();
-          break;
+    // Only check NEXT_LOCALE cookie in manual mode (savedLocale was a valid code
+    // that didn't resolve — edge case).  In sync mode the cookie is stale by
+    // design and would override the browser / system locale, so go straight to
+    // getSystemLanguageCode() instead.
+    if (savedLocale !== null && savedLocale !== undefined) {
+      if (typeof document !== "undefined" && document.cookie) {
+        const cookies = document.cookie.split(";");
+        for (const cookie of cookies) {
+          const [name, val] = cookie.trim().split("=");
+          if (name === "NEXT_LOCALE" && val) {
+            detectedLang = val.trim();
+            break;
+          }
         }
       }
+    }
+
+    if (!detectedLang) {
+      detectedLang = getSystemLanguageCode();
     }
 
     const resolvedDetectedLocale = resolveLocaleCode(detectedLang)
@@ -120,6 +129,13 @@ class I18nManager {
   setLocale(lang) {
     if (locales[lang]) {
       this.locale = lang;
+
+      // Persist to NEXT_LOCALE cookie so Android cold start picks it up
+      try {
+        document.cookie = `NEXT_LOCALE=${lang}; Path=/; Max-Age=31536000; SameSite=Lax`;
+      } catch (_) {}
+
+      // Persist to chrome.storage for cross-platform consistency
       if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
         chrome.storage.local.get("bds_settings", (data) => {
           const settings = data.bds_settings || {};

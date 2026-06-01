@@ -227,6 +227,13 @@
 
     appState.settings.customSystemPrompts = snapshots;
     appState.settings.activeSystemPromptId = activeSystemPromptId;
+
+    // When "default" is active, ensure the stored prompt always reflects the
+    // latest built-in default so subsequent page loads see the current version.
+    if (activeSystemPromptId === "default") {
+      appState.settings.systemPrompt = DEFAULT_SYSTEM_PROMPT;
+    }
+
     appState.settings.systemPromptTemplateVersion =
       SYSTEM_PROMPT_TEMPLATE_VERSION;
     appState.settings.downloadBehaviorVersion = DOWNLOAD_BEHAVIOR_VERSION;
@@ -263,6 +270,9 @@
     await chrome.storage.local.set({
       [STORAGE_KEYS.settings]: appState.settings,
     });
+    if (!syncLocale) {
+      i18n.setLocale(locale);
+    }
     pushConfigToPage();
 
     formSnapshot = captureFormSnapshot();

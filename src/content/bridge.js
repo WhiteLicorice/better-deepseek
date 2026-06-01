@@ -3,7 +3,7 @@
  */
 
 import state from "./state.js";
-import { BRIDGE_EVENTS } from "../lib/constants.js";
+import { BRIDGE_EVENTS, DEFAULT_SYSTEM_PROMPT } from "../lib/constants.js";
 import { findLatestAssistantMessageNode, collectMessageNodes } from "./scanner.js";
 import { finalizeLongWork } from "./files/long-work.js";
 import { getActiveProject, getActiveFiles, getFilesForProject } from "./project-manager.js";
@@ -123,14 +123,14 @@ function handleSessionData(data) {
 export async function pushConfigToPage() {
   try {
     const activeProject = getActiveProject();
-    let activeSystemPrompt = state.settings.systemPrompt || "";
-    if (state.settings.activeSystemPromptId && 
-        state.settings.activeSystemPromptId !== "default" && 
-        Array.isArray(state.settings.customSystemPrompts)) {
+    let activeSystemPrompt;
+    if (!state.settings.activeSystemPromptId || state.settings.activeSystemPromptId === "default") {
+      activeSystemPrompt = DEFAULT_SYSTEM_PROMPT;
+    } else if (Array.isArray(state.settings.customSystemPrompts)) {
       const custom = state.settings.customSystemPrompts.find(p => p.id === state.settings.activeSystemPromptId);
-      if (custom) {
-        activeSystemPrompt = custom.content;
-      }
+      activeSystemPrompt = custom ? custom.content : DEFAULT_SYSTEM_PROMPT;
+    } else {
+      activeSystemPrompt = DEFAULT_SYSTEM_PROMPT;
     }
 
     const projectRagEnabled = Boolean(state.settings.projectRagEnabled);

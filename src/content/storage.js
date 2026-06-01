@@ -85,6 +85,12 @@ export async function loadStateFromStorage() {
     });
   }
 
+  // Always reflect the latest DEFAULT_SYSTEM_PROMPT when the user has the
+  // built-in prompt selected — no custom prompt overrides this at rest.
+  if (state.settings.activeSystemPromptId === "default") {
+    state.settings.systemPrompt = DEFAULT_SYSTEM_PROMPT;
+  }
+
   const behaviorVersion = Number(
     storedSettings && storedSettings.downloadBehaviorVersion
       ? storedSettings.downloadBehaviorVersion
