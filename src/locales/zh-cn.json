@@ -596,6 +596,39 @@
       "seeAllChanges": "在 GitHub 上查看 v{{version}} 全部变更",
       "seeDetailed": "在 GitHub 上查看详细发布说明",
       "features": {
+        "v0_1_8": {
+          "title": "内存重做、保存的项目和 API 测试工具",
+          "features": {
+            "feat_0": {
+              "title": "内存重做",
+              "description": "Called 内存系统已重构，采用基于令牌重叠的方法以实现更好的上下文匹配。"
+            },
+            "feat_1": {
+              "title": "保存的项目（书签和代码片段）",
+              "description": "保存消息以便日后访问。创建代码片段并一键发送。"
+            },
+            "feat_2": {
+              "title": "技能创建工具",
+              "description": "让 AI 直接在聊天中为您创建自定义技能。"
+            },
+            "feat_3": {
+              "title": "从其他 AI 导入记忆",
+              "description": "将您在其他 AI 平台中的记忆导入到 DeepSeek。"
+            },
+            "feat_4": {
+              "title": "API 测试工具",
+              "description": "内置了便于测试 DeepSeek API 的 Playground。"
+            },
+            "feat_5": {
+              "title": "自动搜索工具",
+              "description": "专家模式移除了链接读取和搜索功能，取而代之的是我们自己的集成搜索工具。"
+            },
+            "feat_6": {
+              "title": "错误修复和用户体验改进",
+              "description": "大量的错误修复和用户体验优化。"
+            }
+          }
+        },
         "v0_1_7": {
           "title": "本地化、自定义提示词与 RAG",
           "features": {

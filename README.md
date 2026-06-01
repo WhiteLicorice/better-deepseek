@@ -341,6 +341,18 @@ Better DeepSeek does not collect, transmit, or sell any personal data. All setti
 
 ## Changelog
 
+### v0.1.8 (2026-06-01)
+- **Memory Rework**: The called memory system has been reworked with a token overlap-based approach for better context matching.
+- **Saved Items (Bookmarks & Snippets)**: Save messages for later access. Create snippets and send them with a single click.
+- **Skill Creator Tool**: Ask AI to create a custom skill for you directly from the chat.
+- **Import Memory from Another AI**: Import your memory from other AI platforms into DeepSeek.
+- **API Playground**: A built-in playground to easily test the DeepSeek API.
+- **Auto Search Tool**: Replaced the removed Expert mode link reading and search with our own integrated search tool.
+- **New Option**: Ability to disable automatic system date/time injection into prompts.
+- **New Language**: Chinese (zh-CN) language support added. (Thanks to [@PandaYuuHa](https://github.com/PandaYuuHa))
+- **Custom CSS & Presets**: Add custom CSS overrides to the DeepSeek UI with built-in preset themes.
+- **Bug Fixes and UX Improvements**: Numerous bug fixes and UX refinements across the extension.
+
 ### v0.1.7 (2026-05-22)
 - **New Feature**: Localization System. Better DeepSeek now supports multiple languages. Help us improve translations or add your own language, visit [Localization](LOCALIZATION.md) page.
 - **New Feature**: Custom Prompts. Create, save, and switch between multiple system prompts with ease.

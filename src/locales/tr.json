@@ -596,6 +596,39 @@
       "seeAllChanges": "v{{version}} sürümündeki tüm değişiklikleri GitHub'da gör",
       "seeDetailed": "Detaylı sürüm notlarını GitHub'da gör",
       "features": {
+        "v0_1_8": {
+          "title": "Bellek Revizyonu, Kaydedilen Öğeler ve API Playground",
+          "features": {
+            "feat_0": {
+              "title": "Bellek Revizyonu",
+              "description": "Called bellek sistemi yenilendi. Token overlap tabanlı bir sisteme geçilerek daha iyi bağlam eşleştirme sağlandı."
+            },
+            "feat_1": {
+              "title": "Kaydedilen Öğeler (Yer İmleri ve Snippet'lar)",
+              "description": "Mesajlarınızı kaydedip daha sonra kolayca erişebilirsiniz. Snippet'lar oluşturup tek tıkla yollayabilirsiniz."
+            },
+            "feat_2": {
+              "title": "Skill Oluşturma Aracı",
+              "description": "AI'dan sizin için doğrudan sohbet üzerinden bir skill oluşturmasını isteyebilirsiniz."
+            },
+            "feat_3": {
+              "title": "Başka AI'dan Bellek İçe Aktarma",
+              "description": "Diğer AI platformlarındaki belleğinizi DeepSeek'e aktarabilirsiniz."
+            },
+            "feat_4": {
+              "title": "API Playground",
+              "description": "DeepSeek API'sini daha kolay test edebilmeniz için yerleşik bir playground eklendi."
+            },
+            "feat_5": {
+              "title": "Otomatik Arama Aracı",
+              "description": "Expert moddan link okuma ve arama kaldırılınca, bunun yerine kendi entegre arama aracımızı ekledik."
+            },
+            "feat_6": {
+              "title": "Hata Düzeltmeleri ve UX İyileştirmeleri",
+              "description": "Çok sayıda hata düzeltmesi ve kullanıcı deneyimi iyileştirmesi."
+            }
+          }
+        },
         "v0_1_7": {
           "title": "Lokalizasyon, Özel Yönergeler ve RAG",
           "features": {

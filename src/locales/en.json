@@ -599,6 +599,39 @@
       "seeAllChanges": "See all changes in v{{version}} on GitHub",
       "seeDetailed": "See detailed release notes on GitHub",
       "features": {
+        "v0_1_8": {
+          "title": "Memory Rework, Saved Items & API Playground",
+          "features": {
+            "feat_0": {
+              "title": "Memory Rework",
+              "description": "Called memory system has been reworked with a token overlap-based approach for better context matching."
+            },
+            "feat_1": {
+              "title": "Saved Items (Bookmarks & Snippets)",
+              "description": "Save messages for later access. Create snippets and send them with a single click."
+            },
+            "feat_2": {
+              "title": "Skill Creator Tool",
+              "description": "Ask AI to create a custom skill for you directly from the chat."
+            },
+            "feat_3": {
+              "title": "Import Memory from Another AI",
+              "description": "Import your memory from other AI platforms into DeepSeek."
+            },
+            "feat_4": {
+              "title": "API Playground",
+              "description": "A built-in playground to easily test the DeepSeek API."
+            },
+            "feat_5": {
+              "title": "Auto Search Tool",
+              "description": "Replaced the removed Expert mode link reading and search with our own integrated search tool."
+            },
+            "feat_6": {
+              "title": "Bug Fixes & UX Improvements",
+              "description": "Numerous bug fixes and UX refinements across the extension."
+            }
+          }
+        },
         "v0_1_7": {
           "title": "Localization, Custom Prompts & RAG",
           "features": {

@@ -1,5 +1,47 @@
 export const VERSION_HISTORY = [
   {
+    version: "0.1.8",
+    date: "2026-06-01",
+    title: "Memory Rework, Saved Items & API Playground",
+    features: [
+      {
+        type: "feature",
+        title: "Memory Rework",
+        description: "Called memory system has been reworked with a token overlap-based approach for better context matching."
+      },
+      {
+        type: "feature",
+        title: "Saved Items (Bookmarks & Snippets)",
+        description: "Save messages for later access. Create snippets and send them with a single click."
+      },
+      {
+        type: "feature",
+        title: "Skill Creator Tool",
+        description: "Ask AI to create a custom skill for you directly from the chat."
+      },
+      {
+        type: "feature",
+        title: "Import Memory from Another AI",
+        description: "Import your memory from other AI platforms into DeepSeek."
+      },
+      {
+        type: "developer",
+        title: "API Playground",
+        description: "A built-in playground to easily test the DeepSeek API."
+      },
+      {
+        type: "feature",
+        title: "Auto Search Tool",
+        description: "Replaced the removed Expert mode link reading and search with our own integrated search tool."
+      },
+      {
+        type: "bugfix",
+        title: "Bug Fixes & UX Improvements",
+        description: "Numerous bug fixes and UX refinements across the extension."
+      }
+    ]
+  },
+  {
     version: "0.1.7",
     date: "2026-05-22",
     title: "Localization, Custom Prompts & RAG",
