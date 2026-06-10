@@ -131,4 +131,15 @@ describe("Deep Research tag parsing", () => {
       expect(result.containsControlTags).toBe(true);
     });
   });
+
+  describe("AUTO:SEARCH run scoping", () => {
+    it("parses runId from search tags", () => {
+      const text = `<BDS:AUTO:SEARCH runId="run42" deepFetch="2">gaming laptop reviews</BDS:AUTO:SEARCH>`;
+      const result = parseBdsMessage(text);
+
+      expect(result.autoRequests.searchQueries).toEqual([
+        { query: "gaming laptop reviews", deepFetch: 2, runId: "run42" },
+      ]);
+    });
+  });
 });

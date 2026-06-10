@@ -36,6 +36,11 @@ export function resetAppState(overrides = {}) {
   state.chatSessions = [];
   state.savedItems = [];
   state.activeQuestions = null;
+  state.deepResearch = {
+    enabled: false,
+    pendingRun: null,
+    runs: [],
+  };
   state.pricing = {
     modelName: null,
     sessionTotals: { inputCost: 0, outputCost: 0, totalCost: 0 },

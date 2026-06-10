@@ -74,6 +74,11 @@ const state = {
   },
   remoteAnnouncements: [],
   dismissedAnnouncements: [],
+  deepResearch: {
+    enabled: false,
+    pendingRun: null,
+    runs: [],
+  },
   /** Remote config object (deep-merged with built-in defaults). Populated by RemoteConfigManager. */
   remoteConfig: DEFAULT_REMOTE_CONFIG,
 };

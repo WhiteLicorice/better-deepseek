@@ -180,6 +180,10 @@ export async function pushConfigToPage() {
       projectRagEnabled,
       projectRagLimit: Number(state.settings.projectRagLimit || 5),
       injectSystemDateTime: Boolean(state.settings.injectSystemDateTime),
+      deepResearch: {
+        enabled: Boolean(state.deepResearch.enabled && state.deepResearch.pendingRun),
+        runId: state.deepResearch.pendingRun?.id || "",
+      },
       activeProject: activeProject
         ? {
           name: activeProject.name,

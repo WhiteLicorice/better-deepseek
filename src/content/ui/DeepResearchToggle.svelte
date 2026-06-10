@@ -1,20 +1,36 @@
 <script>
+  import { onMount } from "svelte";
+
   let { enabled = false, onToggle = null } = $props();
+  let localEnabled = $state(false);
+
+  $effect(() => {
+    localEnabled = Boolean(enabled);
+  });
+
+  onMount(() => {
+    const handler = (event) => {
+      localEnabled = Boolean(event.detail?.enabled);
+    };
+    window.addEventListener("bds:deep-research-toggle-state", handler);
+    return () => window.removeEventListener("bds:deep-research-toggle-state", handler);
+  });
 
   function handleToggle() {
-    if (onToggle) onToggle(!enabled);
+    localEnabled = !localEnabled;
+    if (onToggle) onToggle(localEnabled);
   }
 </script>
 
 <button
   class="bds-deep-research-toggle"
-  class:active={enabled}
+  class:active={localEnabled}
   onclick={handleToggle}
-  title={enabled ? "Deep Research Mode ON" : "Enable Deep Research Mode"}
+  title={localEnabled ? "Deep Research Mode ON" : "Enable Deep Research Mode"}
   data-testid="deep-research-toggle"
 >
-  <span class="bds-drt-icon">🔬</span>
-  <span class="bds-drt-label">{enabled ? "Research ON" : "Research"}</span>
+  <span class="bds-drt-icon">DR</span>
+  <span class="bds-drt-label">{localEnabled ? "Research ON" : "Research"}</span>
 </button>
 
 <style>
@@ -39,6 +55,6 @@
     background: #bbdefb;
     font-weight: 600;
   }
-  .bds-drt-icon { font-size: 14px; }
+  .bds-drt-icon { font-size: 11px; font-weight: 700; }
   .bds-drt-label { white-space: nowrap; }
 </style>

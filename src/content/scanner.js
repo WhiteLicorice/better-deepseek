@@ -9,9 +9,11 @@ import { mount } from "svelte";
 import AttachMenu from "./ui/AttachMenu.svelte";
 import ExpandToggle from "./ui/ExpandToggle.svelte";
 import RagPreview from "./ui/RagPreview.svelte";
+import DeepResearchToggle from "./ui/DeepResearchToggle.svelte";
 import { injectSearchInput } from "./ui/SidebarSearch.js";
 import { checkPendingExport } from "./tools/pending-export.js";
 import { hideTagsInSidebar, hideTagsInHeader } from "./tags/tag-hider.js";
+import { setDeepResearchEnabled } from "./deep-research.js";
 
 /**
  * Collect all message nodes from the chat DOM.
@@ -208,6 +210,16 @@ function scanInputArea() {
   const ragMountPoint = document.createElement("div");
   wrapper.insertBefore(ragMountPoint, fileInput);
   mount(RagPreview, { target: ragMountPoint });
+
+  const deepResearchMountPoint = document.createElement("div");
+  wrapper.insertBefore(deepResearchMountPoint, fileInput);
+  mount(DeepResearchToggle, {
+    target: deepResearchMountPoint,
+    props: {
+      enabled: state.deepResearch.enabled,
+      onToggle: (enabled) => setDeepResearchEnabled(enabled),
+    },
+  });
 
   wrapper.setAttribute("data-bds-attach-menu-mounted", "true");
 }

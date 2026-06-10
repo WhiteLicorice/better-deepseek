@@ -6,8 +6,10 @@
  * Persists minimal run metadata under STORAGE_KEYS.deepResearchRuns.
  */
 
-import { STORAGE_KEYS } from "../lib/constants.js";
+import { BRIDGE_EVENTS, STORAGE_KEYS } from "../lib/constants.js";
 import { makeId } from "../lib/utils/helpers.js";
+import state from "./state.js";
+import { clearRunSearchHistory, injectPureTextAndSend } from "./auto.js";
 
 /** Valid statuses for a deep research run */
 export const RESEARCH_STATUSES = [
@@ -38,9 +40,9 @@ const TRANSITIONS = {
  * @param {string} conversationId
  * @returns {object} run
  */
-export function createRun(conversationId) {
+export function createRun(conversationId, id = makeId()) {
   return {
-    id: makeId(),
+    id,
     conversationId,
     status: "planning",
     plan: null,
@@ -67,6 +69,32 @@ export function transitionRun(run, newStatus) {
   run.status = newStatus;
   run.updatedAt = Date.now();
   return run;
+}
+
+export function getCurrentConversationId() {
+  const match = String(location.href || "").match(/\/chat\/s\/([^/?#]+)/);
+  return match ? match[1] : "default";
+}
+
+export function setDeepResearchEnabled(enabled, conversationId = getCurrentConversationId()) {
+  state.deepResearch.enabled = Boolean(enabled);
+  if (state.deepResearch.enabled) {
+    state.deepResearch.pendingRun = createRun(conversationId);
+  } else {
+    state.deepResearch.pendingRun = null;
+  }
+
+  window.dispatchEvent(new CustomEvent(BRIDGE_EVENTS.deepResearchConfigUpdate, {
+    detail: JSON.stringify({
+      enabled: Boolean(state.deepResearch.enabled && state.deepResearch.pendingRun),
+      runId: state.deepResearch.pendingRun?.id || "",
+    }),
+  }));
+  window.dispatchEvent(new CustomEvent("bds:deep-research-toggle-state", {
+    detail: { enabled: state.deepResearch.enabled },
+  }));
+  window.dispatchEvent(new CustomEvent("bds:deep-research-config-changed"));
+  return state.deepResearch.pendingRun;
 }
 
 /**
@@ -110,6 +138,48 @@ export function findActiveRun(runs, conversationId) {
   );
 }
 
+function normalizeEventDetail(detail) {
+  if (typeof detail === "string") {
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return {};
+    }
+  }
+  return detail && typeof detail === "object" ? detail : {};
+}
+
+function findRunById(runId) {
+  return state.deepResearch.runs.find((run) => run.id === runId) || null;
+}
+
+function upsertRun(run) {
+  const index = state.deepResearch.runs.findIndex((item) => item.id === run.id);
+  if (index >= 0) {
+    state.deepResearch.runs[index] = run;
+  } else {
+    state.deepResearch.runs.push(run);
+  }
+  return run;
+}
+
+function ensureRun(runId, conversationId = getCurrentConversationId()) {
+  const safeRunId = String(runId || "").trim() || makeId();
+  return findRunById(safeRunId) || upsertRun(createRun(conversationId, safeRunId));
+}
+
+function setStatus(run, status) {
+  if (!run || !RESEARCH_STATUSES.includes(status)) return run;
+  if (run.status === status) return run;
+  const allowed = TRANSITIONS[run.status] || [];
+  if (allowed.includes(status)) {
+    return transitionRun(run, status);
+  }
+  run.status = status;
+  run.updatedAt = Date.now();
+  return run;
+}
+
 /**
  * Serialize a run for storage (strips large fields).
  */
@@ -150,7 +220,8 @@ export function buildApprovalMessage(run) {
     `<BetterDeepSeek>`,
     `[BDS:DEEP_RESEARCH] Plan approved for run ${run.id}. Execute the following research plan:`,
     JSON.stringify(run.plan, null, 2),
-    `Use <BDS:AUTO:SEARCH deepFetch="3"> tags for each search step and <BDS:AUTO:REQUEST_WEB_FETCH> for specific URLs.`,
+    `Use <BDS:AUTO:SEARCH runId="${run.id}" deepFetch="3"> tags for each search step and <BDS:AUTO:REQUEST_WEB_FETCH> for specific URLs.`,
+    `After each search/fetch result is injected, read it, update the source ledger mentally, and continue with the next step until the plan is complete.`,
     `After completing all research steps, output your findings using <BDS:DEEP_RESEARCH_REPORT runId="${run.id}">markdown</BDS:DEEP_RESEARCH_REPORT>.`,
     `</BetterDeepSeek>`,
   ].join("\n");
@@ -198,4 +269,101 @@ export function buildPlanningPrompt(runId, userQuery) {
     `User research question: ${userQuery}`,
     `</BetterDeepSeek>`,
   ].join("\n");
+}
+
+let runtimeInitialized = false;
+
+export function initDeepResearchRuntime() {
+  if (runtimeInitialized) return;
+  runtimeInitialized = true;
+
+  loadRuns()
+    .then((runs) => {
+      state.deepResearch.runs = runs;
+    })
+    .catch((error) => {
+      console.warn("[BDS:DEEP_RESEARCH] Failed to load runs:", error);
+    });
+
+  window.addEventListener("bds:deep-research-started", (event) => {
+    const detail = normalizeEventDetail(event.detail);
+    const runId = String(detail.runId || state.deepResearch.pendingRun?.id || "").trim();
+    if (!runId) return;
+
+    const run =
+      state.deepResearch.pendingRun && state.deepResearch.pendingRun.id === runId
+        ? state.deepResearch.pendingRun
+        : ensureRun(runId, String(detail.conversationId || getCurrentConversationId()));
+
+    run.conversationId = String(detail.conversationId || run.conversationId || getCurrentConversationId());
+    setStatus(run, "planning");
+    upsertRun(run);
+    state.deepResearch.enabled = false;
+    state.deepResearch.pendingRun = null;
+    window.dispatchEvent(new CustomEvent("bds:deep-research-toggle-state", {
+      detail: { enabled: false },
+    }));
+    void persistRuns(state.deepResearch.runs);
+  });
+
+  window.addEventListener("bds:deep-research-plan-received", (event) => {
+    const detail = normalizeEventDetail(event.detail);
+    const run = ensureRun(detail.runId, detail.conversationId);
+    run.plan = detail.plan || null;
+    setStatus(run, "planning");
+    upsertRun(run);
+    void persistRuns(state.deepResearch.runs);
+  });
+
+  window.addEventListener("bds:deep-research-status-received", (event) => {
+    const detail = normalizeEventDetail(event.detail);
+    const run = ensureRun(detail.runId, detail.conversationId);
+    setStatus(run, "running");
+    run.updatedAt = Date.now();
+    upsertRun(run);
+    void persistRuns(state.deepResearch.runs);
+  });
+
+  window.addEventListener("bds:deep-research-report-received", (event) => {
+    const detail = normalizeEventDetail(event.detail);
+    const run = ensureRun(detail.runId, detail.conversationId);
+    setStatus(run, "complete");
+    run.updatedAt = Date.now();
+    upsertRun(run);
+    clearRunSearchHistory(run.id);
+    void persistRuns(state.deepResearch.runs);
+  });
+
+  window.addEventListener("bds:deep-research-approve", (event) => {
+    const detail = normalizeEventDetail(event.detail);
+    const run = ensureRun(detail.runId, detail.conversationId);
+    run.plan = detail.plan || run.plan;
+    setStatus(run, "approved");
+    setStatus(run, "running");
+    upsertRun(run);
+    void persistRuns(state.deepResearch.runs);
+    injectPureTextAndSend(buildApprovalMessage(run));
+  });
+
+  window.addEventListener("bds:deep-research-revise", (event) => {
+    const detail = normalizeEventDetail(event.detail);
+    const run = ensureRun(detail.runId, detail.conversationId);
+    run.plan = detail.plan || run.plan;
+    setStatus(run, "awaiting_revision");
+    upsertRun(run);
+    void persistRuns(state.deepResearch.runs);
+    injectPureTextAndSend(buildRevisionMessage(run, String(detail.feedback || "")));
+  });
+
+  window.addEventListener("bds:deep-research-cancel", (event) => {
+    const detail = normalizeEventDetail(event.detail);
+    const run = ensureRun(detail.runId, detail.conversationId);
+    setStatus(run, "cancelled");
+    upsertRun(run);
+    clearRunSearchHistory(run.id);
+    void persistRuns(state.deepResearch.runs);
+    if (state.ui) {
+      state.ui.showToast("Deep Research cancelled.");
+    }
+  });
 }

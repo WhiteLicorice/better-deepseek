@@ -20,7 +20,7 @@ import { upsertSkills } from "./parser/skill-parser.js";
 import { collectLongWorkFiles, finalizeLongWork, emitZipForFiles } from "./files/long-work.js";
 import { emitStandaloneFiles } from "./files/standalone.js";
 import { getOrCreateHost } from "./dom/host.js";
-import { handleAutoWebFetch, handleAutoGitHubFetch, handleAutoTwitterFetch, handleAutoYouTubeFetch, handleAutoSearch } from "./auto.js";
+import { handleAutoWebFetch, handleAutoGitHubFetch, handleAutoTwitterFetch, handleAutoYouTubeFetch, handleAutoSearch, handleAutoSearchForRun } from "./auto.js";
 
 import { mount, unmount } from "svelte";
 import MessageOverlay from "./ui/MessageOverlay.svelte";
@@ -260,10 +260,15 @@ export function processMessageNode(node) {
         }
       }
 
-      for (const { query, deepFetch } of parsed.autoRequests.searchQueries) {
-        if (!stateData.autoSearchQueriesHandled.has(query)) {
-          stateData.autoSearchQueriesHandled.add(query);
-          handleAutoSearch(query, deepFetch);
+      for (const { query, deepFetch, runId } of parsed.autoRequests.searchQueries) {
+        const searchKey = runId ? `${runId}\n${query}` : query;
+        if (!stateData.autoSearchQueriesHandled.has(searchKey)) {
+          stateData.autoSearchQueriesHandled.add(searchKey);
+          if (runId) {
+            handleAutoSearchForRun(query, deepFetch, runId);
+          } else {
+            handleAutoSearch(query, deepFetch);
+          }
         }
       }
     } else if (!stateData.autoTimer) {
@@ -283,6 +288,8 @@ export function processMessageNode(node) {
   }
 
   const hasActionableFiles = parsed.createFiles.length > 0;
+
+  dispatchDeepResearchEvents(parsed, stateData);
   
   // IMMEDIATELY activate longWork state if tag is seen in latest assistant message
   if (isLatestAssistant && (parsed.longWorkOpen || (parsed.isStreamingTool && parsed.streamingTagName === 'long_work'))) {
@@ -472,6 +479,57 @@ function matchNativeStyles(node, host) {
 function removeStaleMessageOverlays(host) {
   for (const overlay of host.querySelectorAll(".bds-message-overlay")) {
     overlay.remove();
+  }
+}
+
+function dispatchDeepResearchEvents(parsed, stateData) {
+  const data = parsed && parsed.deepResearch;
+  if (!data) return;
+
+  const hasDeepResearch =
+    data.plans.length > 0 ||
+    data.statuses.length > 0 ||
+    data.reports.length > 0;
+  if (!hasDeepResearch) return;
+
+  const signature = simpleHash(JSON.stringify(data));
+  if (stateData.deepResearchSignature === signature) return;
+  stateData.deepResearchSignature = signature;
+
+  const conversationId = getCurrentConversationIdInline();
+
+  for (const item of data.plans) {
+    window.dispatchEvent(new CustomEvent("bds:deep-research-plan-received", {
+      detail: {
+        conversationId,
+        runId: item.runId,
+        plan: item.plan,
+        raw: item.raw || "",
+        error: item.error || "",
+      },
+    }));
+  }
+
+  for (const item of data.statuses) {
+    window.dispatchEvent(new CustomEvent("bds:deep-research-status-received", {
+      detail: {
+        conversationId,
+        runId: item.runId,
+        status: item.status,
+        raw: item.raw || "",
+        error: item.error || "",
+      },
+    }));
+  }
+
+  for (const item of data.reports) {
+    window.dispatchEvent(new CustomEvent("bds:deep-research-report-received", {
+      detail: {
+        conversationId,
+        runId: item.runId,
+        markdown: item.markdown,
+      },
+    }));
   }
 }
 

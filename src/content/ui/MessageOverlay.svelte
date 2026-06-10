@@ -10,6 +10,9 @@
   import AutoCodeRunnerCard from "./AutoCodeRunnerCard.svelte";
   import AutoCodeResultCard from "./AutoCodeResultCard.svelte";
   import SearchResultCard from "./SearchResultCard.svelte";
+  import DeepResearchPlanCard from "./DeepResearchPlanCard.svelte";
+  import DeepResearchStatusCard from "./DeepResearchStatusCard.svelte";
+  import DeepResearchReportCard from "./DeepResearchReportCard.svelte";
   import LoadingIndicator from "./LoadingIndicator.svelte";
   import { t } from "../../lib/i18n.svelte.js";
 
@@ -85,6 +88,47 @@
       text: 'Text'
     };
     return labels[type] || type || '';
+  }
+
+  function parseJsonBlock(content) {
+    try {
+      return { value: JSON.parse(content), error: "" };
+    } catch (error) {
+      return { value: null, error: error?.message || "Invalid JSON" };
+    }
+  }
+
+  function getRunId(block) {
+    return block.attrs.runId || block.attrs.runid || "";
+  }
+
+  function approveDeepResearch(block) {
+    const parsedPlan = parseJsonBlock(block.content).value;
+    window.dispatchEvent(new CustomEvent("bds:deep-research-approve", {
+      detail: {
+        runId: getRunId(block),
+        plan: parsedPlan,
+      },
+    }));
+  }
+
+  function requestDeepResearchChanges(block, feedback) {
+    const parsedPlan = parseJsonBlock(block.content).value;
+    window.dispatchEvent(new CustomEvent("bds:deep-research-revise", {
+      detail: {
+        runId: getRunId(block),
+        plan: parsedPlan,
+        feedback,
+      },
+    }));
+  }
+
+  function cancelDeepResearch(block) {
+    window.dispatchEvent(new CustomEvent("bds:deep-research-cancel", {
+      detail: {
+        runId: getRunId(block),
+      },
+    }));
   }
 
   // Configure marked for better rendering
@@ -260,6 +304,26 @@
         </div>
       {:else if block.name === 'auto_search_result'}
         <SearchResultCard query={block.attrs.query} count={block.attrs.count} results={block.content} />
+      {:else if block.name === 'deep_research_plan'}
+        {@const parsedPlan = parseJsonBlock(block.content)}
+        <DeepResearchPlanCard
+          runId={getRunId(block)}
+          plan={parsedPlan.value}
+          raw={parsedPlan.value ? "" : block.content}
+          error={parsedPlan.error}
+          onApprove={() => approveDeepResearch(block)}
+          onRequestChanges={(_, feedback) => requestDeepResearchChanges(block, feedback)}
+          onCancel={() => cancelDeepResearch(block)}
+        />
+      {:else if block.name === 'deep_research_status'}
+        {@const parsedStatus = parseJsonBlock(block.content)}
+        <DeepResearchStatusCard
+          runId={getRunId(block)}
+          status={parsedStatus.value}
+          raw={parsedStatus.value ? "" : block.content}
+        />
+      {:else if block.name === 'deep_research_report'}
+        <DeepResearchReportCard runId={getRunId(block)} markdown={block.content} />
       {:else if block.name === 'memory_write'}
         <div class="bds-question-info-card bds-memory-card">
           <div class="bds-question-icon bds-memory-icon">

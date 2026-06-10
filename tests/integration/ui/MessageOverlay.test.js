@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import MessageOverlay from "../../../src/content/ui/MessageOverlay.svelte";
 import { renderSvelte, flushUi } from "../../helpers/svelte.js";
 
@@ -62,6 +62,33 @@ describe("MessageOverlay integration", () => {
     expect(target.textContent).toContain("(2)");
     expect(target.textContent).not.toContain("First");
     expect(target.textContent).not.toContain("Second");
+    cleanup();
+  });
+
+  it("renders deep research plan blocks and dispatches approval", async () => {
+    const plan = {
+      title: "Gaming Laptop Research",
+      steps: [{ id: 1, action: "search", query: "best gaming laptop", purpose: "overview" }],
+    };
+    const listener = vi.fn();
+    window.addEventListener("bds:deep-research-approve", listener, { once: true });
+
+    const { target, cleanup } = renderSvelte(MessageOverlay, {
+      blocks: [{
+        name: "deep_research_plan",
+        attrs: { runId: "run123" },
+        content: JSON.stringify(plan),
+      }],
+    });
+    await flushUi();
+
+    expect(target.textContent).toContain("Gaming Laptop Research");
+    expect(target.textContent).toContain("best gaming laptop");
+    target.querySelector('[data-testid="dr-approve-btn"]').click();
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener.mock.calls[0][0].detail.runId).toBe("run123");
+    expect(listener.mock.calls[0][0].detail.plan.title).toBe("Gaming Laptop Research");
     cleanup();
   });
 });

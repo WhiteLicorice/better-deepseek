@@ -1,7 +1,13 @@
 <script>
-  import { t } from "../../lib/i18n.svelte.js";
-
-  let { runId = "", plan = null, raw = "", error = "", onApprove = null, onRequestChanges = null, onCancel = null } = $props();
+  let {
+    runId = "",
+    plan = null,
+    raw = "",
+    error = "",
+    onApprove = null,
+    onRequestChanges = null,
+    onCancel = null,
+  } = $props();
 
   let parsedPlan = $derived.by(() => {
     if (plan && typeof plan === "object") return plan;
@@ -38,7 +44,7 @@
 
 <div class="bds-deep-research-plan-card" data-testid="deep-research-plan-card">
   <div class="bds-dr-header">
-    <span class="bds-dr-icon">📋</span>
+    <span class="bds-dr-icon">DR</span>
     <span class="bds-dr-title">{title}</span>
     {#if runId}
       <span class="bds-dr-run-id">Run: {runId.slice(0, 8)}</span>
@@ -47,7 +53,7 @@
 
   {#if hasMalformedJson}
     <div class="bds-dr-error">
-      <p>⚠️ Failed to parse research plan JSON</p>
+      <p>Failed to parse research plan JSON</p>
       {#if error}
         <pre class="bds-dr-error-detail">{error}</pre>
       {/if}
@@ -60,12 +66,16 @@
       {#each steps as step, i}
         <div class="bds-dr-step">
           <span class="bds-dr-step-num">{step.id || i + 1}.</span>
-          <span class="bds-dr-step-action" class:search={step.action === "search"} class:fetch={step.action === "fetch"}>
+          <span
+            class="bds-dr-step-action"
+            class:search={step.action === "search"}
+            class:fetch={step.action === "fetch"}
+          >
             {step.action || "search"}
           </span>
           <span class="bds-dr-step-query">{step.query || ""}</span>
           {#if step.purpose}
-            <span class="bds-dr-step-purpose">— {step.purpose}</span>
+            <span class="bds-dr-step-purpose">- {step.purpose}</span>
           {/if}
         </div>
       {/each}
@@ -73,13 +83,13 @@
 
     <div class="bds-dr-actions">
       <button class="bds-dr-btn bds-dr-btn-approve" onclick={handleApprove} data-testid="dr-approve-btn">
-        ✅ Approve
+        Approve
       </button>
       <button class="bds-dr-btn bds-dr-btn-revise" onclick={handleRequestChanges} data-testid="dr-revise-btn">
-        ✏️ Request Changes
+        Request Changes
       </button>
       <button class="bds-dr-btn bds-dr-btn-cancel" onclick={handleCancel} data-testid="dr-cancel-btn">
-        ❌ Cancel
+        Cancel
       </button>
     </div>
 
@@ -87,7 +97,7 @@
       <div class="bds-dr-feedback">
         <textarea
           class="bds-dr-feedback-input"
-          placeholder="Describe what changes you'd like to the research plan..."
+          placeholder="Describe what changes you want in the research plan..."
           bind:value={feedbackText}
           data-testid="dr-feedback-input"
         ></textarea>
@@ -101,11 +111,11 @@
 
 <style>
   .bds-deep-research-plan-card {
-    border: 1px solid var(--bds-border, #e0e0e0);
+    border: 1px solid var(--bds-border, #3a3b3f);
     border-radius: 8px;
     padding: 12px;
     margin: 8px 0;
-    background: var(--bds-card-bg, #f9f9f9);
+    background: var(--bds-bg-panel, #1e1f23);
     font-size: 14px;
   }
   .bds-dr-header {
@@ -114,8 +124,19 @@
     gap: 8px;
     margin-bottom: 10px;
   }
-  .bds-dr-icon { font-size: 18px; }
-  .bds-dr-title { font-weight: 600; flex: 1; }
+  .bds-dr-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    color: #1976d2;
+    background: rgba(25, 118, 210, 0.12);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .bds-dr-title { font-weight: 600; flex: 1; color: var(--bds-text-primary, #ececec); }
   .bds-dr-run-id { font-size: 11px; opacity: 0.6; font-family: monospace; }
   .bds-dr-steps { margin-bottom: 12px; }
   .bds-dr-step {
@@ -132,10 +153,15 @@
     border-radius: 4px;
     text-transform: uppercase;
     font-weight: 500;
+    background: var(--bds-bg-hover, rgba(255, 255, 255, 0.08));
   }
-  .bds-dr-step-action.search { background: #e3f2fd; color: #1565c0; }
-  .bds-dr-step-action.fetch { background: #e8f5e9; color: #2e7d32; }
-  .bds-dr-step-query { font-family: monospace; font-size: 13px; }
+  .bds-dr-step-action.search { color: #1976d2; }
+  .bds-dr-step-action.fetch { color: #2e7d32; }
+  .bds-dr-step-query {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 13px;
+    overflow-wrap: anywhere;
+  }
   .bds-dr-step-purpose { font-size: 12px; opacity: 0.7; }
   .bds-dr-actions {
     display: flex;
@@ -145,15 +171,16 @@
   .bds-dr-btn {
     padding: 6px 12px;
     border-radius: 6px;
-    border: 1px solid var(--bds-border, #ddd);
+    border: 1px solid var(--bds-border, #3a3b3f);
     cursor: pointer;
     font-size: 13px;
-    background: white;
+    color: var(--bds-text-primary, #ececec);
+    background: var(--bds-bg-elevated, #25262b);
   }
-  .bds-dr-btn:hover { opacity: 0.8; }
-  .bds-dr-btn-approve { background: #e8f5e9; border-color: #a5d6a7; }
-  .bds-dr-btn-revise { background: #fff3e0; border-color: #ffcc80; }
-  .bds-dr-btn-cancel { background: #fbe9e7; border-color: #ef9a9a; }
+  .bds-dr-btn:hover { background: var(--bds-bg-hover, rgba(255, 255, 255, 0.08)); }
+  .bds-dr-btn-approve { border-color: rgba(46, 125, 50, 0.5); }
+  .bds-dr-btn-revise { border-color: rgba(245, 158, 11, 0.5); }
+  .bds-dr-btn-cancel { border-color: rgba(211, 47, 47, 0.5); }
   .bds-dr-feedback {
     margin-top: 10px;
     display: flex;
@@ -162,21 +189,25 @@
   }
   .bds-dr-feedback-input {
     width: 100%;
-    min-height: 60px;
+    min-height: 64px;
     padding: 8px;
     border-radius: 6px;
-    border: 1px solid var(--bds-border, #ddd);
+    border: 1px solid var(--bds-border, #3a3b3f);
     font-size: 13px;
     resize: vertical;
+    color: var(--bds-text-primary, #ececec);
+    background: var(--bds-bg-elevated, #25262b);
+    box-sizing: border-box;
   }
-  .bds-dr-btn-submit { align-self: flex-end; background: #e3f2fd; border-color: #90caf9; }
+  .bds-dr-btn-submit { align-self: flex-end; }
   .bds-dr-error { color: #d32f2f; }
-  .bds-dr-error-detail, .bds-dr-raw {
+  .bds-dr-error-detail,
+  .bds-dr-raw {
     font-size: 11px;
     overflow-x: auto;
-    background: #fafafa;
+    background: var(--bds-bg-elevated, #25262b);
     padding: 6px;
     border-radius: 4px;
-    max-height: 100px;
+    max-height: 120px;
   }
 </style>

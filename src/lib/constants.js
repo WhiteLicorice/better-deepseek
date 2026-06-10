@@ -27,6 +27,7 @@ export const STORAGE_KEYS = {
 // ── Bridge Events (content ↔ injected) ──
 export const BRIDGE_EVENTS = {
   configUpdate: "bds:config-update",
+  deepResearchConfigUpdate: "bds:deep-research-config-update",
   requestConfig: "bds:request-config",
   networkState: "bds:network-state",
   markVoiceMessage: "bds:mark-voice-message",

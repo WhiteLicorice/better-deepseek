@@ -23,6 +23,8 @@ const mocks = vi.hoisted(() => ({
   handleAutoGitHubFetch: vi.fn(),
   handleAutoTwitterFetch: vi.fn(),
   handleAutoYouTubeFetch: vi.fn(),
+  handleAutoSearch: vi.fn(),
+  handleAutoSearchForRun: vi.fn(),
   mount: vi.fn((component, { target, props }) => {
     const marker = document.createElement("div");
     marker.className = "mock-overlay";
@@ -70,6 +72,8 @@ vi.mock("../../src/content/auto.js", () => ({
   handleAutoGitHubFetch: mocks.handleAutoGitHubFetch,
   handleAutoTwitterFetch: mocks.handleAutoTwitterFetch,
   handleAutoYouTubeFetch: mocks.handleAutoYouTubeFetch,
+  handleAutoSearch: mocks.handleAutoSearch,
+  handleAutoSearchForRun: mocks.handleAutoSearchForRun,
 }));
 vi.mock("svelte", async () => {
   const actual = await vi.importActual("svelte");
@@ -217,6 +221,23 @@ describe("message processor integration", () => {
     processMessageNode(node);
 
     expect(mocks.handleAutoWebFetch).toHaveBeenCalledWith("https://example.com");
+  });
+
+  it("routes run-scoped AUTO search requests to the deep research handler", () => {
+    const node = createMessageNode(
+      '<BDS:AUTO:SEARCH runId="run1" deepFetch="2">gaming laptop reviews</BDS:AUTO:SEARCH>',
+    );
+
+    processMessageNode(node);
+    vi.advanceTimersByTime(3000);
+    processMessageNode(node);
+
+    expect(mocks.handleAutoSearchForRun).toHaveBeenCalledWith(
+      "gaming laptop reviews",
+      2,
+      "run1",
+    );
+    expect(mocks.handleAutoSearch).not.toHaveBeenCalled();
   });
 
   it("dispatches clarifying questions and stores them on state", () => {

@@ -48,6 +48,17 @@ export function normalizeConfig(config) {
     projectRagEnabled: Boolean(config.projectRagEnabled),
     projectRagLimit: Number(config.projectRagLimit) || 5,
     injectSystemDateTime: Boolean(config.injectSystemDateTime),
+    deepResearch: normalizeDeepResearch(config.deepResearch),
+  };
+}
+
+export function normalizeDeepResearch(raw) {
+  if (!raw || typeof raw !== "object") {
+    return { enabled: false, runId: "" };
+  }
+  return {
+    enabled: Boolean(raw.enabled),
+    runId: String(raw.runId || "").trim(),
   };
 }
 

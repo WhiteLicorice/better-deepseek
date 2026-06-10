@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { BRIDGE_EVENTS } from "../../src/lib/constants.js";
+import state from "../../src/content/state.js";
 import {
   createRun,
   transitionRun,
@@ -6,10 +10,17 @@ import {
   buildApprovalMessage,
   buildRevisionMessage,
   buildPlanningPrompt,
+  setDeepResearchEnabled,
   RESEARCH_STATUSES,
 } from "../../src/content/deep-research.js";
 
 describe("Deep Research state machine", () => {
+  beforeEach(() => {
+    state.deepResearch.enabled = false;
+    state.deepResearch.pendingRun = null;
+    state.deepResearch.runs = [];
+  });
+
   describe("createRun", () => {
     it("creates a run with planning status", () => {
       const run = createRun("conv123");
@@ -126,6 +137,23 @@ describe("Deep Research state machine", () => {
     it("returns null when no matching conversation", () => {
       const runs = [{ ...createRun("conv1"), status: "running" }];
       expect(findActiveRun(runs, "conv99")).toBeNull();
+    });
+  });
+
+  describe("setDeepResearchEnabled", () => {
+    it("dispatches a partial config update with the pending run ID", () => {
+      const listener = vi.fn();
+      window.addEventListener(BRIDGE_EVENTS.deepResearchConfigUpdate, listener, { once: true });
+
+      const run = setDeepResearchEnabled(true, "conv1");
+
+      expect(run).toBeTruthy();
+      expect(state.deepResearch.pendingRun.id).toBe(run.id);
+      expect(listener).toHaveBeenCalledOnce();
+      expect(JSON.parse(listener.mock.calls[0][0].detail)).toEqual({
+        enabled: true,
+        runId: run.id,
+      });
     });
   });
 

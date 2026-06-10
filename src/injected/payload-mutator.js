@@ -275,6 +275,15 @@ export function buildHiddenPrefix(
 ) {
   const blocks = [];
 
+  const deepResearchBlock = buildDeepResearchPlanningBlock(
+    userPrompt,
+    conversationId,
+    state
+  );
+  if (deepResearchBlock) {
+    blocks.push(deepResearchBlock);
+  }
+
   const entries = state.config.systemPromptEntries || [];
   if (entries.length > 0) {
     const userMsgCount = state.sessionUserMsgCounts[conversationId] || 1;
@@ -395,6 +404,50 @@ export function buildHiddenPrefix(
   }
 
   return blocks.join("\n\n");
+}
+
+function buildDeepResearchPlanningBlock(userPrompt, conversationId, state) {
+  const config = state.config?.deepResearch;
+  if (!config?.enabled || !config.runId) {
+    return "";
+  }
+
+  config.enabled = false;
+  emitDeepResearchStarted(config.runId, conversationId, userPrompt);
+
+  return [
+    `<BetterDeepSeek>`,
+    `[BDS:DEEP_RESEARCH] Deep Research mode is enabled. The user has submitted a research request.`,
+    `Run ID: ${config.runId}`,
+    ``,
+    `IMPORTANT: In this phase, you must ONLY produce a research plan. Do NOT browse or search yet.`,
+    `Output your plan using: <BDS:DEEP_RESEARCH_PLAN runId="${config.runId}">JSON</BDS:DEEP_RESEARCH_PLAN>`,
+    ``,
+    `The JSON plan must include:`,
+    `- "title": A short descriptive title for the research`,
+    `- "steps": An array of research steps, each with:`,
+    `  - "id": step number`,
+    `  - "action": "search" or "fetch"`,
+    `  - "query": the search query or URL to fetch`,
+    `  - "purpose": why this step is needed`,
+    ``,
+    `User research question: ${userPrompt}`,
+    `</BetterDeepSeek>`,
+  ].join("\n");
+}
+
+function emitDeepResearchStarted(runId, conversationId, userPrompt) {
+  if (typeof window === "undefined" || !window.dispatchEvent) {
+    return;
+  }
+  window.dispatchEvent(new CustomEvent("bds:deep-research-started", {
+    detail: JSON.stringify({
+      runId,
+      conversationId,
+      userPrompt,
+      timestamp: Date.now(),
+    }),
+  }));
 }
 
 /**

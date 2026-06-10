@@ -28,6 +28,7 @@ import { checkPendingExport } from "./tools/pending-export.js";
 import { initPricing } from "../lib/pricing.js";
 import { startStatusMonitor } from "./status-monitor.js";
 import { startThemeWatcher } from "./theme.js";
+import { initDeepResearchRuntime } from "./deep-research.js";
 import { i18n } from "../lib/i18n.svelte.js";
 import { remoteConfig, REMOTE_CONFIG_EVENT, detectModelType } from "../lib/remote-config.svelte.js";
 import { STORAGE_KEYS, CSS_PRESETS } from "../lib/constants.js";
@@ -58,6 +59,7 @@ async function init() {
   injectHookScript();
   setupBridgeEvents();
   mountUi();
+  initDeepResearchRuntime();
   bindStorageChangeListener();
   startUrlWatcher();
   observeChatDom();
@@ -78,6 +80,10 @@ async function init() {
   // Live-update custom CSS when settings change
   window.addEventListener("bds:settingsChanged", () => {
     applyCustomCSS(state.settings.customCSS);
+  });
+
+  window.addEventListener("bds:deep-research-config-changed", () => {
+    pushConfigToPage();
   });
 
   // Debug API — listen for requests from MAIN-world injected script

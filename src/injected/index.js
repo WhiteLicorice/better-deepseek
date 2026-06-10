@@ -7,7 +7,7 @@
  * It communicates with the content script via CustomEvents on window.
  */
 
-import { normalizeConfig } from "./config.js";
+import { normalizeConfig, normalizeDeepResearch } from "./config.js";
 import { patchFetch } from "./fetch-patch.js";
 import { patchXmlHttpRequest } from "./xhr-patch.js";
 
@@ -16,6 +16,7 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
 
   const EVENTS = {
     configUpdate: "bds:config-update",
+    deepResearchConfigUpdate: "bds:deep-research-config-update",
     requestConfig: "bds:request-config",
     markVoiceMessage: "bds:mark-voice-message",
     sessionData: "bds:session-data",
@@ -140,6 +141,18 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
       }
     }
     state.config = normalizeConfig(nextConfig || {});
+  });
+
+  window.addEventListener(EVENTS.deepResearchConfigUpdate, (event) => {
+    let nextConfig = event && event.detail ? event.detail : {};
+    if (typeof nextConfig === "string") {
+      try {
+        nextConfig = JSON.parse(nextConfig);
+      } catch (e) {
+        console.error("[BDS] Failed to parse deepResearchConfigUpdate detail:", e);
+      }
+    }
+    state.config.deepResearch = normalizeDeepResearch(nextConfig || {});
   });
   
   window.addEventListener(EVENTS.markVoiceMessage, () => {
