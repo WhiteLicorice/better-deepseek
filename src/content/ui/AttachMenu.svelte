@@ -305,7 +305,13 @@
   function updatePosition() {
     if (!menuRef) return;
     const rect = menuRef.getBoundingClientRect();
-    dropdownStyle = `bottom: calc(100vh - ${rect.top}px + 8px); right: calc(100vw - ${rect.right}px);`;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    const menuWidth = 176;
+    const menuHeight = estimateDropdownHeight();
+    const left = clamp(rect.right - menuWidth, 8, viewportWidth - menuWidth - 8);
+    const top = clamp(rect.top - menuHeight - 8, 8, viewportHeight - menuHeight - 8);
+    dropdownStyle = `top: ${top}px; left: ${left}px; min-width: ${menuWidth}px;`;
   }
 
   function portal(node) {
@@ -317,6 +323,21 @@
         }
       },
     };
+  }
+
+  function estimateDropdownHeight() {
+    let itemCount = 0;
+    if (shouldShowUploadFile) itemCount += 1;
+    if (shouldShowUploadFolder && supportsFolderUpload) itemCount += 1;
+    if (shouldShowGithub) itemCount += 1;
+    if (shouldShowWeb) itemCount += 1;
+    const dividerHeight = shouldShowGithub || shouldShowWeb ? 9 : 0;
+    return 12 + itemCount * 36 + dividerHeight;
+  }
+
+  function clamp(value, min, max) {
+    if (max < min) return min;
+    return Math.min(Math.max(value, min), max);
   }
 
   function closeMenu() {
@@ -676,7 +697,7 @@
 {#if shouldShowAttach}
 <div class="bds-attach-wrapper" bind:this={menuRef}>
   {#if shouldShowPlus}
-  <button class="bds-plus-btn" on:click={toggleMenu} title={t('attachMenu.buttonTitle')}>
+  <button type="button" class="bds-plus-btn" onclick={toggleMenu} title={t('attachMenu.buttonTitle')}>
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width="20"
@@ -698,7 +719,7 @@
   <button
     class="bds-project-btn"
     bind:this={projectBtnRef}
-    on:click={openProjectPanel}
+    onclick={openProjectPanel}
     title={t('attachMenu.attachProject')}
   >
     <svg
@@ -723,7 +744,7 @@
   {#if shouldShowVoice && supportsVoiceInput}
     <button
       class="bds-mic-btn {isRecording ? 'bds-recording' : ''}"
-      on:click={toggleSpeechRecognition}
+      onclick={toggleSpeechRecognition}
       title={isRecording ? t('attachMenu.stopRecording') : t('attachMenu.voicePrompt')}
     >
       <svg
@@ -755,10 +776,10 @@
       class="bds-attach-dropdown"
       style={dropdownStyle}
       use:portal
-      on:click|stopPropagation
+      onclick={(event) => event.stopPropagation()}
     >
       {#if shouldShowUploadFile}
-      <button class="bds-attach-item" on:click={handleUploadFile}>
+      <button type="button" class="bds-attach-item" onclick={handleUploadFile}>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="16"
@@ -782,7 +803,7 @@
       </button>
       {/if}
       {#if shouldShowUploadFolder && supportsFolderUpload}
-        <button class="bds-attach-item" on:click={handleUploadFolder}>
+        <button type="button" class="bds-attach-item" onclick={handleUploadFolder}>
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -810,7 +831,7 @@
         <div class="bds-attach-divider"></div>
       {/if}
       {#if shouldShowGithub}
-      <button class="bds-attach-item" on:click={handleGithubImport}>
+      <button type="button" class="bds-attach-item" onclick={handleGithubImport}>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="16"
@@ -850,7 +871,7 @@
       </button>
       {/if}
       {#if shouldShowWeb}
-      <button class="bds-attach-item" on:click={handleWebImport}>
+      <button type="button" class="bds-attach-item" onclick={handleWebImport}>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="16"
@@ -885,15 +906,16 @@
   <div
     class="bds-github-overlay"
     use:portal
-    on:click|self={() => {
+    onclick={(event) => {
+      if (event.target !== event.currentTarget) return;
       if (!githubLoading) showGithubDialog = false;
     }}
   >
     <div
       class="bds-github-dialog"
       bind:this={dialogRef}
-      on:click|stopPropagation
-      on:keydown|stopPropagation
+      onclick={(event) => event.stopPropagation()}
+      onkeydown={(event) => event.stopPropagation()}
     >
       <div class="bds-github-header">
         <svg
@@ -929,8 +951,9 @@
         {/if}
         {#if !githubLoading}
           <button
+            type="button"
             class="bds-github-close"
-            on:click={() => (showGithubDialog = false)}>&times;</button
+            onclick={() => (showGithubDialog = false)}>&times;</button
           >
         {/if}
       </div>
@@ -941,7 +964,7 @@
           type="text"
           placeholder={t('attachMenu.githubPlaceholder')}
           bind:value={githubUrl}
-          on:keydown={(e) => handleDialogKeydown(e, "github")}
+          onkeydown={(e) => handleDialogKeydown(e, "github")}
           disabled={githubLoading}
           autofocus
         />
@@ -965,8 +988,8 @@
               inputmode="numeric"
               value={commitCountInput}
               placeholder={String(DEFAULT_GITHUB_COMMIT_COUNT)}
-              on:input={handleCommitCountInput}
-              on:keydown={(e) => handleDialogKeydown(e, "github")}
+              oninput={handleCommitCountInput}
+              onkeydown={(e) => handleDialogKeydown(e, "github")}
               disabled={githubLoading}
             />
           </label>
@@ -986,8 +1009,9 @@
 
       <div class="bds-github-footer">
         <button
+          type="button"
           class="bds-github-btn bds-github-btn-cancel"
-          on:click={() => {
+          onclick={() => {
             if (!githubLoading) showGithubDialog = false;
           }}
           disabled={githubLoading}
@@ -995,8 +1019,9 @@
           {t('attachMenu.close')}
         </button>
         <button
+          type="button"
           class="bds-github-btn bds-github-btn-import"
-          on:click={submitGithubUrl}
+          onclick={submitGithubUrl}
           disabled={githubLoading || !githubUrl.trim()}
         >
           {githubLoading ? t('attachMenu.fetching') : t('attachMenu.fetch')}
@@ -1014,14 +1039,14 @@
     style={projectPanelStyle}
     use:portal
     bind:this={projectPanelRef}
-    on:click|stopPropagation
+    onclick={(event) => event.stopPropagation()}
   >
     <div class="bds-pp-header">
       <span class="bds-pp-label">{t('attachMenu.projectLabel')}</span>
       <select
         class="bds-pp-select"
         value={panelActiveProjectId}
-        on:change={handlePanelProjectChange}
+        onchange={handlePanelProjectChange}
       >
         <option value="">{t('attachMenu.noProject')}</option>
         {#each panelProjects as p (p.id)}
@@ -1039,7 +1064,7 @@
         <span class="bds-pp-files-count"
           >{panelFiles.length} {panelFiles.length === 1 ? t('attachMenu.file') : t('attachMenu.files')}</span
         >
-        <button class="bds-pp-select-all" on:click={toggleSelectAll}>
+        <button type="button" class="bds-pp-select-all" onclick={toggleSelectAll}>
           {panelTickedIds.length === panelFiles.length
             ? t('attachMenu.deselectAll')
             : t('attachMenu.selectAll')}
@@ -1059,7 +1084,7 @@
               type="checkbox"
               class="bds-sr-only"
               checked={panelTickedIds.includes(file.id)}
-              on:change={(e) =>
+              onchange={(e) =>
                 handlePanelFileToggle(file.id, e.target.checked)}
             />
             <span class="bds-pp-pill-check" aria-hidden="true">
@@ -1081,7 +1106,7 @@
       </div>
       {#if panelTickedIds.length > 0}
         <div class="bds-pp-footer">
-          <button class="bds-pp-attach" on:click={attachPanelFiles}>
+          <button type="button" class="bds-pp-attach" onclick={attachPanelFiles}>
             <svg
               xmlns="http://www.w3.org/2000/svg"
               width="12"
@@ -1115,15 +1140,16 @@
   <div
     class="bds-github-overlay"
     use:portal
-    on:click|self={() => {
+    onclick={(event) => {
+      if (event.target !== event.currentTarget) return;
       if (!webLoading) showWebDialog = false;
     }}
   >
     <div
       class="bds-github-dialog"
       bind:this={dialogRef}
-      on:click|stopPropagation
-      on:keydown|stopPropagation
+      onclick={(event) => event.stopPropagation()}
+      onkeydown={(event) => event.stopPropagation()}
     >
       <div class="bds-github-header">
         <svg
@@ -1148,8 +1174,9 @@
         <span>{t('attachMenu.webImportTitle')}</span>
         {#if !webLoading}
           <button
+            type="button"
             class="bds-github-close"
-            on:click={() => (showWebDialog = false)}>&times;</button
+            onclick={() => (showWebDialog = false)}>&times;</button
           >
         {/if}
       </div>
@@ -1160,7 +1187,7 @@
           type="text"
           placeholder={t('attachMenu.webPlaceholder')}
           bind:value={webUrl}
-          on:keydown={(e) => handleDialogKeydown(e, "web")}
+          onkeydown={(e) => handleDialogKeydown(e, "web")}
           disabled={webLoading}
           autofocus
         />
@@ -1179,8 +1206,9 @@
 
       <div class="bds-github-footer">
         <button
+          type="button"
           class="bds-github-btn bds-github-btn-cancel"
-          on:click={() => {
+          onclick={() => {
             if (!webLoading) showWebDialog = false;
           }}
           disabled={webLoading}
@@ -1188,8 +1216,9 @@
           {t('attachMenu.close')}
         </button>
         <button
+          type="button"
           class="bds-github-btn bds-github-btn-import"
-          on:click={submitWebUrl}
+          onclick={submitWebUrl}
           disabled={webLoading || !webUrl.trim()}
         >
           {webLoading ? t('attachMenu.fetching') : t('attachMenu.fetch')}
