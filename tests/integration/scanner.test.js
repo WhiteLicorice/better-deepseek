@@ -114,7 +114,65 @@ describe("scanner input controls", () => {
     expect(document.querySelector("#model-option").style.display).not.toBe("none");
   });
 
-  it("mounts Deep Research when Expert mode has no native file input", async () => {
+  it("mounts Deep Research in the prompt action row when Expert mode has no native file input", async () => {
+    document.body.innerHTML = `
+      <div id="composer">
+        <textarea id="chat-input" placeholder="Message DeepSeek"></textarea>
+        <div id="prompt-actions">
+          <button id="deepthink" type="button">DeepThink</button>
+        </div>
+        <div id="send-cluster">
+          <button id="send" title="Send message" type="button"></button>
+        </div>
+      </div>
+    `;
+    const { scanInputArea } = await import("../../src/content/scanner.js");
+
+    scanInputArea();
+
+    const promptActions = document.querySelector("#prompt-actions");
+    const sendCluster = document.querySelector("#send-cluster");
+    const deepResearchMount = promptActions.querySelector(".bds-deep-research-mount");
+    const children = Array.from(promptActions.children);
+
+    expect(deepResearchMount).toBeTruthy();
+    expect(children.indexOf(deepResearchMount)).toBeLessThan(
+      children.indexOf(document.querySelector("#deepthink")),
+    );
+    expect(sendCluster.querySelector(".bds-deep-research-mount")).toBeNull();
+    expect(document.querySelector(".bds-attach-menu-mount")).toBeNull();
+    expect(mountMock.mock.calls[0][0]).toBe(deepResearchToggleMock);
+  });
+
+  it("keeps Deep Research out of the send cluster when Expert mode still exposes a file input", async () => {
+    document.body.innerHTML = `
+      <div id="composer">
+        <textarea id="chat-input" placeholder="Message DeepSeek"></textarea>
+        <div id="composer-actions">
+          <button id="deepthink" type="button">DeepThink</button>
+          <div id="send-cluster">
+            <button id="send" title="Send message" type="button"></button>
+            <button id="native-upload" type="button"></button>
+            <input type="file" multiple />
+          </div>
+        </div>
+      </div>
+    `;
+    const { scanInputArea } = await import("../../src/content/scanner.js");
+
+    scanInputArea();
+
+    const actionRow = document.querySelector("#composer-actions");
+    const sendCluster = document.querySelector("#send-cluster");
+    const deepResearchMount = actionRow.querySelector(":scope > .bds-deep-research-mount");
+
+    expect(deepResearchMount).toBeTruthy();
+    expect(sendCluster.querySelector(".bds-deep-research-mount")).toBeNull();
+    expect(sendCluster.querySelector(".bds-attach-menu-mount")).toBeTruthy();
+    expect(document.querySelector("#native-upload").style.display).toBe("none");
+  });
+
+  it("falls back to the send button cluster when no prompt action row exists", async () => {
     document.body.innerHTML = `
       <div id="composer">
         <button id="send" title="Send message" type="button"></button>
@@ -128,7 +186,6 @@ describe("scanner input controls", () => {
     const deepResearchMount = wrapper.querySelector(".bds-deep-research-mount");
 
     expect(deepResearchMount).toBeTruthy();
-    expect(wrapper.querySelector(".bds-attach-menu-mount")).toBeNull();
     expect(mountMock.mock.calls[0][0]).toBe(deepResearchToggleMock);
   });
 });
