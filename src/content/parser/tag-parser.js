@@ -56,6 +56,10 @@ export function normalizeTaggedCodeContent(content, tagName) {
     output = stripLeadingChatter(output);
   }
 
+  if (name === "deep_research_report") {
+    output = stripLeadingBlankLines(output);
+  }
+
   return output;
 }
 
@@ -117,5 +121,9 @@ export function unwrapMarkdownCodeFence(content) {
 
   // Not wrapped in a single fence — return as-is (preserves multiple nested code blocks)
   return trimmed;
+}
+
+function stripLeadingBlankLines(content) {
+  return String(content || "").replace(/^(?:[ \t]*\r?\n)+/, "");
 }
 

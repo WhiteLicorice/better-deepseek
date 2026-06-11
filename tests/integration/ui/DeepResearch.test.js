@@ -33,6 +33,10 @@ describe("Deep Research UI components", () => {
       expect(target.textContent).toContain("best laptops 2025");
       expect(target.textContent).toContain("search");
       expect(target.textContent).toContain("fetch");
+      const firstStep = target.querySelector(".bds-dr-step");
+      expect(firstStep.querySelector(".bds-dr-step-primary .bds-dr-step-action")).toBeTruthy();
+      expect(firstStep.querySelector(".bds-dr-step-primary .bds-dr-step-query")).toBeTruthy();
+      expect(firstStep.querySelector(".bds-dr-step-body .bds-dr-step-purpose")?.textContent).toBe("overview");
       expect(target.querySelector('[data-testid="dr-approve-btn"]')).toBeTruthy();
       expect(target.querySelector('[data-testid="dr-revise-btn"]')).toBeTruthy();
       expect(target.querySelector('[data-testid="dr-cancel-btn"]')).toBeTruthy();
@@ -312,15 +316,17 @@ describe("Deep Research UI components", () => {
       const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
       const { target, cleanup } = renderSvelte(DeepResearchReportCard, {
         runId: "run-download",
-        markdown: "# Downloadable Report",
+        markdown: "\n\n# Downloadable Report",
       });
       await flushUi();
 
       target.querySelector('[data-testid="deep-research-download-btn"]').click();
 
+      const blob = URL.createObjectURL.mock.calls[0][0];
       expect(URL.createObjectURL).toHaveBeenCalledOnce();
-      expect(URL.createObjectURL.mock.calls[0][0]).toBeInstanceOf(Blob);
-      expect(URL.createObjectURL.mock.calls[0][0].type).toBe("text/markdown");
+      expect(blob).toBeInstanceOf(Blob);
+      expect(blob.type).toBe("text/markdown");
+      await expect(readBlobText(blob)).resolves.toBe("# Downloadable Report");
       expect(click).toHaveBeenCalledOnce();
       expect(click.mock.contexts[0].download).toBe("deep-research-run-download.md");
       cleanup();
@@ -339,8 +345,8 @@ describe("Deep Research UI components", () => {
       expect(btn.textContent).toContain("DeepResearch");
       expect(btn.querySelector("svg")).toBeTruthy();
       expect(btn.getAttribute("aria-pressed")).toBe("false");
-      expect(btn.getAttribute("aria-label")).toBe("Deep Research disabled");
-      expect(btn.getAttribute("data-tooltip")).toBe("Deep Research disabled");
+      expect(btn.getAttribute("aria-label")).toBe("Research online sources and consolidate findings");
+      expect(btn.getAttribute("data-tooltip")).toBe("Research online sources and consolidate findings");
       expect(btn.hasAttribute("aria-describedby")).toBe(false);
       expect(btn.classList.contains("ds-toggle-button")).toBe(true);
       expect(btn.classList.contains("ds-toggle-button--m")).toBe(true);
@@ -357,8 +363,8 @@ describe("Deep Research UI components", () => {
       const btn = target.querySelector('[data-testid="deep-research-toggle"]');
       expect(btn.textContent).toContain("DeepResearch");
       expect(btn.getAttribute("aria-pressed")).toBe("true");
-      expect(btn.getAttribute("aria-label")).toBe("Deep Research enabled");
-      expect(btn.getAttribute("data-tooltip")).toBe("Deep Research enabled");
+      expect(btn.getAttribute("aria-label")).toBe("Research online sources and consolidate findings");
+      expect(btn.getAttribute("data-tooltip")).toBe("Research online sources and consolidate findings");
       expect(btn.hasAttribute("aria-describedby")).toBe(false);
       expect(btn.classList.contains("ds-toggle-button--selected")).toBe(true);
       cleanup();
@@ -379,11 +385,11 @@ describe("Deep Research UI components", () => {
       expect(tooltip).toBeTruthy();
       expect(tooltip.getAttribute("role")).toBe("tooltip");
       expect(tooltip.classList.contains("bds-deep-research-tooltip")).toBe(true);
-      expect(tooltip.textContent).toBe("Deep Research disabled");
+      expect(tooltip.textContent).toBe("Research online sources and consolidate findings");
 
       btn.click();
       await flushUi();
-      expect(tooltip.textContent).toBe("Deep Research enabled");
+      expect(tooltip.textContent).toBe("Research online sources and consolidate findings");
 
       btn.dispatchEvent(new MouseEvent("mouseleave"));
       await flushUi();
@@ -423,3 +429,12 @@ describe("Deep Research UI components", () => {
     });
   });
 });
+
+function readBlobText(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(blob);
+  });
+}

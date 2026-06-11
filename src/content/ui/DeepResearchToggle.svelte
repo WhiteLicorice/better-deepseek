@@ -7,7 +7,7 @@
   let tooltipElement = null;
   let tooltipVisible = $state(false);
   const tooltipId = `bds-deep-research-tooltip-${Math.random().toString(36).slice(2)}`;
-  const tooltipText = $derived(localEnabled ? "Deep Research enabled" : "Deep Research disabled");
+  const tooltipText = "Research online sources and consolidate findings";
 
   $effect(() => {
     localEnabled = Boolean(enabled);
@@ -23,7 +23,7 @@
     const handler = (event) => {
       const nextEnabled = Boolean(event.detail?.enabled);
       localEnabled = nextEnabled;
-      syncTooltipText(nextEnabled);
+      syncTooltipText();
     };
     window.addEventListener("bds:deep-research-toggle-state", handler);
     return () => {
@@ -37,7 +37,7 @@
     event?.stopPropagation?.();
     const nextEnabled = !localEnabled;
     localEnabled = nextEnabled;
-    syncTooltipText(nextEnabled);
+    syncTooltipText();
     if (onToggle) onToggle(nextEnabled);
   }
 
@@ -58,9 +58,9 @@
     return tooltipElement;
   }
 
-  function syncTooltipText(enabledState = localEnabled) {
+  function syncTooltipText() {
     if (!tooltipElement) return;
-    tooltipElement.textContent = enabledState ? "Deep Research enabled" : "Deep Research disabled";
+    tooltipElement.textContent = tooltipText;
   }
 
   function positionTooltip() {
@@ -164,14 +164,14 @@
     z-index: 100000;
     pointer-events: none;
     white-space: nowrap;
-    padding: 6px 10px;
-    border-radius: 8px;
-    background: rgba(54, 55, 61, 0.96);
-    color: #f3f4f6;
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.2;
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: rgb(72, 73, 80);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
   }
 
   :global(.bds-deep-research-tooltip[data-placement="bottom"]) {

@@ -3,12 +3,13 @@
   import { triggerBlobDownload } from "../../lib/utils/download.js";
 
   let { runId = "", markdown = "" } = $props();
+  let normalizedMarkdown = $derived(stripLeadingBlankLines(markdown));
 
   let renderedHtml = $derived.by(() => {
     try {
-      return marked(markdown || "");
+      return marked(normalizedMarkdown || "");
     } catch {
-      return markdown || "";
+      return normalizedMarkdown || "";
     }
   });
 
@@ -28,8 +29,12 @@
   function downloadMarkdown(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    const blob = new Blob([String(markdown || "")], { type: "text/markdown" });
+    const blob = new Blob([normalizedMarkdown], { type: "text/markdown" });
     triggerBlobDownload(blob, buildReportFileName());
+  }
+
+  function stripLeadingBlankLines(content) {
+    return String(content || "").replace(/^(?:[ \t]*\r?\n)+/, "");
   }
 </script>
 

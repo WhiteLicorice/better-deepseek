@@ -104,6 +104,19 @@ describe("Deep Research tag parsing", () => {
       expect(result.deepResearch.reports[0].markdown).toBe(markdown);
     });
 
+    it("strips leading blank lines from report markdown", () => {
+      const text = `<BDS:DEEP_RESEARCH_REPORT runId="rpt-trim">
+
+# Research Report
+
+## Summary
+Findings.</BDS:DEEP_RESEARCH_REPORT>`;
+      const result = parseBdsMessage(text);
+
+      expect(result.deepResearch.reports).toHaveLength(1);
+      expect(result.deepResearch.reports[0].markdown).toBe("# Research Report\n\n## Summary\nFindings.");
+    });
+
     it("handles empty report", () => {
       const text = `<BDS:DEEP_RESEARCH_REPORT runId="e1"></BDS:DEEP_RESEARCH_REPORT>`;
       const result = parseBdsMessage(text);

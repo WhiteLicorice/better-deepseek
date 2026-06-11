@@ -91,17 +91,21 @@
       {#each steps as step, i}
         <div class="bds-dr-step">
           <span class="bds-dr-step-num">{step.id || i + 1}.</span>
-          <span
-            class="bds-dr-step-action"
-            class:search={step.action === "search"}
-            class:fetch={step.action === "fetch"}
-          >
-            {step.action || "search"}
+          <span class="bds-dr-step-body">
+            <span class="bds-dr-step-primary">
+              <span
+                class="bds-dr-step-action"
+                class:search={step.action === "search"}
+                class:fetch={step.action === "fetch"}
+              >
+                {step.action || "search"}
+              </span>
+              <span class="bds-dr-step-query">{step.query || ""}</span>
+            </span>
+            {#if step.purpose}
+              <span class="bds-dr-step-purpose">{step.purpose}</span>
+            {/if}
           </span>
-          <span class="bds-dr-step-query">{step.query || ""}</span>
-          {#if step.purpose}
-            <span class="bds-dr-step-purpose">- {step.purpose}</span>
-          {/if}
         </div>
       {/each}
     </div>
@@ -174,19 +178,34 @@
     padding: 8px 14px 10px;
   }
   .bds-dr-step {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    padding: 5px 0;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 8px 0;
     font-size: 12px;
   }
   .bds-dr-step-num {
     color: var(--bds-text-tertiary, rgba(255, 255, 255, 0.5));
     font-weight: 600;
-    min-width: 20px;
+    padding-top: 3px;
+    text-align: right;
+  }
+  .bds-dr-step-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .bds-dr-step-primary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    max-width: 100%;
   }
   .bds-dr-step-action {
+    flex: 0 0 auto;
     font-size: 10px;
     padding: 1px 6px;
     border-radius: 4px;
@@ -198,12 +217,21 @@
   .bds-dr-step-action.search { color: var(--bds-accent, #4f8cff); }
   .bds-dr-step-action.fetch { color: #22c55e; }
   .bds-dr-step-query {
+    display: block;
+    min-width: 0;
+    flex: 1 1 auto;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 12px;
-    overflow-wrap: anywhere;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--bds-text-primary, #ececec);
   }
   .bds-dr-step-purpose {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     font-size: 11px;
     color: var(--bds-text-tertiary, rgba(255, 255, 255, 0.5));
   }
