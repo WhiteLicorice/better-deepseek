@@ -39,46 +39,57 @@
 
 <style>
   .bds-deep-research-report-card {
-    border: 1px solid var(--bds-border, #3a3b3f);
-    border-radius: 8px;
-    padding: 12px;
     margin: 8px 0;
+    border: 1px solid var(--bds-border, #3a3b3f);
+    border-radius: 12px;
     background: var(--bds-bg-panel, #1e1f23);
-    font-size: 14px;
+    color: var(--bds-text-primary, #ececec);
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   .bds-drr-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
+    gap: 12px;
+    padding: 10px 14px;
   }
   .bds-drr-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 6px;
-    color: #1976d2;
-    background: rgba(25, 118, 210, 0.12);
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    color: var(--bds-accent, #4f8cff);
+    background: var(--bds-bg-elevated, #25262b);
+    border: 1px solid var(--bds-border, #3a3b3f);
     font-size: 10px;
     font-weight: 700;
+    flex-shrink: 0;
   }
-  .bds-drr-title { font-weight: 600; flex: 1; }
-  .bds-drr-run-id { font-size: 11px; opacity: 0.6; font-family: monospace; }
+  .bds-drr-title { font-size: 13px; font-weight: 600; flex: 1; }
+  .bds-drr-run-id {
+    font-size: 10.5px;
+    color: var(--bds-text-tertiary, rgba(255, 255, 255, 0.5));
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
   .bds-drr-toggle {
     font-size: 12px;
     background: var(--bds-bg-elevated, #25262b);
     border: 1px solid var(--bds-border, #3a3b3f);
-    border-radius: 4px;
-    padding: 2px 8px;
+    border-radius: 8px;
+    padding: 4px 9px;
     cursor: pointer;
     color: var(--bds-text-primary, #ececec);
   }
+  .bds-drr-toggle:hover {
+    background: var(--bds-bg-hover, rgba(255, 255, 255, 0.08));
+  }
   .bds-drr-content {
-    padding-top: 8px;
+    padding: 12px 14px;
     border-top: 1px solid var(--bds-border, #3a3b3f);
     line-height: 1.6;
+    color: var(--bds-text-secondary, rgba(255, 255, 255, 0.7));
   }
   .bds-drr-content :global(h1),
   .bds-drr-content :global(h2),

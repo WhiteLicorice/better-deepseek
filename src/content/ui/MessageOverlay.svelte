@@ -131,6 +131,12 @@
     }));
   }
 
+  function isDeepResearchPlanInteractive(runId) {
+    const run = appState.deepResearch.runs.find((item) => item.id === runId);
+    if (!run) return Boolean(appState.deepResearch.enabled);
+    return Boolean(appState.deepResearch.enabled && run.status === "planning");
+  }
+
   // Configure marked for better rendering
   marked.setOptions({
     breaks: true,
@@ -311,6 +317,7 @@
           plan={parsedPlan.value}
           raw={parsedPlan.value ? "" : block.content}
           error={parsedPlan.error}
+          interactive={isDeepResearchPlanInteractive(getRunId(block))}
           onApprove={() => approveDeepResearch(block)}
           onRequestChanges={(_, feedback) => requestDeepResearchChanges(block, feedback)}
           onCancel={() => cancelDeepResearch(block)}

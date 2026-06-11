@@ -77,6 +77,29 @@ describe("auto integration", () => {
     expect(sendButton.click).toHaveBeenCalledOnce();
   });
 
+  it("injects pure text and sends it through the chat input", async () => {
+    const { injectPureTextAndSend } = await importAutoModule();
+
+    injectPureTextAndSend("Deep Research approval prompt");
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(document.querySelector("#chat-input").value).toBe("Deep Research approval prompt");
+    expect(document.querySelector("button").click).toHaveBeenCalledOnce();
+  });
+
+  it("sets contenteditable chat input text through the shared editor helper", async () => {
+    document.body.innerHTML = '<div contenteditable="true"></div>';
+    const editor = document.querySelector('[contenteditable="true"]');
+    const inputListener = vi.fn();
+    editor.addEventListener("input", inputListener);
+    const { setChatInputText } = await importAutoModule();
+
+    expect(setChatInputText("Revision request")).toBe(true);
+
+    expect(editor.textContent).toBe("Revision request");
+    expect(inputListener).toHaveBeenCalled();
+  });
+
   it("creates an error attachment when github fetch fails", async () => {
     readerMocks.fetchGitHubRepo.mockRejectedValue(new Error("boom"));
     const { handleAutoGitHubFetch } = await importAutoModule();

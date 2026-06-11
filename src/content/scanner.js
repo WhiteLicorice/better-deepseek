@@ -172,12 +172,12 @@ function scanPage() {
 /**
  * Scan for the chat text input area to inject custom attachment menu
  */
-function scanInputArea() {
+export function scanInputArea() {
   const fileInput = document.querySelector('input[type="file"][multiple]');
   if (!fileInput) return;
 
   const wrapper = fileInput.parentElement;
-  if (!wrapper || wrapper.hasAttribute("data-bds-attach-menu-mounted")) {
+  if (!wrapper) {
     return;
   }
 
@@ -193,36 +193,85 @@ function scanInputArea() {
     nativeButton.style.setProperty("display", "none", "important");
   }
 
-  const deepResearchMountPoint = document.createElement("div");
-  deepResearchMountPoint.className = "bds-deep-research-mount";
-  wrapper.insertBefore(deepResearchMountPoint, fileInput);
-  mount(DeepResearchToggle, {
-    target: deepResearchMountPoint,
-    props: {
-      enabled: state.deepResearch.enabled,
-      onToggle: (enabled) => setDeepResearchEnabled(enabled),
-    },
-  });
+  const deepResearchMountPoint = ensureComposerMount(
+    wrapper,
+    "bds-deep-research-mount",
+    ".bds-deep-research-toggle",
+    fileInput,
+  );
+  if (!deepResearchMountPoint.dataset.bdsMounted) {
+    mount(DeepResearchToggle, {
+      target: deepResearchMountPoint,
+      props: {
+        enabled: state.deepResearch.enabled,
+        onToggle: (enabled) => setDeepResearchEnabled(enabled),
+      },
+    });
+    deepResearchMountPoint.dataset.bdsMounted = "1";
+  }
 
-  const mountPoint = document.createElement("div");
-  wrapper.insertBefore(mountPoint, fileInput);
+  const mountPoint = ensureComposerMount(
+    wrapper,
+    "bds-attach-menu-mount",
+    ".bds-attach-wrapper",
+    fileInput,
+  );
+  if (!mountPoint.dataset.bdsMounted) {
+    mount(AttachMenu, {
+      target: mountPoint,
+      props: {
+        nativeInput: fileInput
+      }
+    });
+    mountPoint.dataset.bdsMounted = "1";
+  }
 
-  mount(AttachMenu, {
-    target: mountPoint,
-    props: {
-      nativeInput: fileInput
-    }
-  });
+  const toggleMountPoint = ensureComposerMount(
+    wrapper,
+    "bds-expand-toggle-mount",
+    ".bds-expand-toggle",
+    fileInput,
+  );
+  if (!toggleMountPoint.dataset.bdsMounted) {
+    mount(ExpandToggle, { target: toggleMountPoint });
+    toggleMountPoint.dataset.bdsMounted = "1";
+  }
 
-  const toggleMountPoint = document.createElement("div");
-  wrapper.insertBefore(toggleMountPoint, fileInput);
-  mount(ExpandToggle, { target: toggleMountPoint });
-
-  const ragMountPoint = document.createElement("div");
-  wrapper.insertBefore(ragMountPoint, fileInput);
-  mount(RagPreview, { target: ragMountPoint });
+  const ragMountPoint = ensureComposerMount(
+    wrapper,
+    "bds-rag-preview-mount",
+    ".bds-rag-preview",
+    fileInput,
+  );
+  if (!ragMountPoint.dataset.bdsMounted) {
+    mount(RagPreview, { target: ragMountPoint });
+    ragMountPoint.dataset.bdsMounted = "1";
+  }
 
   wrapper.setAttribute("data-bds-attach-menu-mounted", "true");
+}
+
+function ensureComposerMount(wrapper, className, descendantSelector, beforeNode) {
+  let mountPoint = Array.from(wrapper.children).find((child) =>
+    child.classList && child.classList.contains(className)
+  );
+
+  if (!mountPoint) {
+    mountPoint = Array.from(wrapper.children).find((child) =>
+      child.querySelector && child.querySelector(descendantSelector)
+    );
+  }
+
+  if (!mountPoint) {
+    mountPoint = document.createElement("div");
+  }
+
+  mountPoint.classList.add(className);
+  if (mountPoint.querySelector && mountPoint.querySelector(descendantSelector)) {
+    mountPoint.dataset.bdsMounted = "1";
+  }
+  wrapper.insertBefore(mountPoint, beforeNode);
+  return mountPoint;
 }
 
 /**

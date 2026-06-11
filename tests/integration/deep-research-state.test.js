@@ -155,6 +155,26 @@ describe("Deep Research state machine", () => {
         runId: run.id,
       });
     });
+
+    it("cancels the active conversation run when disabled", () => {
+      const run = createRun("conv1", "active-run");
+      state.deepResearch.enabled = true;
+      state.deepResearch.runs = [run];
+      const runListener = vi.fn();
+      window.addEventListener("bds:deep-research-run-state", runListener, { once: true });
+
+      setDeepResearchEnabled(false, "conv1");
+
+      expect(state.deepResearch.enabled).toBe(false);
+      expect(state.deepResearch.pendingRun).toBeNull();
+      expect(run.status).toBe("cancelled");
+      expect(runListener).toHaveBeenCalledOnce();
+      expect(runListener.mock.calls[0][0].detail).toMatchObject({
+        runId: "active-run",
+        status: "cancelled",
+        interactive: false,
+      });
+    });
   });
 
   describe("message builders", () => {

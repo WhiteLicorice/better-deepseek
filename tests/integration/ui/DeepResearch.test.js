@@ -98,6 +98,80 @@ describe("Deep Research UI components", () => {
       expect(target.querySelector('[data-testid="dr-feedback-input"]')).toBeTruthy();
       cleanup();
     });
+
+    it("submits feedback text on second request changes action", async () => {
+      const onRequestChanges = vi.fn();
+      const plan = { title: "Test", steps: [] };
+      const { target, cleanup } = renderSvelte(DeepResearchPlanCard, {
+        runId: "r2",
+        plan,
+        onRequestChanges,
+      });
+      await flushUi();
+
+      target.querySelector('[data-testid="dr-revise-btn"]').click();
+      await flushUi();
+      const input = target.querySelector('[data-testid="dr-feedback-input"]');
+      input.value = "Add seller warranty checks";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      await flushUi();
+      target.querySelector('[data-testid="dr-submit-feedback-btn"]').click();
+
+      expect(onRequestChanges).toHaveBeenCalledWith("r2", "Add seller warranty checks");
+      cleanup();
+    });
+
+    it("submits revision request even when feedback is empty", async () => {
+      const onRequestChanges = vi.fn();
+      const plan = { title: "Test", steps: [] };
+      const { target, cleanup } = renderSvelte(DeepResearchPlanCard, {
+        runId: "r-empty",
+        plan,
+        onRequestChanges,
+      });
+      await flushUi();
+
+      target.querySelector('[data-testid="dr-revise-btn"]').click();
+      await flushUi();
+      target.querySelector('[data-testid="dr-submit-feedback-btn"]').click();
+
+      expect(onRequestChanges).toHaveBeenCalledWith("r-empty", "");
+      cleanup();
+    });
+
+    it("hides interaction buttons when the plan is not interactive", async () => {
+      const plan = { title: "Test", steps: [] };
+      const { target, cleanup } = renderSvelte(DeepResearchPlanCard, {
+        runId: "inactive1",
+        plan,
+        interactive: false,
+      });
+      await flushUi();
+
+      expect(target.querySelector('[data-testid="dr-approve-btn"]')).toBeNull();
+      expect(target.querySelector('[data-testid="dr-revise-btn"]')).toBeNull();
+      expect(target.querySelector('[data-testid="dr-cancel-btn"]')).toBeNull();
+      cleanup();
+    });
+
+    it("hides interaction buttons when run state becomes noninteractive", async () => {
+      const plan = { title: "Test", steps: [] };
+      const { target, cleanup } = renderSvelte(DeepResearchPlanCard, {
+        runId: "run-state-1",
+        plan,
+        interactive: true,
+      });
+      await flushUi();
+      expect(target.querySelector('[data-testid="dr-approve-btn"]')).toBeTruthy();
+
+      window.dispatchEvent(new CustomEvent("bds:deep-research-run-state", {
+        detail: { runId: "run-state-1", interactive: false },
+      }));
+      await flushUi();
+
+      expect(target.querySelector('[data-testid="dr-approve-btn"]')).toBeNull();
+      cleanup();
+    });
   });
 
   describe("DeepResearchStatusCard", () => {

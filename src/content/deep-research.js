@@ -82,17 +82,18 @@ export function setDeepResearchEnabled(enabled, conversationId = getCurrentConve
     state.deepResearch.pendingRun = createRun(conversationId);
   } else {
     state.deepResearch.pendingRun = null;
+    const activeRun = findActiveRun(state.deepResearch.runs, conversationId);
+    if (activeRun) {
+      setStatus(activeRun, "cancelled");
+      upsertRun(activeRun);
+      clearRunSearchHistory(activeRun.id);
+      emitRunState(activeRun);
+      void persistRuns(state.deepResearch.runs);
+    }
   }
 
-  window.dispatchEvent(new CustomEvent(BRIDGE_EVENTS.deepResearchConfigUpdate, {
-    detail: JSON.stringify({
-      enabled: Boolean(state.deepResearch.enabled && state.deepResearch.pendingRun),
-      runId: state.deepResearch.pendingRun?.id || "",
-    }),
-  }));
-  window.dispatchEvent(new CustomEvent("bds:deep-research-toggle-state", {
-    detail: { enabled: state.deepResearch.enabled },
-  }));
+  emitConfigState();
+  emitToggleState();
   window.dispatchEvent(new CustomEvent("bds:deep-research-config-changed"));
   return state.deepResearch.pendingRun;
 }
@@ -180,6 +181,41 @@ function setStatus(run, status) {
   return run;
 }
 
+function emitConfigState() {
+  window.dispatchEvent(new CustomEvent(BRIDGE_EVENTS.deepResearchConfigUpdate, {
+    detail: JSON.stringify({
+      enabled: Boolean(state.deepResearch.enabled && state.deepResearch.pendingRun),
+      runId: state.deepResearch.pendingRun?.id || "",
+    }),
+  }));
+}
+
+function emitToggleState() {
+  window.dispatchEvent(new CustomEvent("bds:deep-research-toggle-state", {
+    detail: { enabled: state.deepResearch.enabled },
+  }));
+}
+
+function isRunInteractive(run) {
+  return Boolean(
+    state.deepResearch.enabled &&
+    run &&
+    run.status === "planning"
+  );
+}
+
+function emitRunState(run) {
+  if (!run) return;
+  window.dispatchEvent(new CustomEvent("bds:deep-research-run-state", {
+    detail: {
+      runId: run.id,
+      status: run.status,
+      enabled: state.deepResearch.enabled,
+      interactive: isRunInteractive(run),
+    },
+  }));
+}
+
 /**
  * Serialize a run for storage (strips large fields).
  */
@@ -234,10 +270,11 @@ export function buildApprovalMessage(run) {
  * @returns {string}
  */
 export function buildRevisionMessage(run, feedback) {
+  const safeFeedback = String(feedback || "").trim() || "No specific feedback was provided. Re-check the plan for completeness, source coverage, and alignment with the user's original request.";
   return [
     `<BetterDeepSeek>`,
     `[BDS:DEEP_RESEARCH] Revision requested for run ${run.id}.`,
-    `User feedback: ${feedback}`,
+    `User feedback: ${safeFeedback}`,
     `Please revise the research plan and output an updated plan using <BDS:DEEP_RESEARCH_PLAN runId="${run.id}">JSON</BDS:DEEP_RESEARCH_PLAN>.`,
     `</BetterDeepSeek>`,
   ].join("\n");
@@ -298,11 +335,11 @@ export function initDeepResearchRuntime() {
     run.conversationId = String(detail.conversationId || run.conversationId || getCurrentConversationId());
     setStatus(run, "planning");
     upsertRun(run);
-    state.deepResearch.enabled = false;
+    state.deepResearch.enabled = true;
     state.deepResearch.pendingRun = null;
-    window.dispatchEvent(new CustomEvent("bds:deep-research-toggle-state", {
-      detail: { enabled: false },
-    }));
+    emitConfigState();
+    emitToggleState();
+    emitRunState(run);
     void persistRuns(state.deepResearch.runs);
   });
 
@@ -312,6 +349,7 @@ export function initDeepResearchRuntime() {
     run.plan = detail.plan || null;
     setStatus(run, "planning");
     upsertRun(run);
+    emitRunState(run);
     void persistRuns(state.deepResearch.runs);
   });
 
@@ -321,6 +359,7 @@ export function initDeepResearchRuntime() {
     setStatus(run, "running");
     run.updatedAt = Date.now();
     upsertRun(run);
+    emitRunState(run);
     void persistRuns(state.deepResearch.runs);
   });
 
@@ -330,7 +369,12 @@ export function initDeepResearchRuntime() {
     setStatus(run, "complete");
     run.updatedAt = Date.now();
     upsertRun(run);
+    state.deepResearch.enabled = false;
+    state.deepResearch.pendingRun = null;
     clearRunSearchHistory(run.id);
+    emitConfigState();
+    emitToggleState();
+    emitRunState(run);
     void persistRuns(state.deepResearch.runs);
   });
 
@@ -341,6 +385,7 @@ export function initDeepResearchRuntime() {
     setStatus(run, "approved");
     setStatus(run, "running");
     upsertRun(run);
+    emitRunState(run);
     void persistRuns(state.deepResearch.runs);
     injectPureTextAndSend(buildApprovalMessage(run));
   });
@@ -351,6 +396,7 @@ export function initDeepResearchRuntime() {
     run.plan = detail.plan || run.plan;
     setStatus(run, "awaiting_revision");
     upsertRun(run);
+    emitRunState(run);
     void persistRuns(state.deepResearch.runs);
     injectPureTextAndSend(buildRevisionMessage(run, String(detail.feedback || "")));
   });
@@ -360,7 +406,12 @@ export function initDeepResearchRuntime() {
     const run = ensureRun(detail.runId, detail.conversationId);
     setStatus(run, "cancelled");
     upsertRun(run);
+    state.deepResearch.enabled = false;
+    state.deepResearch.pendingRun = null;
     clearRunSearchHistory(run.id);
+    emitConfigState();
+    emitToggleState();
+    emitRunState(run);
     void persistRuns(state.deepResearch.runs);
     if (state.ui) {
       state.ui.showToast("Deep Research cancelled.");

@@ -2,11 +2,15 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import MessageOverlay from "../../../src/content/ui/MessageOverlay.svelte";
+import appState from "../../../src/content/state.js";
 import { renderSvelte, flushUi } from "../../helpers/svelte.js";
 
 describe("MessageOverlay integration", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+    appState.deepResearch.enabled = false;
+    appState.deepResearch.pendingRun = null;
+    appState.deepResearch.runs = [];
   });
 
   it("renders markdown text, ask-question info, and loading state", async () => {
@@ -72,6 +76,16 @@ describe("MessageOverlay integration", () => {
     };
     const listener = vi.fn();
     window.addEventListener("bds:deep-research-approve", listener, { once: true });
+    appState.deepResearch.enabled = true;
+    appState.deepResearch.runs = [{
+      id: "run123",
+      conversationId: "conv1",
+      status: "planning",
+      plan,
+      sourceLedger: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    }];
 
     const { target, cleanup } = renderSvelte(MessageOverlay, {
       blocks: [{
