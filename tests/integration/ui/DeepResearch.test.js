@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mount, unmount } from "svelte";
 import DeepResearchPlanCard from "../../../src/content/ui/DeepResearchPlanCard.svelte";
 import DeepResearchStatusCard from "../../../src/content/ui/DeepResearchStatusCard.svelte";
 import DeepResearchReportCard from "../../../src/content/ui/DeepResearchReportCard.svelte";
@@ -11,6 +10,7 @@ import { renderSvelte, flushUi } from "../../helpers/svelte.js";
 describe("Deep Research UI components", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+    vi.restoreAllMocks();
   });
 
   describe("DeepResearchPlanCard", () => {
@@ -229,6 +229,26 @@ describe("Deep Research UI components", () => {
       expect(target.textContent).toContain("abcdefgh");
       cleanup();
     });
+
+    it("downloads the report as markdown", async () => {
+      URL.createObjectURL = vi.fn(() => "blob:deep-research");
+      URL.revokeObjectURL = vi.fn();
+      const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+      const { target, cleanup } = renderSvelte(DeepResearchReportCard, {
+        runId: "run-download",
+        markdown: "# Downloadable Report",
+      });
+      await flushUi();
+
+      target.querySelector('[data-testid="deep-research-download-btn"]').click();
+
+      expect(URL.createObjectURL).toHaveBeenCalledOnce();
+      expect(URL.createObjectURL.mock.calls[0][0]).toBeInstanceOf(Blob);
+      expect(URL.createObjectURL.mock.calls[0][0].type).toBe("text/markdown");
+      expect(click).toHaveBeenCalledOnce();
+      expect(click.mock.contexts[0].download).toBe("deep-research-run-download.md");
+      cleanup();
+    });
   });
 
   describe("DeepResearchToggle", () => {
@@ -243,7 +263,9 @@ describe("Deep Research UI components", () => {
       expect(btn.textContent).toContain("DeepResearch");
       expect(btn.querySelector("svg")).toBeTruthy();
       expect(btn.getAttribute("aria-pressed")).toBe("false");
-      expect(btn.classList.contains("active")).toBe(false);
+      expect(btn.classList.contains("ds-toggle-button")).toBe(true);
+      expect(btn.classList.contains("ds-toggle-button--m")).toBe(true);
+      expect(btn.classList.contains("ds-toggle-button--selected")).toBe(false);
       cleanup();
     });
 
@@ -256,7 +278,7 @@ describe("Deep Research UI components", () => {
       const btn = target.querySelector('[data-testid="deep-research-toggle"]');
       expect(btn.textContent).toContain("DeepResearch");
       expect(btn.getAttribute("aria-pressed")).toBe("true");
-      expect(btn.classList.contains("active")).toBe(true);
+      expect(btn.classList.contains("ds-toggle-button--selected")).toBe(true);
       cleanup();
     });
 
@@ -273,44 +295,19 @@ describe("Deep Research UI components", () => {
       cleanup();
     });
 
-    it("copies native DeepThink pill sizing when mounted beside it", async () => {
-      const wrapper = document.createElement("div");
-      const mountPoint = document.createElement("div");
-      const deepThink = document.createElement("button");
-      mountPoint.className = "bds-deep-research-mount";
-      deepThink.textContent = "DeepThink";
-      deepThink.style.height = "44px";
-      deepThink.style.padding = "0px 13px";
-      deepThink.style.fontSize = "15px";
-      deepThink.style.fontWeight = "700";
-      deepThink.style.borderRadius = "22px";
-      deepThink.style.display = "inline-flex";
-      deepThink.style.columnGap = "8px";
-      const deepThinkIcon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-      deepThinkIcon.style.width = "20px";
-      deepThinkIcon.style.height = "21px";
-      deepThink.appendChild(deepThinkIcon);
-      wrapper.append(mountPoint, deepThink);
-      document.body.appendChild(wrapper);
-
-      const instance = mount(DeepResearchToggle, {
-        target: mountPoint,
-        props: { enabled: false },
+    it("uses DeepSeek native toggle-button structure", async () => {
+      const { target, cleanup } = renderSvelte(DeepResearchToggle, {
+        enabled: true,
       });
-      await new Promise((resolve) => setTimeout(resolve, 30));
+      await flushUi();
 
-      const btn = mountPoint.querySelector('[data-testid="deep-research-toggle"]');
-      expect(btn.style.getPropertyValue("--bds-drt-height")).toBe("44px");
-      expect(btn.style.getPropertyValue("--bds-drt-padding")).toBe("0px 13px 0px 13px");
-      expect(btn.style.getPropertyValue("--bds-drt-font-size")).toBe("15px");
-      expect(btn.style.getPropertyValue("--bds-drt-font-weight")).toBe("700");
-      expect(btn.style.getPropertyValue("--bds-drt-border-radius")).toBe("22px");
-      expect(btn.style.getPropertyValue("--bds-drt-gap")).toBe("8px");
-      expect(btn.style.getPropertyValue("--bds-drt-icon-width")).toBe("20px");
-      expect(btn.style.getPropertyValue("--bds-drt-icon-height")).toBe("21px");
-
-      unmount(instance);
-      wrapper.remove();
+      const btn = target.querySelector('[data-testid="deep-research-toggle"]');
+      expect(btn.tagName.toLowerCase()).toBe("div");
+      expect(btn.getAttribute("role")).toBe("button");
+      expect(btn.querySelector(".ds-toggle-button__icon .ds-icon svg")).toBeTruthy();
+      expect(btn.querySelector(".ds-focus-ring")).toBeTruthy();
+      expect(btn.querySelector("span._6dbc175")?.textContent).toBe("DeepResearch");
+      cleanup();
     });
   });
 });

@@ -1,5 +1,6 @@
 <script>
   import { marked } from "marked";
+  import { triggerBlobDownload } from "../../lib/utils/download.js";
 
   let { runId = "", markdown = "" } = $props();
 
@@ -16,6 +17,20 @@
   function toggleCollapse() {
     collapsed = !collapsed;
   }
+
+  function buildReportFileName() {
+    const suffix = String(runId || Date.now())
+      .slice(0, 36)
+      .replace(/[^a-zA-Z0-9_-]/g, "_");
+    return `deep-research-${suffix || "report"}.md`;
+  }
+
+  function downloadMarkdown(event) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const blob = new Blob([String(markdown || "")], { type: "text/markdown" });
+    triggerBlobDownload(blob, buildReportFileName());
+  }
 </script>
 
 <div class="bds-deep-research-report-card" data-testid="deep-research-report-card">
@@ -25,7 +40,10 @@
     {#if runId}
       <span class="bds-drr-run-id">Run: {runId.slice(0, 8)}</span>
     {/if}
-    <button class="bds-drr-toggle" onclick={toggleCollapse}>
+    <button type="button" class="bds-drr-toggle" onclick={downloadMarkdown} data-testid="deep-research-download-btn">
+      Download .md
+    </button>
+    <button type="button" class="bds-drr-toggle" onclick={toggleCollapse}>
       {collapsed ? "Show" : "Hide"}
     </button>
   </div>

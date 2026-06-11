@@ -326,6 +326,48 @@ function dispatchEditorEvents(editor, inputType = "insertText", data = "") {
   editor.dispatchEvent(new KeyboardEvent("keyup", { key: "Process", bubbles: true }));
 }
 
+function dispatchBeforeInput(editor, inputType = "insertText", data = "") {
+  if (typeof InputEvent === "function") {
+    editor.dispatchEvent(new InputEvent("beforeinput", {
+      bubbles: true,
+      cancelable: true,
+      inputType,
+      data,
+    }));
+    return;
+  }
+  editor.dispatchEvent(new Event("beforeinput", { bubbles: true, cancelable: true }));
+}
+
+function setContentEditableDom(editor, value) {
+  const shouldUseParagraphs =
+    editor.classList?.contains("ProseMirror") ||
+    editor.querySelector?.("p");
+
+  if (!shouldUseParagraphs) {
+    editor.textContent = value;
+    return;
+  }
+
+  const lines = String(value || "").split("\n");
+  const nodes = lines.map((line) => {
+    const paragraph = document.createElement("p");
+    paragraph.textContent = line || "\u200b";
+    return paragraph;
+  });
+  editor.replaceChildren(...nodes);
+}
+
+function moveCaretToEnd(editor) {
+  const selection = window.getSelection?.();
+  if (!selection || !document.createRange) return;
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  range.collapse(false);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 export function setChatInputText(text) {
   const editor = findChatEditor();
   if (!editor) return false;
@@ -371,10 +413,12 @@ export function setChatInputText(text) {
     }
 
     if (!inserted) {
-      editor.textContent = value;
+      setContentEditableDom(editor, value);
     } else if ((editor.textContent || "").trim() !== value.trim()) {
-      editor.textContent = value;
+      setContentEditableDom(editor, value);
     }
+    moveCaretToEnd(editor);
+    dispatchBeforeInput(editor, "insertText", value);
     dispatchEditorEvents(editor, "insertText", value);
     return true;
   }

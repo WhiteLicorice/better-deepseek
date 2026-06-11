@@ -258,7 +258,8 @@ export function buildApprovalMessage(run) {
     JSON.stringify(run.plan, null, 2),
     `Use <BDS:AUTO:SEARCH runId="${run.id}" deepFetch="3"> tags for each search step and <BDS:AUTO:REQUEST_WEB_FETCH> for specific URLs.`,
     `After each search/fetch result is injected, read it, update the source ledger mentally, and continue with the next step until the plan is complete.`,
-    `After completing all research steps, output your findings using <BDS:DEEP_RESEARCH_REPORT runId="${run.id}">markdown</BDS:DEEP_RESEARCH_REPORT>.`,
+    `After completing all research steps, your final answer MUST be a proper Markdown report wrapped exactly as: <BDS:DEEP_RESEARCH_REPORT runId="${run.id}">markdown</BDS:DEEP_RESEARCH_REPORT>.`,
+    `Do not wrap the report Markdown in a code fence. Do not finish with ordinary prose outside the report tag.`,
     `</BetterDeepSeek>`,
   ].join("\n");
 }
@@ -278,7 +279,8 @@ export function buildRevisionMessage(run, feedback) {
     `User feedback: ${safeFeedback}`,
     `Current research plan:`,
     currentPlan,
-    `Please revise the research plan and output an updated plan using <BDS:DEEP_RESEARCH_PLAN runId="${run.id}">JSON</BDS:DEEP_RESEARCH_PLAN>.`,
+    `Please revise the research plan and output ONLY an updated plan using <BDS:DEEP_RESEARCH_PLAN runId="${run.id}">JSON</BDS:DEEP_RESEARCH_PLAN>.`,
+    `Do not browse yet and do not include ordinary prose outside the plan tag.`,
     `</BetterDeepSeek>`,
   ].join("\n");
 }

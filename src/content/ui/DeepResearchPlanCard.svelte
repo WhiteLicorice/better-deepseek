@@ -51,6 +51,10 @@
     event?.stopPropagation?.();
   }
 
+  function stopNativePointer(event) {
+    event?.stopPropagation?.();
+  }
+
   function handleApprove(event) {
     stopNativeClick(event);
     if (!isInteractive) return;
@@ -60,10 +64,12 @@
   function handleRequestChanges(event) {
     stopNativeClick(event);
     if (!isInteractive) return;
-    if (!showFeedback) {
-      showFeedback = true;
-      return;
-    }
+    showFeedback = true;
+  }
+
+  function handleSubmitFeedback(event) {
+    stopNativeClick(event);
+    if (!isInteractive) return;
     if (onRequestChanges) {
       onRequestChanges(runId, feedbackText.trim());
       feedbackText = "";
@@ -119,13 +125,13 @@
 
     {#if isInteractive}
       <div class="bds-dr-actions">
-        <button type="button" class="bds-dr-btn bds-dr-btn-approve" onclick={handleApprove} data-testid="dr-approve-btn">
+        <button type="button" class="bds-dr-btn bds-dr-btn-approve" onpointerdown={stopNativePointer} onmousedown={stopNativePointer} onclick={handleApprove} data-testid="dr-approve-btn">
           Approve
         </button>
-        <button type="button" class="bds-dr-btn bds-dr-btn-revise" onclick={handleRequestChanges} data-testid="dr-revise-btn">
+        <button type="button" class="bds-dr-btn bds-dr-btn-revise" onpointerdown={stopNativePointer} onmousedown={stopNativePointer} onclick={handleRequestChanges} data-testid="dr-revise-btn">
           Request Changes
         </button>
-        <button type="button" class="bds-dr-btn bds-dr-btn-cancel" onclick={handleCancel} data-testid="dr-cancel-btn">
+        <button type="button" class="bds-dr-btn bds-dr-btn-cancel" onpointerdown={stopNativePointer} onmousedown={stopNativePointer} onclick={handleCancel} data-testid="dr-cancel-btn">
           Cancel
         </button>
       </div>
@@ -139,7 +145,7 @@
           bind:value={feedbackText}
           data-testid="dr-feedback-input"
         ></textarea>
-        <button type="button" class="bds-dr-btn bds-dr-btn-submit" onclick={handleRequestChanges} data-testid="dr-submit-feedback-btn">
+        <button type="button" class="bds-dr-btn bds-dr-btn-submit" onpointerdown={stopNativePointer} onmousedown={stopNativePointer} onclick={handleSubmitFeedback} data-testid="dr-submit-feedback-btn">
           Submit Feedback
         </button>
       </div>

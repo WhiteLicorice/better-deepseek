@@ -100,6 +100,25 @@ describe("auto integration", () => {
     expect(inputListener).toHaveBeenCalled();
   });
 
+  it("sets ProseMirror-style contenteditable chat input as paragraphs", async () => {
+    document.body.innerHTML = '<div class="ProseMirror" contenteditable="true"><p><br></p></div>';
+    const editor = document.querySelector(".ProseMirror");
+    const beforeInputListener = vi.fn();
+    const inputListener = vi.fn();
+    editor.addEventListener("beforeinput", beforeInputListener);
+    editor.addEventListener("input", inputListener);
+    const { setChatInputText } = await importAutoModule();
+
+    expect(setChatInputText("Line one\nLine two")).toBe(true);
+
+    expect(Array.from(editor.querySelectorAll("p")).map((p) => p.textContent)).toEqual([
+      "Line one",
+      "Line two",
+    ]);
+    expect(beforeInputListener).toHaveBeenCalled();
+    expect(inputListener).toHaveBeenCalled();
+  });
+
   it("creates an error attachment when github fetch fails", async () => {
     readerMocks.fetchGitHubRepo.mockRejectedValue(new Error("boom"));
     const { handleAutoGitHubFetch } = await importAutoModule();
