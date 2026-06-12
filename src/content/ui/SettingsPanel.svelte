@@ -11,8 +11,10 @@
   import { getActiveProject, updateProject } from "../project-manager.js";
   import { t, i18n, availableLocaleCodes } from "../../lib/i18n.svelte.js";
   import { CSS_PRESETS } from "../../lib/constants.js";
+  import { openNativeFilePicker } from "../files/native-file-input.js";
+  import { encryptData, decryptData } from "../../lib/utils/crypto.js";
 
-  let { onapiplayground } = $props();
+  let { onapiplayground, onimportdata } = $props();
 
   let customSystemPrompts = $state(appState.settings.customSystemPrompts || []);
   let activeSystemPromptId = $state(appState.settings.activeSystemPromptId || "default");
@@ -73,6 +75,35 @@
   let showUnsavedModal = $state(false);
   let unsavedResolve = null;
 
+  // ── Export / Import All ──
+  let showExportAllModal = $state(false);
+  let showImportPasswordModal = $state(false);
+  let showImportSelectModal = $state(false);
+  let exportPassword = $state("");
+  let exportPasswordConfirm = $state("");
+  let exportEncrypt = $state(false);
+  let importAllFileInput = $state(null);
+  let importPassword = $state("");
+  let importData = $state(null);
+  let importEncrypted = $state(false);
+  let importPasswordError = $state("");
+  let exportPasswordError = $state("");
+  let isExporting = $state(false);
+  let isImporting = $state(false);
+
+  const EXPORT_SECTIONS = [
+    { key: "settings", label: t('drawer.sectionSettings') },
+    { key: "customSystemPrompts", label: t('drawer.sectionPrompts') },
+    { key: "skills", label: t('drawer.sectionSkills') },
+    { key: "characters", label: t('drawer.sectionCharacters') },
+    { key: "memories", label: t('drawer.sectionMemories') },
+    { key: "projects", label: t('drawer.sectionProjects') },
+    { key: "projectFiles", label: t('drawer.sectionProjectFiles') },
+    { key: "chatTags", label: t('drawer.sectionChatTags') },
+    { key: "savedItems", label: t('drawer.sectionSavedItems') },
+  ];
+  let selectedSections = $state(new Set(EXPORT_SECTIONS.map(s => s.key)));
+
   function captureFormSnapshot() {
     return JSON.stringify({
       autoFiles, autoZip, voiceMode, voiceLanguage, autoSubmitVoice,
@@ -87,6 +118,212 @@
   }
 
   let formSnapshot = $state(captureFormSnapshot());
+
+  // ── Export / Import All ──
+
+  function resetExportAllModal() {
+    exportPassword = "";
+    exportPasswordConfirm = "";
+    exportEncrypt = false;
+    exportPasswordError = "";
+    isExporting = false;
+  }
+
+  function openExportAllModal() {
+    resetExportAllModal();
+    showExportAllModal = true;
+  }
+
+  function closeExportAllModal() {
+    showExportAllModal = false;
+  }
+
+  async function doExportAll() {
+    if (exportEncrypt) {
+      if (!exportPassword || exportPassword.length < 4) {
+        exportPasswordError = t('drawer.passwordTooShort');
+        return;
+      }
+      if (exportPassword !== exportPasswordConfirm) {
+        exportPasswordError = t('drawer.passwordMismatch');
+        return;
+      }
+    }
+    exportPasswordError = "";
+    isExporting = true;
+
+    try {
+      const data = {
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        settings: { ...appState.settings, githubToken: "" },
+        customSystemPrompts: appState.settings.customSystemPrompts || [],
+        skills: appState.skills,
+        characters: appState.characters,
+        memories: appState.memories,
+        projects: appState.projects,
+        projectFiles: appState.projectFiles,
+        chatTags: appState.chatTags,
+        savedItems: appState.savedItems,
+      };
+
+      let blob;
+      if (exportEncrypt) {
+        const encrypted = await encryptData(JSON.stringify(data), exportPassword);
+        blob = new Blob([JSON.stringify(encrypted)], { type: "application/json" });
+      } else {
+        blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `bds_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      closeExportAllModal();
+      if (appState.ui) appState.ui.showToast(t('drawer.exportDone'));
+    } catch (e) {
+      if (appState.ui) appState.ui.showToast(t('drawer.exportFailed'));
+    }
+
+    isExporting = false;
+  }
+
+  function triggerImportAll() {
+    openNativeFilePicker(importAllFileInput, { preferSingle: true });
+  }
+
+  function resetImportState() {
+    importPassword = "";
+    importData = null;
+    importEncrypted = false;
+    importPasswordError = "";
+    isImporting = false;
+    selectedSections = new Set(EXPORT_SECTIONS.map(s => s.key));
+  }
+
+  async function handleImportAll(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    event.target.value = "";
+
+    try {
+      const raw = await file.text();
+      const parsed = JSON.parse(raw);
+
+      if (parsed.encrypted) {
+        resetImportState();
+        importData = parsed;
+        importEncrypted = true;
+        showImportPasswordModal = true;
+      } else {
+        resetImportState();
+        importData = parsed;
+        importEncrypted = false;
+        showImportSelectModal = true;
+      }
+    } catch (e) {
+      if (appState.ui) appState.ui.showToast(t('drawer.importParseError'));
+    }
+  }
+
+  async function doDecryptAndShow() {
+    if (!importPassword) {
+      importPasswordError = t('drawer.passwordRequired');
+      return;
+    }
+    importPasswordError = "";
+    isImporting = true;
+
+    try {
+      const decrypted = await decryptData(importData, importPassword);
+      importData = JSON.parse(decrypted);
+      showImportPasswordModal = false;
+      importPassword = "";
+      showImportSelectModal = true;
+    } catch (e) {
+      importPasswordError = t('drawer.passwordWrong');
+    }
+
+    isImporting = false;
+  }
+
+  function toggleSection(key) {
+    const next = new Set(selectedSections);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    selectedSections = next;
+  }
+
+  async function doImportAll() {
+    if (!importData) return;
+    isImporting = true;
+
+    try {
+      const d = importData;
+
+      if (selectedSections.has("settings") && d.settings) {
+        const oldToken = appState.settings.githubToken;
+        Object.assign(appState.settings, d.settings);
+        appState.settings.githubToken = oldToken;
+        await chrome.storage.local.set({ [STORAGE_KEYS.settings]: appState.settings });
+      }
+      if (selectedSections.has("customSystemPrompts") && d.customSystemPrompts) {
+        appState.settings.customSystemPrompts = d.customSystemPrompts;
+        await chrome.storage.local.set({ [STORAGE_KEYS.settings]: appState.settings });
+      }
+      if (selectedSections.has("skills") && d.skills) {
+        appState.skills = d.skills;
+        await chrome.storage.local.set({ [STORAGE_KEYS.skills]: appState.skills });
+      }
+      if (selectedSections.has("characters") && d.characters) {
+        appState.characters = d.characters;
+        await chrome.storage.local.set({ [STORAGE_KEYS.characters]: appState.characters });
+      }
+      if (selectedSections.has("memories") && d.memories) {
+        appState.memories = d.memories;
+        await chrome.storage.local.set({ [STORAGE_KEYS.memories]: appState.memories });
+      }
+      if (selectedSections.has("projects") && d.projects) {
+        appState.projects = d.projects;
+        await chrome.storage.local.set({ [STORAGE_KEYS.projects]: appState.projects });
+      }
+      if (selectedSections.has("projectFiles") && d.projectFiles) {
+        appState.projectFiles = d.projectFiles;
+        await chrome.storage.local.set({ [STORAGE_KEYS.projectFiles]: appState.projectFiles });
+      }
+      if (selectedSections.has("chatTags") && d.chatTags) {
+        appState.chatTags = d.chatTags;
+        await chrome.storage.local.set({ [STORAGE_KEYS.chatTags]: appState.chatTags });
+      }
+      if (selectedSections.has("savedItems") && d.savedItems) {
+        appState.savedItems = d.savedItems;
+        await chrome.storage.local.set({ [STORAGE_KEYS.savedItems]: appState.savedItems });
+      }
+
+      pushConfigToPage();
+      onimportdata?.();
+
+      if (appState.ui) appState.ui.showToast(t('drawer.importDone'));
+    } catch (e) {
+      if (appState.ui) appState.ui.showToast(t('drawer.importFailed'));
+    } finally {
+      showImportSelectModal = false;
+      resetImportState();
+      isImporting = false;
+    }
+  }
+
+  function closeImportPasswordModal() {
+    showImportPasswordModal = false;
+    resetImportState();
+  }
+
+  function closeImportSelectModal() {
+    showImportSelectModal = false;
+    resetImportState();
+  }
 
   $effect(() => {
     const current = captureFormSnapshot();
@@ -1105,6 +1342,18 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
     </div>
 
+    <div class="bds-export-section">
+      <span>{t('drawer.exportAll')} / {t('drawer.importAll')}</span>
+      <div class="bds-export-buttons">
+        <button type="button" class="bds-btn-outlined" onclick={openExportAllModal}>
+          {t('drawer.exportAll')}
+        </button>
+        <button type="button" class="bds-btn-outlined" onclick={triggerImportAll}>
+          {t('drawer.importAll')}
+        </button>
+      <input type="file" accept=".json" style="display: none;" bind:this={importAllFileInput} onchange={handleImportAll} />
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1127,6 +1376,84 @@
 <button id="bds-save-settings" type="button" onclick={save}>
   {t('settings.save')}
 </button>
+
+{#if showExportAllModal}
+  <div class="bds-modal-overlay" role="dialog" onclick={closeExportAllModal}>
+    <div class="bds-modal" role="document" onclick={(e) => e.stopPropagation()}>
+      <div class="bds-modal-header">
+        <span>{t('drawer.exportAll')}</span>
+        <button class="bds-modal-close" onclick={closeExportAllModal}>×</button>
+      </div>
+      <div class="bds-modal-body">
+        <label class="bds-modal-check">
+          <input type="checkbox" bind:checked={exportEncrypt} />
+          <span>{t('drawer.exportEncrypt')}</span>
+        </label>
+        {#if exportEncrypt}
+          <input type="password" class="bds-input" placeholder={t('drawer.enterPassword')} bind:value={exportPassword} />
+          <input type="password" class="bds-input" placeholder={t('drawer.confirmPassword')} bind:value={exportPasswordConfirm} />
+        {/if}
+        {#if exportPasswordError}
+          <span class="bds-modal-error">{exportPasswordError}</span>
+        {/if}
+      </div>
+      <div class="bds-modal-footer">
+        <button type="button" class="bds-btn-outlined" onclick={closeExportAllModal}>{t('cancel')}</button>
+        <button type="button" class="bds-btn" disabled={isExporting} onclick={doExportAll}>
+          {isExporting ? t('exporting') : t('drawer.download')}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if showImportPasswordModal}
+  <div class="bds-modal-overlay" role="dialog" onclick={closeImportPasswordModal}>
+    <div class="bds-modal" role="document" onclick={(e) => e.stopPropagation()}>
+      <div class="bds-modal-header">
+        <span>{t('drawer.enterPassword')}</span>
+        <button class="bds-modal-close" onclick={closeImportPasswordModal}>×</button>
+      </div>
+      <div class="bds-modal-body">
+        <input type="password" class="bds-input" placeholder={t('drawer.importPasswordPlaceholder')} bind:value={importPassword} />
+        {#if importPasswordError}
+          <span class="bds-modal-error">{importPasswordError}</span>
+        {/if}
+      </div>
+      <div class="bds-modal-footer">
+        <button type="button" class="bds-btn-outlined" onclick={closeImportPasswordModal}>{t('cancel')}</button>
+        <button type="button" class="bds-btn" disabled={isImporting} onclick={doDecryptAndShow}>
+          {isImporting ? t('importing') : t('drawer.decrypt')}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
+
+{#if showImportSelectModal}
+  <div class="bds-modal-overlay" role="dialog" onclick={closeImportSelectModal}>
+    <div class="bds-modal" role="document" onclick={(e) => e.stopPropagation()}>
+      <div class="bds-modal-header">
+        <span>{t('drawer.selectSections')}</span>
+        <button class="bds-modal-close" onclick={closeImportSelectModal}>×</button>
+      </div>
+      <div class="bds-modal-body">
+        {#each EXPORT_SECTIONS as section}
+          <label class="bds-modal-check">
+            <input type="checkbox" checked={selectedSections.has(section.key)} onchange={() => toggleSection(section.key)} />
+            <span>{section.label}</span>
+          </label>
+        {/each}
+      </div>
+      <div class="bds-modal-footer">
+        <button type="button" class="bds-btn-outlined" onclick={closeImportSelectModal}>{t('cancel')}</button>
+        <button type="button" class="bds-btn" disabled={isImporting || selectedSections.size === 0} onclick={doImportAll}>
+          {isImporting ? t('importing') : t('drawer.importBtn')}
+        </button>
+      </div>
+    </div>
+  </div>
+{/if}
 
 <style>
   .bds-token-field {
@@ -1310,5 +1637,47 @@
     .bds-token-actions {
       justify-content: flex-end;
     }
+  }
+
+  .bds-export-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .bds-export-section > span {
+    font-size: 12px;
+    font-weight: 600;
+    opacity: 0.7;
+  }
+
+  .bds-export-buttons {
+    display: flex;
+    gap: 6px;
+  }
+
+  .bds-export-buttons button {
+    flex: 1;
+    font-size: 11px;
+    padding: 6px 12px;
+  }
+
+  .bds-modal-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+  }
+
+  .bds-modal-check input[type="checkbox"] {
+    margin: 0;
+  }
+
+  .bds-modal-error {
+    color: #e74c3c;
+    font-size: 11px;
   }
 </style>

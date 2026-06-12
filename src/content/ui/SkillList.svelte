@@ -37,31 +37,47 @@
   async function handleUpload(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".md")) {
-      if (appState.ui) appState.ui.showToast(t('skillList.onlyMd'));
+
+    const isJson = file.name.toLowerCase().endsWith(".json");
+    const isMd = file.name.toLowerCase().endsWith(".md");
+    if (!isJson && !isMd) {
+      if (appState.ui) appState.ui.showToast(t('skillList.onlyMdOrJson'));
       event.target.value = "";
       return;
     }
 
-    const content = await file.text();
-    const name = file.name.replace(/\.md$/i, "") || `skill-${appState.skills.length + 1}`;
+    const raw = await file.text();
 
-    appState.skills.push({
-      id: makeId(),
-      name,
-      usage: "",
-      content,
-      active: true,
-    });
-
-    await chrome.storage.local.set({
-      [STORAGE_KEYS.skills]: appState.skills,
-    });
-    skills = [...appState.skills];
-    pushConfigToPage();
-
-    if (appState.ui) {
-      appState.ui.showToast(t('skillList.loaded', { name }));
+    if (isJson) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) throw new Error("Not an array");
+        let count = 0;
+        for (const item of parsed) {
+          if (!item.content || !String(item.content).trim()) continue;
+          appState.skills.push({
+            id: makeId(),
+            name: String(item.name || item.fileName || `skill-${appState.skills.length + 1}`),
+            usage: String(item.usage || ""),
+            content: String(item.content),
+            active: item.active !== false,
+          });
+          count++;
+        }
+        await chrome.storage.local.set({ [STORAGE_KEYS.skills]: appState.skills });
+        skills = [...appState.skills];
+        pushConfigToPage();
+        if (appState.ui) appState.ui.showToast(t('skillList.importedCount', { count }));
+      } catch (e) {
+        if (appState.ui) appState.ui.showToast(t('skillList.importFailed'));
+      }
+    } else {
+      const name = file.name.replace(/\.md$/i, "") || `skill-${appState.skills.length + 1}`;
+      appState.skills.push({ id: makeId(), name, usage: "", content: raw, active: true });
+      await chrome.storage.local.set({ [STORAGE_KEYS.skills]: appState.skills });
+      skills = [...appState.skills];
+      pushConfigToPage();
+      if (appState.ui) appState.ui.showToast(t('skillList.loaded', { name }));
     }
 
     event.target.value = "";
@@ -154,7 +170,7 @@
 <input
   id="bds-skill-upload"
   type="file"
-  accept=".md"
+  accept=".md,.json"
   bind:this={uploadInput}
   onchange={handleUpload}
 />

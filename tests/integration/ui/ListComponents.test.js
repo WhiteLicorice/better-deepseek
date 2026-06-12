@@ -172,7 +172,7 @@ describe("memory, character, and skill components", () => {
     expect(file.text).not.toHaveBeenCalled();
     expect(state.characters).toEqual(initialCharacters);
     expect(state.ui.showToast).toHaveBeenCalledWith(
-      "Only .md files are supported for persona uploads.",
+      "Only .md and .json files are supported for personas.",
     );
     expect(chrome.storage.local.set).not.toHaveBeenCalled();
     expect(bridgeMocks.pushConfigToPage).not.toHaveBeenCalled();
@@ -191,7 +191,7 @@ describe("memory, character, and skill components", () => {
 
     expect(state.characters.some((item) => item.name === "TEST")).toBe(true);
     expect(state.ui.showToast).not.toHaveBeenCalledWith(
-      "Only .md files are supported for persona uploads.",
+      "Only .md and .json files are supported for personas.",
     );
     cleanup();
   });
@@ -209,7 +209,7 @@ describe("memory, character, and skill components", () => {
       { preferSingle: true },
     );
     expect(uploadInput.multiple).toBe(false);
-    expect(uploadInput.accept).toBe(".md");
+    expect(uploadInput.accept).toBe(".md,.json");
     expect(target.querySelector('input[type="file"][accept=".json"]')).toBeNull();
     cleanup();
   });
@@ -288,7 +288,7 @@ describe("memory, character, and skill components", () => {
     expect(file.text).not.toHaveBeenCalled();
     expect(state.skills).toEqual(initialSkills);
     expect(state.ui.showToast).toHaveBeenCalledWith(
-      "Only .md files are supported for skills.",
+      "Only .md and .json files are supported for skills.",
     );
     expect(chrome.storage.local.set).not.toHaveBeenCalled();
     expect(bridgeMocks.pushConfigToPage).not.toHaveBeenCalled();
@@ -307,7 +307,7 @@ describe("memory, character, and skill components", () => {
 
     expect(state.skills.some((item) => item.name === "TEST")).toBe(true);
     expect(state.ui.showToast).not.toHaveBeenCalledWith(
-      "Only .md files are supported for skills.",
+      "Only .md and .json files are supported for skills.",
     );
     cleanup();
   });
@@ -325,7 +325,7 @@ describe("memory, character, and skill components", () => {
       { preferSingle: true },
     );
     expect(uploadInput.multiple).toBe(false);
-    expect(uploadInput.accept).toBe(".md");
+    expect(uploadInput.accept).toBe(".md,.json");
     expect(target.querySelector('input[type="file"][accept=".json"]')).toBeNull();
     cleanup();
   });

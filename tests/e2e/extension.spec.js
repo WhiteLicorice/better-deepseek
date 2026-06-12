@@ -181,9 +181,8 @@ test("drawer import inputs stay single-file in the web flow", async ({ page }) =
     window.__mockDeepSeek.drawerFilePickerModes = modes;
     window.__mockDeepSeek.drawerFilePickerAccepts = accepts;
 
-    const jsonInputs = document.querySelectorAll('#bds-drawer input[type="file"][accept=".json"]');
-    accepts.jsonInputCount = jsonInputs.length;
-    const memoryImportInput = jsonInputs[0];
+    accepts.jsonInputCount = document.querySelectorAll('#bds-drawer input[type="file"][accept=".json"]').length;
+    const memoryImportInput = document.querySelector('#bds-memory-upload');
     accepts.memoryImport = memoryImportInput.accept;
     memoryImportInput.addEventListener("click", (event) => {
       modes.memoryImport = memoryImportInput.multiple;
@@ -203,7 +202,7 @@ test("drawer import inputs stay single-file in the web flow", async ({ page }) =
     }
   });
 
-  const importButtons = page.locator("#bds-drawer button").filter({ hasText: "Import" });
+  const importButtons = page.locator("#bds-drawer button").filter({ hasText: /^Import$/ });
   await importButtons.nth(0).click();
   await importButtons.nth(1).click();
   await importButtons.nth(2).click();
@@ -218,9 +217,9 @@ test("drawer import inputs stay single-file in the web flow", async ({ page }) =
   await expect
     .poll(() => page.evaluate(() => window.__mockDeepSeek.drawerFilePickerAccepts))
     .toEqual({
-      jsonInputCount: 1,
-      skillImport: ".md",
-      characterImport: ".md",
+      jsonInputCount: 2,
+      skillImport: ".md,.json",
+      characterImport: ".md,.json",
       memoryImport: ".json",
     });
 });

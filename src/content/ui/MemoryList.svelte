@@ -147,6 +147,7 @@
         
       </button>
       <input 
+        id="bds-memory-upload"
         type="file" 
         accept=".json" 
         style="display: none;" 

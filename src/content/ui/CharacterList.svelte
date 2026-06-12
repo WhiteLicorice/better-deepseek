@@ -37,34 +37,55 @@
   async function handleUpload(event) {
     const file = event.target.files && event.target.files[0];
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".md")) {
-      if (appState.ui) appState.ui.showToast(t('characterList.onlyMd'));
+
+    const isJson = file.name.toLowerCase().endsWith(".json");
+    const isMd = file.name.toLowerCase().endsWith(".md");
+    if (!isJson && !isMd) {
+      if (appState.ui) appState.ui.showToast(t('characterList.onlyMdOrJson'));
       event.target.value = "";
       return;
     }
 
-    const content = await file.text();
-    const name = file.name.replace(/\.md$/i, "") || `char-${appState.characters.length + 1}`;
+    const raw = await file.text();
 
-    // Deactivate others
-    appState.characters.forEach(c => c.active = false);
-
-    appState.characters.push({
-      id: makeId(),
-      name,
-      usage: "uploaded",
-      content,
-      active: true,
-    });
-
-    await chrome.storage.local.set({
-      [STORAGE_KEYS.characters]: appState.characters,
-    });
-    characters = [...appState.characters];
-    pushConfigToPage();
-
-    if (appState.ui) {
-      appState.ui.showToast(t('characterList.loaded', { name }));
+      if (isJson) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) throw new Error("Not an array");
+        appState.characters.forEach(c => c.active = false);
+        let count = 0;
+        for (const item of parsed) {
+          if (!item.content || !String(item.content).trim()) continue;
+          appState.characters.push({
+            id: makeId(),
+            name: String(item.name || `char-${appState.characters.length + 1}`),
+            usage: String(item.usage || ""),
+            content: String(item.content),
+            active: item.active === true,
+          });
+          count++;
+        }
+        await chrome.storage.local.set({ [STORAGE_KEYS.characters]: appState.characters });
+        characters = [...appState.characters];
+        pushConfigToPage();
+        if (appState.ui) appState.ui.showToast(t('characterList.importedCount', { count }));
+      } catch (e) {
+        if (appState.ui) appState.ui.showToast(t('characterList.importFailed'));
+      }
+    } else {
+      const name = file.name.replace(/\.md$/i, "") || `char-${appState.characters.length + 1}`;
+      appState.characters.forEach(c => c.active = false);
+      appState.characters.push({
+        id: makeId(),
+        name,
+        usage: "uploaded",
+        content: raw,
+        active: true,
+      });
+      await chrome.storage.local.set({ [STORAGE_KEYS.characters]: appState.characters });
+      characters = [...appState.characters];
+      pushConfigToPage();
+      if (appState.ui) appState.ui.showToast(t('characterList.loaded', { name }));
     }
 
     event.target.value = "";
@@ -165,7 +186,7 @@
 <input
   id="bds-char-upload"
   type="file"
-  accept=".md"
+  accept=".md,.json"
   bind:this={uploadInput}
   onchange={handleUpload}
 />
