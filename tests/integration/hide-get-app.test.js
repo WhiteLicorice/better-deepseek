@@ -34,7 +34,7 @@ describe("hideGetAppButton", () => {
   it("hides the container div that wraps the button", () => {
     const { container } = makeGetAppButton();
     hideGetAppButton();
-    expect(container.style.display).toBe("none");
+    expect(container.hasAttribute("data-bds-hide")).toBe(true);
   });
 
   it("hides DeepSeek's div-based ds-button markup", () => {
@@ -51,8 +51,8 @@ describe("hideGetAppButton", () => {
 
     hideGetAppButton();
 
-    expect(button.style.display).toBe("none");
-    expect(headerActions.style.display).not.toBe("none");
+    expect(button.hasAttribute("data-bds-hide")).toBe(true);
+    expect(headerActions.hasAttribute("data-bds-hide")).toBe(false);
   });
 
   it("sets __bdsGetAppObserver on window", () => {
@@ -70,7 +70,7 @@ describe("hideGetAppButton", () => {
     container.appendChild(button);
     document.body.appendChild(container);
     hideGetAppButton();
-    expect(container.style.display).not.toBe("none");
+    expect(container.hasAttribute("data-bds-hide")).toBe(false);
   });
 
   it("does nothing when 'Get App' span has no button ancestor", () => {
@@ -80,7 +80,7 @@ describe("hideGetAppButton", () => {
     container.appendChild(span);
     document.body.appendChild(container);
     expect(() => hideGetAppButton()).not.toThrow();
-    expect(container.style.display).not.toBe("none");
+    expect(container.hasAttribute("data-bds-hide")).toBe(false);
   });
 
   it("does not throw when no Get App span exists at all", () => {
@@ -94,9 +94,7 @@ describe("hideGetAppButton", () => {
     window.__bdsGetAppObserver = sentinel;
     const { container } = makeGetAppButton();
     hideGetAppButton();
-    // Container should not be hidden — the early-return fired.
-    expect(container.style.display).not.toBe("none");
-    // Sentinel must be untouched.
+    expect(container.hasAttribute("data-bds-hide")).toBe(false);
     expect(window.__bdsGetAppObserver).toBe(sentinel);
   });
 
@@ -105,7 +103,7 @@ describe("hideGetAppButton", () => {
   it("hides container added to DOM after initial call", async () => {
     hideGetAppButton();
     const { container } = makeGetAppButton();
-    await vi.waitFor(() => expect(container.style.display).toBe("none"));
+    await vi.waitFor(() => expect(container.hasAttribute("data-bds-hide")).toBe(true));
   });
 
   it("observer is set immediately (not deferred)", () => {
@@ -118,20 +116,19 @@ describe("hideGetAppButton", () => {
   it("re-hides button when removed and re-inserted (SPA nav)", async () => {
     const { container } = makeGetAppButton();
     hideGetAppButton();
-    expect(container.style.display).toBe("none");
+    expect(container.hasAttribute("data-bds-hide")).toBe(true);
 
-    // Simulate SPA transition: remove old node, add fresh one.
     container.remove();
     const { container: container2 } = makeGetAppButton();
-    await vi.waitFor(() => expect(container2.style.display).toBe("none"));
+    await vi.waitFor(() => expect(container2.hasAttribute("data-bds-hide")).toBe(true));
   });
 
   it("hides all matching instances if multiple exist simultaneously", () => {
     const { container: c1 } = makeGetAppButton();
     const { container: c2 } = makeGetAppButton();
     hideGetAppButton();
-    expect(c1.style.display).toBe("none");
-    expect(c2.style.display).toBe("none");
+    expect(c1.hasAttribute("data-bds-hide")).toBe(true);
+    expect(c2.hasAttribute("data-bds-hide")).toBe(true);
   });
 
   // ── text-content resilience ────────────────────────────────────────────
@@ -145,7 +142,7 @@ describe("hideGetAppButton", () => {
     container.appendChild(button);
     document.body.appendChild(container);
     hideGetAppButton();
-    expect(container.style.display).toBe("none");
+    expect(container.hasAttribute("data-bds-hide")).toBe(true);
   });
 
   it("does not hide when text is 'Get App' cased differently", () => {
@@ -157,6 +154,6 @@ describe("hideGetAppButton", () => {
     container.appendChild(button);
     document.body.appendChild(container);
     hideGetAppButton();
-    expect(container.style.display).not.toBe("none");
+    expect(container.hasAttribute("data-bds-hide")).toBe(false);
   });
 });

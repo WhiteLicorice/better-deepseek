@@ -34,7 +34,7 @@ test("loads the bundle and surfaces the BDS toggle inside the WebView simulator"
 });
 
 test("hides the Get App promotional button from the Android content bundle", async ({ page }) => {
-  await expect(page.getByTestId("get-app-container")).toHaveCSS("display", "none");
+  await expect(page.getByTestId("get-app-container")).toHaveAttribute("data-bds-hide", "");
 });
 
 test("shows the folder upload menu item on Android when native picker is available", async ({ page }) => {
