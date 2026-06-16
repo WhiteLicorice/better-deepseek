@@ -90,11 +90,20 @@
     font-weight: 700;
     flex-shrink: 0;
   }
-  .bds-drr-title { font-size: 13px; font-weight: 600; flex: 1; }
+  .bds-drr-title {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .bds-drr-run-id {
     font-size: 10.5px;
     color: var(--bds-text-tertiary, rgba(255, 255, 255, 0.5));
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    flex-shrink: 0;
   }
   .bds-drr-toggle {
     font-size: 12px;
@@ -104,6 +113,7 @@
     padding: 4px 9px;
     cursor: pointer;
     color: var(--bds-text-primary, #ececec);
+    flex-shrink: 0;
   }
   .bds-drr-toggle:hover {
     background: var(--bds-bg-hover, rgba(255, 255, 255, 0.08));
@@ -134,5 +144,10 @@
   .bds-drr-content :global(a) {
     color: #1976d2;
     text-decoration: underline;
+  }
+  @media (max-width: 560px) {
+    .bds-drr-title {
+      display: none;
+    }
   }
 </style>
