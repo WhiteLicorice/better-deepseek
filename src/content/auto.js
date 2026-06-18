@@ -550,73 +550,81 @@ function isExplicitSendButton(button, label) {
   );
 }
 
-function getComposerRoot(editor) {
-  if (!editor) return null;
-
-  const form = editor.closest?.("form");
-  if (form) return form;
-
-  let candidate = editor.parentElement;
-  for (let depth = 0; candidate && depth < 6; depth++) {
-    if (candidate === document.body || candidate === document.documentElement) break;
-
-    const controls = candidate.querySelectorAll?.('button, div[role="button"]') || [];
-    const hasFileInput = Boolean(candidate.querySelector?.('input[type="file"]'));
-    if (hasFileInput || controls.length >= 2) {
-      return candidate;
-    }
-
-    candidate = candidate.parentElement;
-  }
-
-  return editor.parentElement && editor.parentElement !== document.body
-    ? editor.parentElement
-    : null;
+function isBdsControlButton(button) {
+  return (
+    button.classList.contains("bds-plus-btn") ||
+    button.classList.contains("bds-deep-research-toggle") ||
+    isBdsOwnedElement(button) ||
+    button.closest("#bds-root, .bds-deep-research-mount, .bds-attach-menu-mount")
+  );
 }
 
-function isLikelyIconOnlyComposerSendButton(button, editor) {
-  const root = getComposerRoot(editor);
-  if (!root || !root.contains(button)) return false;
-  if (!button.querySelector("svg")) return false;
-
-  const label = getButtonLabel(button);
-  if (
+function isNonSendComposerControl(button, label) {
+  return (
+    isBdsControlButton(button) ||
     label.includes("attach") ||
+    label.includes("upload") ||
     label.includes("file") ||
     label.includes("folder") ||
     label.includes("voice") ||
     label.includes("microphone") ||
     label.includes("search") ||
     label.includes("deepthink") ||
-    label.includes("deepresearch")
-  ) {
-    return false;
+    label.includes("deep think") ||
+    label.includes("deepresearch") ||
+    label.includes("deep research")
+  );
+}
+
+function getComposerRootCandidates(editor) {
+  if (!editor) return [];
+
+  const roots = [];
+  const seen = new Set();
+  const addRoot = (root) => {
+    if (!root || root === document.body || root === document.documentElement || seen.has(root)) return;
+    seen.add(root);
+    roots.push(root);
+  };
+
+  const form = editor.closest?.("form");
+  addRoot(form);
+
+  let candidate = editor.parentElement;
+  for (let depth = 0; candidate && depth < 10; depth++) {
+    if (candidate === document.body || candidate === document.documentElement) break;
+    addRoot(candidate);
+    candidate = candidate.parentElement;
   }
 
+  return roots;
+}
+
+function findIconOnlySendButtonInRoot(root) {
   const iconButtons = Array.from(root.querySelectorAll('button, div[role="button"]'))
     .filter((candidate) =>
       candidate.querySelector("svg") &&
-      !isBdsOwnedElement(candidate),
+      !isNonSendComposerControl(candidate, getButtonLabel(candidate)),
     );
 
-  return iconButtons[iconButtons.length - 1] === button;
+  return iconButtons[iconButtons.length - 1] || null;
 }
 
 function findSendButton() {
   const editor = findChatEditor();
   const buttons = Array.from(document.querySelectorAll('div[role="button"], button'));
-  return buttons.find((button) => {
+  const explicitSend = buttons.find((button) => {
     const label = getButtonLabel(button);
-    const isSend =
-      isExplicitSendButton(button, label) ||
-      isLikelyIconOnlyComposerSendButton(button, editor);
-    const isBdsControl =
-      button.classList.contains("bds-plus-btn") ||
-      button.classList.contains("bds-deep-research-toggle") ||
-      isBdsOwnedElement(button) ||
-      button.closest("#bds-root");
-    return isSend && !isBdsControl;
+    return isExplicitSendButton(button, label) && !isBdsControlButton(button);
   });
+  if (explicitSend) return explicitSend;
+
+  for (const root of getComposerRootCandidates(editor)) {
+    const candidate = findIconOnlySendButtonInRoot(root);
+    if (candidate) return candidate;
+  }
+
+  return null;
 }
 
 function isSendButtonDisabled(sendBtn) {

@@ -154,6 +154,93 @@ describe("auto integration", () => {
     expect(buttons[2].click).toHaveBeenCalledOnce();
   });
 
+  it("sends pure text when the icon-only send button is outside the editor wrapper", async () => {
+    document.body.innerHTML = `
+      <div id="composer">
+        <div id="editor-shell">
+          <textarea id="chat-input"></textarea>
+          <input type="file" multiple />
+          <button type="button" aria-label="Attach"><svg><path d="M1 1h2v2"></path></svg></button>
+        </div>
+        <div id="prompt-actions">
+          <button type="button" class="bds-deep-research-toggle"><svg><path d="M2 2h2v2"></path></svg></button>
+          <button type="button" aria-label="Search"><svg><path d="M3 3h2v2"></path></svg></button>
+        </div>
+        <div id="send-cluster">
+          <button type="button" id="send-arrow"><svg><path d="M10 18V6m0 0l-5 5m5-5l5 5"></path></svg></button>
+        </div>
+      </div>
+    `;
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      writable: true,
+      value: [],
+    });
+    const attach = document.querySelector('[aria-label="Attach"]');
+    const search = document.querySelector('[aria-label="Search"]');
+    const deepResearch = document.querySelector(".bds-deep-research-toggle");
+    const send = document.querySelector("#send-arrow");
+    [attach, search, deepResearch, send].forEach((button) => {
+      button.click = vi.fn();
+    });
+
+    const { injectPureTextAndSend } = await importAutoModule();
+    injectPureTextAndSend("<BetterDeepSeek>\n[BDS:AUTO] Text transition\n</BetterDeepSeek>");
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(attach.click).not.toHaveBeenCalled();
+    expect(search.click).not.toHaveBeenCalled();
+    expect(deepResearch.click).not.toHaveBeenCalled();
+    expect(send.click).toHaveBeenCalledOnce();
+  });
+
+  it("sends file-backed transitions when the native file input and send arrow are in sibling clusters", async () => {
+    document.body.innerHTML = `
+      <div id="composer">
+        <div id="editor-shell">
+          <textarea id="chat-input"></textarea>
+          <input type="file" multiple />
+          <button type="button" aria-label="Attach"><svg><path d="M1 1h2v2"></path></svg></button>
+        </div>
+        <div id="prompt-actions">
+          <button type="button" class="bds-deep-research-toggle"><svg><path d="M2 2h2v2"></path></svg></button>
+          <button type="button" aria-label="Search"><svg><path d="M3 3h2v2"></path></svg></button>
+        </div>
+        <div id="send-cluster">
+          <button type="button" id="send-arrow"><svg><path d="M10 18V6m0 0l-5 5m5-5l5 5"></path></svg></button>
+        </div>
+      </div>
+    `;
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      writable: true,
+      value: [],
+    });
+    const attach = document.querySelector('[aria-label="Attach"]');
+    const search = document.querySelector('[aria-label="Search"]');
+    const deepResearch = document.querySelector(".bds-deep-research-toggle");
+    const send = document.querySelector("#send-arrow");
+    [attach, search, deepResearch, send].forEach((button) => {
+      button.click = vi.fn();
+    });
+
+    const { sendFileWithMessage } = await importAutoModule();
+    await sendFileWithMessage(
+      new File(["# Evidence"], "evidence.md", { type: "text/markdown" }),
+      "<BetterDeepSeek>\n[BDS:DEEP_RESEARCH] Step result\n</BetterDeepSeek>",
+      "Deep Research step result",
+    );
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(input.files).toHaveLength(1);
+    expect(attach.click).not.toHaveBeenCalled();
+    expect(search.click).not.toHaveBeenCalled();
+    expect(deepResearch.click).not.toHaveBeenCalled();
+    expect(send.click).toHaveBeenCalledOnce();
+  });
+
   it("sets contenteditable chat input text through the shared editor helper", async () => {
     document.body.innerHTML = '<div contenteditable="true"></div>';
     const editor = document.querySelector('[contenteditable="true"]');
