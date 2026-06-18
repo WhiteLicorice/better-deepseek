@@ -341,6 +341,34 @@ describe("message processor integration", () => {
     expect(mocks.mount.mock.calls[0][1].props.blocks[0].name).toBe("deep_research_report");
   });
 
+  it("defers Deep Research step-done side effects until generation is complete", () => {
+    const stopButton = document.createElement("div");
+    stopButton.className = "ds-icon-stop";
+    document.body.appendChild(stopButton);
+
+    const listener = vi.fn();
+    window.addEventListener("bds:deep-research-step-done", listener);
+    const node = createMessageNode(
+      '<BDS:DEEP_RESEARCH_STEP_DONE runId="run-streaming" stepId="2">{"analysis":"done","newInsights":["x"]}</BDS:DEEP_RESEARCH_STEP_DONE>',
+    );
+
+    processMessageNode(node);
+    expect(listener).not.toHaveBeenCalled();
+
+    stopButton.remove();
+    vi.advanceTimersByTime(3000);
+    processMessageNode(node);
+
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener.mock.calls[0][0].detail).toMatchObject({
+      runId: "run-streaming",
+      stepId: "2",
+      analysis: { analysis: "done", newInsights: ["x"] },
+    });
+
+    window.removeEventListener("bds:deep-research-step-done", listener);
+  });
+
   it("dispatches clarifying questions and stores them on state", () => {
     const node = createMessageNode(
       '<BDS:ask_question>[{"id":"q1","question":"Pick one","type":"test","options":["A"]}]</BDS:ask_question>',

@@ -522,21 +522,94 @@ export function setChatInputText(text) {
   return false;
 }
 
+const SEND_INITIAL_DELAY_MS = 500;
+const SEND_RETRY_DELAY_MS = 200;
+const SEND_MAX_WAIT_MS = 120_000;
+const SEND_ENTER_FALLBACK_AFTER_MS = 1_200;
+
+function getButtonLabel(button) {
+  return `${button.title || ""} ${button.ariaLabel || ""} ${button.getAttribute("aria-label") || ""} ${button.textContent || ""}`
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isExplicitSendButton(button, label) {
+  return (
+    button.querySelector('svg path[d*="M8.3125"], .ds-icon-send') ||
+    button.querySelector('svg path[d*="M13.12 19.98"]') ||
+    button.querySelector('svg path[d*="M12 19"]') ||
+    button.title === "Send message" ||
+    button.ariaLabel === "Send Message" ||
+    button.getAttribute("aria-label") === "Send Message" ||
+    label.includes("send message") ||
+    label.includes("submit message") ||
+    label.includes("\u53d1\u9001") ||
+    label === "send" ||
+    label === "submit"
+  );
+}
+
+function getComposerRoot(editor) {
+  if (!editor) return null;
+
+  const form = editor.closest?.("form");
+  if (form) return form;
+
+  let candidate = editor.parentElement;
+  for (let depth = 0; candidate && depth < 6; depth++) {
+    if (candidate === document.body || candidate === document.documentElement) break;
+
+    const controls = candidate.querySelectorAll?.('button, div[role="button"]') || [];
+    const hasFileInput = Boolean(candidate.querySelector?.('input[type="file"]'));
+    if (hasFileInput || controls.length >= 2) {
+      return candidate;
+    }
+
+    candidate = candidate.parentElement;
+  }
+
+  return editor.parentElement && editor.parentElement !== document.body
+    ? editor.parentElement
+    : null;
+}
+
+function isLikelyIconOnlyComposerSendButton(button, editor) {
+  const root = getComposerRoot(editor);
+  if (!root || !root.contains(button)) return false;
+  if (!button.querySelector("svg")) return false;
+
+  const label = getButtonLabel(button);
+  if (
+    label.includes("attach") ||
+    label.includes("file") ||
+    label.includes("folder") ||
+    label.includes("voice") ||
+    label.includes("microphone") ||
+    label.includes("search") ||
+    label.includes("deepthink") ||
+    label.includes("deepresearch")
+  ) {
+    return false;
+  }
+
+  const iconButtons = Array.from(root.querySelectorAll('button, div[role="button"]'))
+    .filter((candidate) =>
+      candidate.querySelector("svg") &&
+      !isBdsOwnedElement(candidate),
+    );
+
+  return iconButtons[iconButtons.length - 1] === button;
+}
+
 function findSendButton() {
+  const editor = findChatEditor();
   const buttons = Array.from(document.querySelectorAll('div[role="button"], button'));
   return buttons.find((button) => {
-    const label = `${button.title || ""} ${button.ariaLabel || ""} ${button.getAttribute("aria-label") || ""}`
-      .toLowerCase()
-      .trim();
+    const label = getButtonLabel(button);
     const isSend =
-      button.querySelector('svg path[d*="M8.3125"], .ds-icon-send') ||
-      button.querySelector('svg path[d*="M13.12 19.98"]') ||
-      button.querySelector('svg path[d*="M12 19"]') ||
-      button.title === "Send message" ||
-      button.ariaLabel === "Send Message" ||
-      button.getAttribute("aria-label") === "Send Message" ||
-      label.includes("send message") ||
-      label === "send";
+      isExplicitSendButton(button, label) ||
+      isLikelyIconOnlyComposerSendButton(button, editor);
     const isBdsControl =
       button.classList.contains("bds-plus-btn") ||
       button.classList.contains("bds-deep-research-toggle") ||
@@ -556,11 +629,12 @@ function isSendButtonDisabled(sendBtn) {
 
 function sendCurrentChatInput(logLabel = "Auto message") {
   let attempts = 0;
-  const maxAttempts = 50;
+  const startedAt = Date.now();
   let enterFallbackSent = false;
 
   const attemptSend = () => {
     attempts++;
+    const elapsed = Date.now() - startedAt;
     const sendBtn = findSendButton();
 
     if (sendBtn) {
@@ -571,17 +645,18 @@ function sendCurrentChatInput(logLabel = "Auto message") {
       }
     }
 
-    if (!enterFallbackSent && attempts === 6) {
+    if (!enterFallbackSent && elapsed >= SEND_ENTER_FALLBACK_AFTER_MS) {
       enterFallbackSent = true;
       const editor = findChatEditor();
       if (editor) {
         editor.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        editor.dispatchEvent(new KeyboardEvent("keypress", { key: "Enter", bubbles: true }));
         editor.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true }));
       }
     }
 
-    if (attempts < maxAttempts) {
-      setTimeout(attemptSend, 200);
+    if (elapsed < SEND_MAX_WAIT_MS) {
+      setTimeout(attemptSend, SEND_RETRY_DELAY_MS);
     } else {
       console.error(`[BDS:AUTO] Failed to send ${logLabel}: button stayed disabled or was not found.`);
       const editor = findChatEditor();
@@ -591,7 +666,7 @@ function sendCurrentChatInput(logLabel = "Auto message") {
     }
   };
 
-  setTimeout(attemptSend, 500);
+  setTimeout(attemptSend, SEND_INITIAL_DELAY_MS);
 }
 
 

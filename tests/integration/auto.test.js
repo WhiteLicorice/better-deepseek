@@ -100,6 +100,60 @@ describe("auto integration", () => {
     expect(document.querySelector("button").click).toHaveBeenCalledOnce();
   });
 
+  it("keeps retrying file-backed transition sends after attachment readiness is delayed", async () => {
+    const sendButton = document.querySelector("button");
+    sendButton.setAttribute("aria-disabled", "true");
+
+    const { sendFileWithMessage } = await importAutoModule();
+    await sendFileWithMessage(
+      new File(["# Evidence"], "evidence.md", { type: "text/markdown" }),
+      "<BetterDeepSeek>\n[BDS:DEEP_RESEARCH] Step result\n</BetterDeepSeek>",
+      "Deep Research step 2 result",
+    );
+
+    await vi.advanceTimersByTimeAsync(11_000);
+    expect(sendButton.click).not.toHaveBeenCalled();
+
+    sendButton.removeAttribute("aria-disabled");
+    await vi.advanceTimersByTimeAsync(250);
+
+    expect(sendButton.click).toHaveBeenCalledOnce();
+  });
+
+  it("finds an icon-only composer send button when DeepSeek omits send labels", async () => {
+    document.body.innerHTML = `
+      <div class="composer-shell">
+        <input type="file" multiple />
+        <textarea id="chat-input"></textarea>
+        <button type="button" aria-label="Attach"><svg><path d="M1 1h2v2"></path></svg></button>
+        <button type="button" aria-label="Voice"><svg><path d="M2 2h2v2"></path></svg></button>
+        <button type="button" class="deepseek-send-icon"><svg><path d="M10 18V6m0 0l-5 5m5-5l5 5"></path></svg></button>
+      </div>
+    `;
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      writable: true,
+      value: [],
+    });
+    const buttons = Array.from(document.querySelectorAll("button"));
+    buttons.forEach((button) => {
+      button.click = vi.fn();
+    });
+
+    const { sendFileWithMessage } = await importAutoModule();
+    await sendFileWithMessage(
+      new File(["# Evidence"], "evidence.md", { type: "text/markdown" }),
+      "<BetterDeepSeek>\n[BDS:DEEP_RESEARCH] Step result\n</BetterDeepSeek>",
+      "Deep Research step 2 result",
+    );
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(buttons[0].click).not.toHaveBeenCalled();
+    expect(buttons[1].click).not.toHaveBeenCalled();
+    expect(buttons[2].click).toHaveBeenCalledOnce();
+  });
+
   it("sets contenteditable chat input text through the shared editor helper", async () => {
     document.body.innerHTML = '<div contenteditable="true"></div>';
     const editor = document.querySelector('[contenteditable="true"]');

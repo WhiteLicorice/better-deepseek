@@ -323,7 +323,21 @@ export function processMessageNode(node) {
 
   const hasActionableFiles = parsed.createFiles.length > 0;
 
-  dispatchDeepResearchEvents(parsed, stateData);
+  const deepResearchEventsAvailable = hasDeepResearchEvents(parsed);
+  if (deepResearchEventsAvailable && role === "assistant" && isLatestAssistant) {
+    if (!isSystemGenerating()) {
+      if (stateData.deepResearchTimer) {
+        clearTimeout(stateData.deepResearchTimer);
+        stateData.deepResearchTimer = null;
+      }
+      dispatchDeepResearchEvents(parsed, stateData);
+    } else if (!stateData.deepResearchTimer) {
+      stateData.deepResearchTimer = setTimeout(() => {
+        stateData.deepResearchTimer = null;
+        scheduleScan();
+      }, 3000);
+    }
+  }
   gateManagedDeepResearchReports(parsed);
 
   // --- SYNTHESIZE REPORT for managed deep research ---
@@ -538,6 +552,18 @@ function gateManagedDeepResearchReports(parsed) {
   });
 }
 
+function hasDeepResearchEvents(parsed) {
+  const data = parsed && parsed.deepResearch;
+  if (!data) return false;
+
+  return (
+    data.plans.length > 0 ||
+    data.statuses.length > 0 ||
+    data.reports.length > 0 ||
+    data.stepDone.length > 0
+  );
+}
+
 /**
  * Read computed font/color styles from DeepSeek's native .ds-markdown
  * and apply them as inline styles on the overlay host so the overlay
@@ -565,12 +591,7 @@ function dispatchDeepResearchEvents(parsed, stateData) {
   const data = parsed && parsed.deepResearch;
   if (!data) return;
 
-  const hasDeepResearch =
-    data.plans.length > 0 ||
-    data.statuses.length > 0 ||
-    data.reports.length > 0 ||
-    data.stepDone.length > 0;
-  if (!hasDeepResearch) return;
+  if (!hasDeepResearchEvents(parsed)) return;
 
   const signature = simpleHash(JSON.stringify(data));
   if (stateData.deepResearchSignature === signature) return;
