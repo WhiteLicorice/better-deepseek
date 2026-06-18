@@ -533,12 +533,24 @@ function getButtonLabel(button) {
     .trim();
 }
 
-function isExplicitSendButton(button, label) {
+function hasKnownSendIconPath(button) {
+  const d = getSvgPathData(button);
+  const compact = d.replace(/[,\s]/g, "");
+
   return (
-    button.querySelector('svg path[d*="M8.3125"], .ds-icon-send') ||
-    button.querySelector('svg path[d*="M8.312"]') ||
-    button.querySelector('svg path[d*="M13.12 19.98"]') ||
-    button.querySelector('svg path[d*="M12 19"]') ||
+    d.includes("M8.3125") ||
+    d.includes("M8.312") ||
+    d.includes("M13.12 19.98") ||
+    compact.includes("M1219V5") ||
+    compact.includes("M1219V6") ||
+    compact.includes("M1018V6") ||
+    (compact.includes("M222") && compact.includes("L1113")) ||
+    (compact.includes("M2.0121") && compact.includes("L2312"))
+  );
+}
+
+function hasExplicitSendLabel(button, label) {
+  return (
     button.title === "Send message" ||
     button.ariaLabel === "Send Message" ||
     button.getAttribute("aria-label") === "Send Message" ||
@@ -557,18 +569,11 @@ function getSvgPathData(button) {
 }
 
 function hasSendLikeIcon(button) {
-  const d = getSvgPathData(button);
-  const className = String(button.className || "");
+  const className = String(button.className || "").toLowerCase();
   return (
     button.querySelector(".ds-icon-send") ||
     className.includes("send") ||
-    d.includes("M8.3125") ||
-    d.includes("M8.312") ||
-    d.includes("M13.12 19.98") ||
-    d.includes("M12 19") ||
-    (d.includes("V6") && d.includes("l-5 5") && d.includes("l5 5")) ||
-    (d.includes("M22 2") && d.includes("L11 13")) ||
-    (d.includes("M2.01 21") && d.includes("L23 12"))
+    hasKnownSendIconPath(button)
   );
 }
 
@@ -594,7 +599,12 @@ function isNonSendComposerControl(button, label) {
     label.includes("deepthink") ||
     label.includes("deep think") ||
     label.includes("deepresearch") ||
-    label.includes("deep research")
+    label.includes("deep research") ||
+    label.includes("expand") ||
+    label.includes("open") ||
+    label.includes("preview") ||
+    label.includes("fullscreen") ||
+    label.includes("enlarge")
   );
 }
 
@@ -648,21 +658,32 @@ function findIconOnlySendButtonInRoot(root, editor, { allowGenericLastIcon = fal
   return allowGenericLastIcon ? iconButtons[iconButtons.length - 1] || null : null;
 }
 
+function isComposerSendRegion(button, editor, roots) {
+  if (!editor) return true;
+  if (!roots.length) return isAfterNode(editor, button);
+  return roots.some((root) => root.contains(button)) && isAfterNode(editor, button);
+}
+
 function findSendButton() {
   const editor = findChatEditor();
+  const roots = getComposerRootCandidates(editor);
   const buttons = Array.from(document.querySelectorAll('div[role="button"], button'));
   const explicitSend = buttons.find((button) => {
     const label = getButtonLabel(button);
-    return isExplicitSendButton(button, label) && !isBdsControlButton(button);
+    if (isBdsControlButton(button)) return false;
+    if (hasExplicitSendLabel(button, label)) {
+      return !editor || isAfterNode(editor, button);
+    }
+    if (!isComposerSendRegion(button, editor, roots)) return false;
+    return button.querySelector(".ds-icon-send") || hasKnownSendIconPath(button);
   });
   if (explicitSend) return explicitSend;
 
-  for (const root of getComposerRootCandidates(editor)) {
+  for (const root of roots) {
     const candidate = findIconOnlySendButtonInRoot(root, editor);
     if (candidate) return candidate;
   }
 
-  const roots = getComposerRootCandidates(editor);
   for (const root of roots.slice().reverse()) {
     const candidate = findIconOnlySendButtonInRoot(root, editor, { allowGenericLastIcon: true });
     if (candidate) return candidate;

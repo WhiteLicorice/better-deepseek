@@ -292,6 +292,92 @@ describe("auto integration", () => {
     await expect(sendResult).resolves.toBe(true);
   });
 
+  it("does not click an attachment-card expand icon that overlaps old send path matching", async () => {
+    document.body.innerHTML = `
+      <div id="composer">
+        <textarea id="chat-input"></textarea>
+        <input type="file" multiple />
+        <div class="mobile-attachment-card">
+          <button type="button" id="attachment-expand" aria-label="Expand attachment">
+            <svg><path d="M12 19H5v-7M12 19l-8-8"></path></svg>
+          </button>
+        </div>
+        <div id="prompt-actions">
+          <button type="button" class="bds-deep-research-toggle"><svg><path d="M2 2h2v2"></path></svg></button>
+          <button type="button" aria-label="Search"><svg><path d="M3 3h2v2"></path></svg></button>
+        </div>
+        <div id="send-cluster">
+          <button type="button" id="send-arrow"><svg><path d="M10 18V6m0 0l-5 5m5-5l5 5"></path></svg></button>
+        </div>
+      </div>
+    `;
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      writable: true,
+      value: [],
+    });
+    const expand = document.querySelector("#attachment-expand");
+    const search = document.querySelector('[aria-label="Search"]');
+    const deepResearch = document.querySelector(".bds-deep-research-toggle");
+    const send = document.querySelector("#send-arrow");
+    [expand, search, deepResearch, send].forEach((button) => {
+      button.click = vi.fn();
+    });
+
+    const { sendFileWithMessage } = await importAutoModule();
+    const sendResult = sendFileWithMessage(
+      new File(["# Evidence"], "evidence.md", { type: "text/markdown" }),
+      "<BetterDeepSeek>\n[BDS:DEEP_RESEARCH] Step result\n</BetterDeepSeek>",
+      "Deep Research step result",
+    );
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(expand.click).not.toHaveBeenCalled();
+    expect(search.click).not.toHaveBeenCalled();
+    expect(deepResearch.click).not.toHaveBeenCalled();
+    expect(send.click).toHaveBeenCalledOnce();
+    await expect(sendResult).resolves.toBe(true);
+  });
+
+  it("does not click a header share icon that uses a send-like paper-plane path", async () => {
+    document.body.innerHTML = `
+      <button type="button" id="header-share" aria-label="Share">
+        <svg><path d="M22 2L11 13"></path></svg>
+      </button>
+      <div id="composer">
+        <textarea id="chat-input"></textarea>
+        <input type="file" multiple />
+        <div id="send-cluster">
+          <button type="button" id="send-arrow"><svg><path d="M10 18V6m0 0l-5 5m5-5l5 5"></path></svg></button>
+        </div>
+      </div>
+    `;
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      writable: true,
+      value: [],
+    });
+    const share = document.querySelector("#header-share");
+    const send = document.querySelector("#send-arrow");
+    [share, send].forEach((button) => {
+      button.click = vi.fn();
+    });
+
+    const { sendFileWithMessage } = await importAutoModule();
+    const sendResult = sendFileWithMessage(
+      new File(["# Evidence"], "evidence.md", { type: "text/markdown" }),
+      "<BetterDeepSeek>\n[BDS:DEEP_RESEARCH] Step result\n</BetterDeepSeek>",
+      "Deep Research step result",
+    );
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(share.click).not.toHaveBeenCalled();
+    expect(send.click).toHaveBeenCalledOnce();
+    await expect(sendResult).resolves.toBe(true);
+  });
+
   it("sets contenteditable chat input text through the shared editor helper", async () => {
     document.body.innerHTML = '<div contenteditable="true"></div>';
     const editor = document.querySelector('[contenteditable="true"]');
