@@ -126,6 +126,47 @@ describe("auto integration", () => {
     await expect(sendResult).resolves.toBe(true);
   });
 
+  it("uses hidden native file inputs instead of reading search files into the composer", async () => {
+    document.body.innerHTML = `
+      <div id="composer">
+        <textarea id="chat-input"></textarea>
+        <div style="display: none;">
+          <input type="file" multiple />
+        </div>
+        <button title="Send message"></button>
+      </div>
+    `;
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      writable: true,
+      value: [],
+    });
+    const sendButton = document.querySelector("button");
+    sendButton.click = vi.fn();
+    const file = new File(["# Search evidence"], "search.md", { type: "text/markdown" });
+    Object.defineProperty(file, "text", {
+      value: vi.fn(() => Promise.reject(new Error("Extension context invalidated."))),
+    });
+
+    const { sendFileWithMessage } = await importAutoModule();
+    const sendResult = sendFileWithMessage(
+      file,
+      "<BetterDeepSeek>\n[BDS:AUTO] Search Result\n</BetterDeepSeek>",
+      "Auto search result",
+    );
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(file.text).not.toHaveBeenCalled();
+    expect(input.files).toHaveLength(1);
+    expect(document.querySelector("#chat-input").value).toBe(
+      "<BetterDeepSeek>\n[BDS:AUTO] Search Result\n</BetterDeepSeek>",
+    );
+    expect(document.querySelector("#chat-input").value).not.toContain("Extension context invalidated");
+    expect(sendButton.click).toHaveBeenCalledOnce();
+    await expect(sendResult).resolves.toBe(true);
+  });
+
   it("retries no-attachment sends with fallback text when DeepSeek reports over-limit", async () => {
     document.body.innerHTML = `
       <div id="composer">

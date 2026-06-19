@@ -648,50 +648,9 @@ function getComposerRootCandidates(editor) {
   return roots;
 }
 
-function isUsableComposerElement(element) {
-  if (!element || isBdsOwnedElement(element)) {
-    return false;
-  }
-
-  for (let node = element; node && node !== document.body; node = node.parentElement) {
-    const style = window.getComputedStyle?.(node);
-    if (
-      node.hidden ||
-      node.getAttribute("aria-hidden") === "true" ||
-      style?.display === "none" ||
-      style?.visibility === "hidden"
-    ) {
-      return false;
-    }
-  }
-
-  const rect = element.getBoundingClientRect?.();
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-  if (
-    rect &&
-    viewportWidth > 0 &&
-    viewportHeight > 0 &&
-    (rect.width > 0 || rect.height > 0)
-  ) {
-    return (
-      rect.right >= 0 &&
-      rect.bottom >= 0 &&
-      rect.left <= viewportWidth &&
-      rect.top <= viewportHeight
-    );
-  }
-
-  return true;
-}
-
 function findNativeFileInput() {
-  const inputs = Array.from(document.querySelectorAll('input[type="file"][multiple]'))
-    .filter((input) => !isBdsOwnedElement(input));
-
-  return inputs.find((input) =>
-    isUsableComposerElement(input.parentElement || input)
-  ) || null;
+  return Array.from(document.querySelectorAll('input[type="file"][multiple]'))
+    .find((input) => !isBdsOwnedElement(input) && !input.disabled) || null;
 }
 
 function isAfterNode(reference, candidate) {
