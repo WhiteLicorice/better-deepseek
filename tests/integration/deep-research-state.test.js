@@ -35,6 +35,7 @@ const {
   buildPlanningPrompt,
   setDeepResearchEnabled,
   handleStepDone,
+  handleManagedAutoContinuation,
   handleManagedReport,
   isManagedRunActive,
   RESEARCH_STATUSES,
@@ -376,6 +377,35 @@ describe("Deep Research state machine", () => {
       // Outcome should include analysis
       const outcome = JSON.parse(run.execution.steps[0].outcome);
       expect(outcome.analysis).toBe("found info");
+      await Promise.resolve();
+      expect(run.execution.reportRequested).toBe(true);
+    });
+
+    it("handleManagedAutoContinuation recovers when the model emits AUTO instead of step-done", async () => {
+      state.deepResearch.runs = [];
+      state.deepResearch.enabled = true;
+
+      const run = createRun("conv1", "run-auto-continuation");
+      run.status = "running";
+      run.execution.managed = true;
+      run.execution.steps = [
+        { id: "3", action: "search", query: "q3", purpose: "p3", sourceType: "general", status: "awaiting_analysis", outcome: "{}", error: null },
+      ];
+      run.execution.currentStepIndex = 0;
+      run.execution.awaitingAnalysisStepId = "3";
+      run.execution.reportRequested = false;
+      state.deepResearch.runs.push(run);
+
+      const handled = handleManagedAutoContinuation(
+        run,
+        "Step 3 found enough evidence. Step 4 should search next.",
+      );
+
+      expect(handled).toBe(true);
+      expect(run.execution.steps[0].status).toBe("complete");
+      expect(run.execution.awaitingAnalysisStepId).toBeNull();
+      const outcome = JSON.parse(run.execution.steps[0].outcome);
+      expect(outcome.analysis).toContain("Step 3 found enough evidence");
       await Promise.resolve();
       expect(run.execution.reportRequested).toBe(true);
     });

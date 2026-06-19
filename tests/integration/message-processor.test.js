@@ -295,6 +295,37 @@ describe("message processor integration", () => {
     expect(mocks.handleAutoWebFetch).not.toHaveBeenCalled();
   });
 
+  it("recovers managed Deep Research when the model emits AUTO search instead of step-done", async () => {
+    const run = {
+      id: "managed-current",
+      conversationId: "default",
+      status: "running",
+      execution: {
+        managed: true,
+        steps: [{ id: "3", status: "awaiting_analysis", outcome: "{}", error: null }],
+        currentStepIndex: 0,
+        awaitingAnalysisStepId: "3",
+        reportRequested: false,
+      },
+    };
+    state.deepResearch.runs = [run];
+    const node = createMessageNode(
+      'Step 3 found useful evidence. I should execute step 4 now.\n<BDS:AUTO:SEARCH runId="managed-current" deepFetch="3">Originality.ai Copyleaks AI detector performance comparison 2025</BDS:AUTO:SEARCH>',
+    );
+
+    processMessageNode(node);
+    await Promise.resolve();
+
+    expect(mocks.handleAutoSearchForRun).not.toHaveBeenCalled();
+    expect(run.execution.steps[0].status).toBe("complete");
+    expect(run.execution.awaitingAnalysisStepId).toBeNull();
+    expect(run.execution.reportRequested).toBe(true);
+    expect(mocks.mount).toHaveBeenCalledOnce();
+    const props = mocks.mount.mock.calls[0][1].props;
+    expect(props.text).toContain("Step 3 found useful evidence");
+    expect(props.blocks.some((block) => block.name === "auto:search")).toBe(false);
+  });
+
   it("does not render early managed Deep Research reports before the report gate opens", () => {
     state.deepResearch.runs = [{
       id: "run-early-report",

@@ -798,6 +798,37 @@ export function handleStepDone(run, stepId, analysisJson) {
   return true;
 }
 
+function summarizeFallbackAnalysis(text) {
+  const summary = String(text || "").replace(/\s+/g, " ").trim();
+  return summary || "The model attempted to continue to the next research step without emitting a step-done marker.";
+}
+
+/**
+ * Recover when the model emits an old-style AUTO tag during managed execution
+ * instead of the required DEEP_RESEARCH_STEP_DONE marker.
+ * @param {object} run
+ * @param {string} visibleAnalysisText
+ * @returns {boolean} true if the awaiting step was completed
+ */
+export function handleManagedAutoContinuation(run, visibleAnalysisText = "") {
+  if (!run || !run.execution?.managed) return false;
+  if (run.status === "complete" || run.status === "cancelled") return false;
+
+  const stepId = String(run.execution.awaitingAnalysisStepId || "");
+  if (!stepId) return false;
+
+  const step = run.execution.steps?.[run.execution.currentStepIndex];
+  if (!step || String(step.id) !== stepId || step.status !== "awaiting_analysis") {
+    return false;
+  }
+
+  return handleStepDone(run, stepId, {
+    analysis: summarizeFallbackAnalysis(visibleAnalysisText),
+    newInsights: [],
+    continuationFallback: true,
+  });
+}
+
 /**
  * Handle a received DEEP_RESEARCH_REPORT or synthesize one from visible markdown.
  * @param {object} run

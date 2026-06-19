@@ -21,7 +21,7 @@ import { collectLongWorkFiles, finalizeLongWork, emitZipForFiles } from "./files
 import { emitStandaloneFiles } from "./files/standalone.js";
 import { getOrCreateHost } from "./dom/host.js";
 import { handleAutoWebFetch, handleAutoGitHubFetch, handleAutoTwitterFetch, handleAutoYouTubeFetch, handleAutoSearch, handleAutoSearchForRun } from "./auto.js";
-import { isManagedRunActive, trySynthesizeReport } from "./deep-research.js";
+import { handleManagedAutoContinuation, isManagedRunActive, trySynthesizeReport } from "./deep-research.js";
 
 import { mount, unmount } from "svelte";
 import MessageOverlay from "./ui/MessageOverlay.svelte";
@@ -234,6 +234,9 @@ export function processMessageNode(node) {
     parsed.autoRequests.twitterFetch.length > 0 ||
     parsed.autoRequests.youtubeFetch.length > 0 ||
     parsed.autoRequests.searchQueries.length > 0;
+  const currentConversationId = getCurrentConversationIdInline();
+  const managedAutoSuppressionRun = getManagedAutoSuppressionRun(parsed, currentConversationId);
+  const suppressManagedAuto = Boolean(managedAutoSuppressionRun);
 
   if (isLatestAssistant && autoRequestsAvailable) {
     // isSystemGenerating() checks for the stop button (square SVG icon).
@@ -247,20 +250,7 @@ export function processMessageNode(node) {
       if (!stateData.autoYouTubeFetchesHandled) stateData.autoYouTubeFetchesHandled = new Set();
       if (!stateData.autoSearchQueriesHandled) stateData.autoSearchQueriesHandled = new Set();
 
-      // --- SUPPRESS AUTO tags during managed Deep Research runs ---
-      // During managed execution, BDS controls search/fetch. The model may
-      // accidentally emit AUTO tags — ignore them so BDS step logic is not disrupted.
-      const currentConversationId = getCurrentConversationIdInline();
-      const activeManagedRun = state.deepResearch.runs.find(
-        (r) => r.conversationId === currentConversationId &&
-          r.execution && r.execution.managed &&
-          r.status !== "complete" && r.status !== "cancelled",
-      );
-      const managedSearchRunRequested = parsed.autoRequests.searchQueries.some(
-        ({ runId }) => runId && isManagedRunActive(runId),
-      );
-      const suppressManagedAuto = Boolean(activeManagedRun || managedSearchRunRequested);
-
+      // Stray AUTO tags are treated as continuation attempts and recovered below.
       for (const url of parsed.autoRequests.webFetch) {
         if (suppressManagedAuto) continue;
         if (!stateData.autoWebFetchesHandled.has(url)) {
@@ -305,6 +295,17 @@ export function processMessageNode(node) {
           }
         }
       }
+
+      if (
+        suppressManagedAuto &&
+        !parsed.deepResearch.stepDone.length &&
+        !stateData.managedAutoContinuationHandled
+      ) {
+        const handled = handleManagedAutoContinuation(managedAutoSuppressionRun, parsed.visibleText);
+        if (handled) {
+          stateData.managedAutoContinuationHandled = true;
+        }
+      }
     } else if (!stateData.autoTimer) {
       stateData.autoTimer = setTimeout(() => {
         stateData.autoTimer = null;
@@ -339,6 +340,7 @@ export function processMessageNode(node) {
     }
   }
   gateManagedDeepResearchReports(parsed);
+  gateSuppressedManagedAutoBlocks(parsed, suppressManagedAuto);
 
   // --- SYNTHESIZE REPORT for managed deep research ---
   // If we are in the reporting phase and the latest settled assistant message
@@ -347,7 +349,7 @@ export function processMessageNode(node) {
     const drRuns = state.deepResearch.runs;
     for (const run of drRuns) {
       if (run.execution && run.execution.managed &&
-          run.conversationId === getCurrentConversationIdInline() &&
+          run.conversationId === currentConversationId &&
           run.execution.reportRequested &&
           run.status === "reporting") {
         const hasReportTag = parsed.deepResearch.reports.length > 0;
@@ -533,6 +535,51 @@ export function processMessageNode(node) {
       }
     }
   }
+}
+
+function hasAnyAutoRequest(parsed) {
+  return Boolean(
+    parsed?.autoRequests?.webFetch?.length ||
+    parsed?.autoRequests?.githubFetch?.length ||
+    parsed?.autoRequests?.twitterFetch?.length ||
+    parsed?.autoRequests?.youtubeFetch?.length ||
+    parsed?.autoRequests?.searchQueries?.length
+  );
+}
+
+function isActiveManagedRun(run) {
+  return Boolean(
+    run?.execution?.managed &&
+    run.status !== "complete" &&
+    run.status !== "cancelled"
+  );
+}
+
+function getManagedAutoSuppressionRun(parsed, conversationId) {
+  if (!hasAnyAutoRequest(parsed)) return null;
+
+  const activeConversationRun = state.deepResearch.runs.find(
+    (run) => run.conversationId === conversationId && isActiveManagedRun(run),
+  );
+  if (activeConversationRun) return activeConversationRun;
+
+  for (const { runId } of parsed.autoRequests.searchQueries || []) {
+    if (!runId || !isManagedRunActive(runId)) continue;
+    const run = state.deepResearch.runs.find((item) => item.id === runId);
+    if (run && isActiveManagedRun(run)) return run;
+  }
+
+  return null;
+}
+
+function gateSuppressedManagedAutoBlocks(parsed, shouldSuppress) {
+  if (!shouldSuppress || !parsed?.renderableBlocks?.length) return;
+
+  parsed.renderableBlocks = parsed.renderableBlocks.filter((block) =>
+    block.name !== "auto:search" &&
+    block.name !== "auto:request_web_fetch" &&
+    block.name !== "auto:request_github_fetch"
+  );
 }
 
 function gateManagedDeepResearchReports(parsed) {
