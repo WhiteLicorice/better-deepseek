@@ -7,6 +7,8 @@
   import ProjectsCard from "./ProjectsCard.svelte";
   import SavedItems from "./SavedItems.svelte";
   import CommandManager from "../commands/CommandManager.svelte";
+  import { COMMANDS } from "../commands/registry.js";
+  import { findChatEditor, setChatInputText } from "../auto.js";
   import appState from "../state.js";
   import { t } from "../../lib/i18n.svelte.js";
 
@@ -56,6 +58,14 @@
 
   function closeProjectsManager() {
     showProjectsManager = false;
+  }
+
+  function insertCommand(cmdId) {
+    const editor = findChatEditor()
+    if (!editor) return
+    setChatInputText("/" + cmdId + " ")
+    editor.focus()
+    onclose()
   }
 
   export async function handleClose() {
@@ -109,16 +119,33 @@
     <hr />
 
     <div class="bds-section-title">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span class="bds-icon-inline">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-        </span>
-        <span>Commands</span>
+      <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="bds-icon-inline">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </span>
+          <span>Commands</span>
+        </div>
+        <button type="button" class="bds-btn-outlined" style="font-size:11px;padding:3px 7px;" onclick={() => showCmdManager = !showCmdManager}>
+          {showCmdManager ? "Done" : "Manage"}
+        </button>
       </div>
-      <button type="button" class="bds-btn-outlined" style="font-size:11px;padding:3px 7px;" onclick={() => showCmdManager = !showCmdManager}>
-        {showCmdManager ? "Done" : "Manage"}
-      </button>
     </div>
+    {#if !showCmdManager}
+      <div class="bds-featured-list">
+        <h4>Built-in Commands</h4>
+        {#each COMMANDS as cmd}
+          <button type="button" class="bds-featured-item" onclick={() => insertCommand(cmd.id)}>
+            <span class="bds-cmd-icon">{@html cmd.icon}</span>
+            <span class="bds-cmd-info">
+              <span class="bds-cmd-name">/{cmd.id}</span>
+              <span class="bds-cmd-desc">{cmd.description}</span>
+            </span>
+            <span class="bds-cmd-usage">{cmd.usage}</span>
+          </button>
+        {/each}
+      </div>
+    {/if}
     {#if showCmdManager}
       <CommandManager onclose={() => showCmdManager = false} />
     {/if}

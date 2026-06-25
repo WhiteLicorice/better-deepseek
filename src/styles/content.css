@@ -232,6 +232,51 @@ html.dark, body.dark, .dark :root {
   margin: 0 0 14px;
 }
 
+/* Featured commands list */
+.bds-featured-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: -4px 0 10px;
+}
+.bds-featured-list h4 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bds-text-secondary);
+}
+.bds-featured-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  font-size: 11px;
+  transition: background var(--bds-transition);
+}
+.bds-featured-item:hover {
+  background: var(--bds-accent-glow, rgba(77, 107, 254, 0.1));
+}
+.bds-featured-item .bds-cmd-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+.bds-featured-item .bds-cmd-name {
+  font-size: 11px;
+}
+.bds-featured-item .bds-cmd-desc {
+  font-size: 10px;
+}
+
 /* Labels */
 .bds-label {
   display: block;
@@ -4310,6 +4355,7 @@ textarea.bds-input,
 }
 .bds-cmd-manager-add input {
   flex: 1;
+  min-width: 0;
   padding: 6px 8px;
   border: 1px solid var(--bds-border);
   border-radius: 6px;
@@ -4332,6 +4378,7 @@ textarea.bds-input,
   outline: none;
   font-family: inherit;
   max-width: 140px;
+  min-width: 0;
 }
 .bds-cmd-manager-add button {
   padding: 6px 12px;
