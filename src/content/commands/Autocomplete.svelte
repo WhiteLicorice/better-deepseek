@@ -1,7 +1,8 @@
 <script>
-  import { COMMANDS } from "./registry.js"
-  import { tryExecuteRawInput } from "./executor.js"
-  import appState from "../state.js"
+import { COMMANDS } from "./registry.js"
+import { tryExecuteRawInput } from "./executor.js"
+import { injectPureTextAndSend } from "../auto.js"
+import appState from "../state.js"
 
   function editorValue(el) {
     const t = (el.tagName || "").toLowerCase()
@@ -111,12 +112,12 @@
     const item = filteredItems[selectedIndex]
     if (!item) { console.log("[BDS:Cmd] selectCurrent: no item at index", selectedIndex); return }
     isOpen = false
-    const text = editorValue(editor)
-    const before = text.slice(0, lastSlashPos)
-    setEditorValue(editor, before)
-    editor.dispatchEvent(new Event("input", { bubbles: true }))
     console.log("[BDS:Cmd] select type=" + item.type + " id=" + item.id)
     if (item.type === "builtin") {
+      const text = editorValue(editor)
+      const before = text.slice(0, lastSlashPos)
+      setEditorValue(editor, before)
+      editor.dispatchEvent(new Event("input", { bubbles: true }))
       if (item.id === "help") { window.dispatchEvent(new CustomEvent("bds:show-help")); console.log("[BDS:Cmd] help event dispatched") }
       else if (item.cmd.minArgs === 0) { console.log("[BDS:Cmd] executing zero-arg builtin:", item.id); tryExecuteRawInput("/" + item.id) }
       else {
@@ -126,7 +127,7 @@
         if (typeof editor.setSelectionRange === "function") editor.setSelectionRange(len, len)
         editor.focus()
       }
-    } else if (item.type === "snippet") { console.log("[BDS:Cmd] executing snippet:", item.id); tryExecuteRawInput("/" + item.id) }
+    } else if (item.type === "snippet") { console.log("[BDS:Cmd] executing snippet:", item.id); injectPureTextAndSend(item.snippet.content, `/${item.id}`) }
   }
 
   function handleItemClick(index) { selectedIndex = index; selectCurrent() }

@@ -7,8 +7,12 @@ import Autocomplete from "../../../src/content/commands/Autocomplete.svelte";
 import state from "../../../src/content/state.js";
 
 const mockExecute = vi.hoisted(() => vi.fn());
+const mockInjectText = vi.hoisted(() => vi.fn());
 vi.mock("../../../src/content/commands/executor.js", () => ({
   tryExecuteRawInput: mockExecute,
+}));
+vi.mock("../../../src/content/auto.js", () => ({
+  injectPureTextAndSend: mockInjectText,
 }));
 
 async function setup() {
@@ -29,6 +33,7 @@ describe("Autocomplete", () => {
   beforeEach(() => {
     resetAppState();
     mockExecute.mockReset();
+    mockInjectText.mockReset();
     document.body.innerHTML = "";
   });
 
@@ -159,7 +164,7 @@ describe("Autocomplete", () => {
     expect(snippetItem).toBeTruthy();
     snippetItem.click();
     await flushUi();
-    expect(mockExecute).toHaveBeenCalledWith("/greet");
+    expect(mockInjectText).toHaveBeenCalledWith("Hello!", "/greet");
     cleanup();
   });
 });
