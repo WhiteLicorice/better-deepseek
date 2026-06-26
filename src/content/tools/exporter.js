@@ -7,6 +7,7 @@ import { collectMessageNodes, detectMessageRole } from "../scanner.js";
 import { extractMessageMarkdown, extractMessageRawText } from "../dom/message-text.js";
 import { triggerTextDownload, triggerBlobDownload } from "../../lib/utils/download.js";
 import { simpleHash } from "../../lib/utils/hash.js";
+import { t } from "../../lib/i18n.svelte.js";
 import html2canvas from "html2canvas";
 import { loadAllHistory, isLoadInProgress } from "../load-all-history.js";
 import state from "../state.js";
@@ -700,11 +701,11 @@ export async function exportToImage(messages, title, dark, fileName) {
     // but still attempt the render so they get whatever we can produce.
     const scaledHeight = container.scrollHeight * EXPORT_SCALE;
     if (scaledHeight > MAX_CANVAS_DIMENSION) {
-      state.ui?.showToast(
-        `Session is too long (${Math.round(container.scrollHeight / 1000)}k px at ${EXPORT_SCALE}x). ` +
-        `Image may be clipped at ${Math.round(MAX_CANVAS_DIMENSION / EXPORT_SCALE / 1000)}k px. ` +
-        `Use PDF or HTML instead.`
-      );
+      state.ui?.showToast(t("exporter.imageTooLong", {
+        height: Math.round(container.scrollHeight / 1000),
+        scale: EXPORT_SCALE,
+        limit: Math.round(MAX_CANVAS_DIMENSION / EXPORT_SCALE / 1000)
+      }));
     }
 
     // Race html2canvas against a timeout so it never hangs silently
@@ -735,7 +736,7 @@ export async function exportToImage(messages, title, dark, fileName) {
     triggerBlobDownload(blob, `${fileName}.png`);
   } catch (err) {
     console.error("[BDS] Image export failed:", err);
-    state.ui?.showToast("Image export has a browser canvas size limit. Try exporting fewer messages, or use PDF/HTML/MD.");
+    state.ui?.showToast(t("exporter.imageFailed"));
   } finally {
     if (container.parentNode) {
       document.body.removeChild(container);

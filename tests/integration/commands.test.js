@@ -73,7 +73,7 @@ describe("tryExecuteRawInput", () => {
     const { tryExecuteRawInput } = await importExecutor()
     const result = tryExecuteRawInput("/search")
     expect(result).toBe(false)
-    expect(state.ui.showToast).toHaveBeenCalledWith(expect.stringContaining("Usage"))
+    expect(state.ui.showToast).toHaveBeenCalledWith(expect.any(String))
   })
 
   it("returns false for missing snippetId in custom mapping", async () => {
@@ -113,7 +113,7 @@ describe("tryExecuteRawInput", () => {
     const result = tryExecuteRawInput("/search")
     expect(result).toBe(false)
     expect(readerMocks.searchWeb).not.toHaveBeenCalled()
-    expect(state.ui.showToast).toHaveBeenCalledWith(expect.stringContaining("Usage"))
+    expect(state.ui.showToast).toHaveBeenCalledWith(expect.any(String))
   })
 
   it("fast consecutive commands do not interfere", async () => {

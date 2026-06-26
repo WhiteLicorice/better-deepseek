@@ -594,7 +594,28 @@
       "cmdOk": "OK",
       "selectSnippet": "Select snippet...",
       "compress": "Summarize the conversation and start a new session with full context",
-      "summarize": "Generate a handoff summary of the conversation"
+      "summarize": "Generate a handoff summary of the conversation",
+      "done": "Done",
+      "commandShortcuts": "Command Shortcuts",
+      "cmdHint": "/mycommand (lowercase, no spaces)",
+      "add": "Add",
+      "categorySnippet": "snippet",
+      "autocompleteHint": "Tab \u21b9 complete \u00b7 \u21b5 execute",
+      "cmdSearchDesc": "Search the web and inject results into chat",
+      "cmdSearchUsage": "/search <query>",
+      "cmdNewDesc": "Start a new conversation",
+      "cmdNewUsage": "/new",
+      "cmdExportDesc": "Export the conversation (markdown, pdf, html, image)",
+      "cmdExportUsage": "/export <format>",
+      "cmdCompressDesc": "Summarize the conversation and start a new session with full context",
+      "cmdCompressUsage": "/compress",
+      "cmdSummarizeDesc": "Generate a handoff summary of the conversation in the current chat",
+      "cmdSummarizeUsage": "/summarize",
+      "cmdHelpDesc": "Show all available commands",
+      "cmdHelpUsage": "/help [command]",
+      "cattools": "tools",
+      "catnavigation": "navigation",
+      "catbuiltin": "builtin"
     },
     "sidebarSearch": {
       "placeholder": "Search history... (#tag)"
@@ -663,7 +684,8 @@
       "powerpoint": "PowerPoint",
       "presentation": "Presentation",
       "bdsTool": "BDS Tool",
-      "imageFailed": "Failed to generate image. Please try selecting fewer messages."
+      "imageTooLong": "Session is too long ({{height}}k px at {{scale}}x). Image may be clipped at {{limit}}k px. Use PDF or HTML instead.",
+      "imageFailed": "Image export has a browser canvas size limit. Try exporting fewer messages, or use PDF/HTML/MD."
     },
     "auto": {
       "fetchFailed": "Failed to fetch {{url}}:\n\n{{msg}}",

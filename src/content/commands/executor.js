@@ -5,6 +5,7 @@ import { injectPureTextAndSend, readFileText } from "../auto.js"
 import { exportSession } from "../tools/exporter.js"
 import { performCompress, performSummarize } from "./context-handoff.js"
 import state from "../state.js"
+import { t } from "../../lib/i18n.svelte.js"
 
 export function tryExecuteRawInput(input) {
   const parsed = parseCommandInput(input)
@@ -33,7 +34,7 @@ export function tryExecuteRawInput(input) {
     }
   }
 
-  if (state.ui) state.ui.showToast(`Unknown command: /${command}. Type /help for available commands.`)
+  if (state.ui) state.ui.showToast(t("commands.unknownCommand", { cmd: command }))
   return false
 }
 

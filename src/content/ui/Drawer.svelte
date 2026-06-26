@@ -124,24 +124,24 @@
           <span class="bds-icon-inline">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
           </span>
-          <span>Commands</span>
+          <span>{t("commands.title")}</span>
         </div>
         <button type="button" class="bds-btn-outlined" style="font-size:11px;padding:3px 7px;" onclick={() => showCmdManager = !showCmdManager}>
-          {showCmdManager ? "Done" : "Manage"}
+          {showCmdManager ? t("commands.done") : t("commands.manage")}
         </button>
       </div>
     </div>
     {#if !showCmdManager}
       <div class="bds-featured-list">
-        <h4>Built-in Commands</h4>
+        <h4>{t("commands.builtinCommands")}</h4>
         {#each COMMANDS as cmd}
           <button type="button" class="bds-featured-item" onclick={() => insertCommand(cmd.id)}>
             <span class="bds-cmd-icon">{@html cmd.icon}</span>
             <span class="bds-cmd-info">
               <span class="bds-cmd-name">/{cmd.id}</span>
-              <span class="bds-cmd-desc">{cmd.description}</span>
+              <span class="bds-cmd-desc">{t(cmd.descKey)}</span>
             </span>
-            <span class="bds-cmd-usage">{cmd.usage}</span>
+            <span class="bds-cmd-usage">{t(cmd.usageKey)}</span>
           </button>
         {/each}
       </div>
