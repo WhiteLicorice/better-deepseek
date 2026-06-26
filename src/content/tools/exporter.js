@@ -11,6 +11,9 @@ import html2canvas from "html2canvas";
 import { loadAllHistory, isLoadInProgress } from "../load-all-history.js";
 import state from "../state.js";
 
+const MAX_CANVAS_DIMENSION = 32767;
+const EXPORT_SCALE = 2;
+
 /**
  * Collect all messages from the current chat session.
  * @param {string[]} [filterIds] Optional list of message IDs to include
@@ -679,25 +682,64 @@ export async function exportToImage(messages, title, dark, fileName) {
   document.body.appendChild(container);
 
   try {
-    // Give images and fonts a moment to settle
-    await new Promise(r => setTimeout(r, 500));
-    
-    const canvas = await html2canvas(container, {
-      backgroundColor: dark ? "#171717" : "#ffffff",
-      scale: 2, // High DPI
-      logging: false,
-      useCORS: true,
-      allowTaint: true
+    // Wait for images to load so layout is stable (with 15s timeout per image)
+    await Promise.allSettled(
+      Array.from(container.querySelectorAll("img"), img =>
+        Promise.race([
+          new Promise(r => { img.onload = () => r(); img.onerror = () => r(); if (img.complete) r(); }),
+          new Promise(r => setTimeout(r, 15000))
+        ])
+      )
+    );
+    // Wait for fonts to load (may not be available in all environments)
+    if (document.fonts?.ready) await document.fonts.ready;
+    // Give the layout engine a moment to settle
+    await new Promise(r => setTimeout(r, 200));
+
+    // Warn the user if the content will likely exceed Chromium's canvas limit,
+    // but still attempt the render so they get whatever we can produce.
+    const scaledHeight = container.scrollHeight * EXPORT_SCALE;
+    if (scaledHeight > MAX_CANVAS_DIMENSION) {
+      state.ui?.showToast(
+        `Session is too long (${Math.round(container.scrollHeight / 1000)}k px at ${EXPORT_SCALE}x). ` +
+        `Image may be clipped at ${Math.round(MAX_CANVAS_DIMENSION / EXPORT_SCALE / 1000)}k px. ` +
+        `Use PDF or HTML instead.`
+      );
+    }
+
+    // Race html2canvas against a timeout so it never hangs silently
+    const canvas = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("html2canvas timed out after 60s")), 60000);
+      html2canvas(container, {
+        backgroundColor: dark ? "#171717" : "#ffffff",
+        scale: EXPORT_SCALE,
+        logging: false,
+        useCORS: true,
+        allowTaint: true
+      }).then(
+        (result) => { clearTimeout(timer); resolve(result); },
+        (error) => { clearTimeout(timer); reject(error); }
+      );
     });
+
+    // Detect clipped output
+    if (canvas.height >= MAX_CANVAS_DIMENSION) {
+      console.warn(
+        `[BDS] Canvas hit max dimension (${canvas.height}px at ${EXPORT_SCALE}x). ` +
+        `The rendered image may be clipped.`
+      );
+    }
 
     const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/png"));
     if (!blob) throw new Error("canvas.toBlob returned null");
     triggerBlobDownload(blob, `${fileName}.png`);
   } catch (err) {
     console.error("[BDS] Image export failed:", err);
-    alert("Failed to generate image. Please try selecting fewer messages.");
+    state.ui?.showToast("Image export has a browser canvas size limit. Try exporting fewer messages, or use PDF/HTML/MD.");
   } finally {
-    document.body.removeChild(container);
+    if (container.parentNode) {
+      document.body.removeChild(container);
+    }
   }
 }
 

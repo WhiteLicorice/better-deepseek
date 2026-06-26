@@ -13,6 +13,7 @@ import state from "./state.js";
 const HISTORY_MSGS_TIMEOUT = 10000;
 
 let pendingPromise = null;
+const _fullHistoryLoaded = new Set();
 
 export function isLoadInProgress() {
   return pendingPromise !== null;
@@ -70,9 +71,10 @@ export async function loadAllHistory() {
     return null;
   }
 
-  if (state.chatMessagesBySession.has(sessionId)) {
+  // Only trust cache if a full explicit load was previously completed
+  if (_fullHistoryLoaded.has(sessionId)) {
     const messages = state.chatMessagesBySession.get(sessionId);
-    return messages.length > 0 ? messages : null;
+    return messages && messages.length > 0 ? messages : null;
   }
 
   pendingPromise = (async () => {
@@ -84,7 +86,8 @@ export async function loadAllHistory() {
 
     if (loaded && state.chatMessagesBySession.has(sessionId)) {
       const messages = state.chatMessagesBySession.get(sessionId);
-      return messages.length > 0 ? messages : null;
+      _fullHistoryLoaded.add(sessionId);
+      if (messages.length > 0) return messages;
     }
 
     return null;

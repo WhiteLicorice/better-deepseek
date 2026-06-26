@@ -190,6 +190,7 @@ import { patchXmlHttpRequest } from "./xhr-patch.js";
         return;
       }
       const data = await response.json();
+      data.__bdsExplicit = true;
       window.dispatchEvent(new CustomEvent("bds:history-msgs", { detail: JSON.stringify(data) }));
     } catch (e) {
       console.warn("[BDS] history_msgs fetch error:", e);

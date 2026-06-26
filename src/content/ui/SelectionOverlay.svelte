@@ -105,11 +105,7 @@
       return;
     }
 
-    // Load all history so even unselected (but visible) IDs are available for export
-    if (appState.settings.loadAllHistoryOnSession) {
-      await loadAllHistory();
-    }
-
+    // exportSession already calls loadAllHistory() internally when setting is on
     await exportSession(format, Array.from(appState.selectedMessageIds));
     cancelSelection();
   }

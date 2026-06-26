@@ -185,9 +185,13 @@ function handleHistoryMessages(data) {
     }
   }
 
-  window.dispatchEvent(new CustomEvent("bds:history-msgs-loaded", {
-    detail: JSON.stringify({ sessionId, count: existing.length })
-  }));
+  // Only notify explicit full-history requests to avoid partial data from
+  // DeepSeek's lazy-load paginated calls also resolving the promise.
+  if (data.__bdsExplicit) {
+    window.dispatchEvent(new CustomEvent("bds:history-msgs-loaded", {
+      detail: JSON.stringify({ sessionId, count: existing.length })
+    }));
+  }
 }
 
 /**
