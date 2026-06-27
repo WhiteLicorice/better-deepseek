@@ -228,6 +228,7 @@ export function processMessageNode(node) {
   stateData.forceClosedTags = shouldForceCloseTags;
 
   const parsed = parseBdsMessage(rawText, shouldForceCloseTags);
+  const preGateBlocks = parsed.renderableBlocks;
 
   // --- AUTO INTERFACES (instant trigger on completion) ---
   // Triggers immediately when the global stop button disappears,
@@ -373,6 +374,8 @@ export function processMessageNode(node) {
       }
     }
   }
+
+  reindexVisibleTextMarkers(parsed, preGateBlocks);
 
   // IMMEDIATELY activate longWork state if tag is seen in latest assistant message
   if (isLatestAssistant && (parsed.longWorkOpen || (parsed.isStreamingTool && parsed.streamingTagName === 'long_work'))) {
@@ -584,6 +587,26 @@ function gateSuppressedManagedAutoBlocks(parsed, shouldSuppress) {
     block.name !== "auto:search" &&
     block.name !== "auto:request_web_fetch" &&
     block.name !== "auto:request_github_fetch"
+  );
+}
+
+function reindexVisibleTextMarkers(parsed, preGateBlocks) {
+  if (!parsed.visibleText || !/\x00BLOCK:\d+\x00/.test(parsed.visibleText)) return;
+  // WARNING: preGateBlocks must be captured before any gating/synthesis mutates
+  // parsed.renderableBlocks. Do NOT shallow-clone blocks between capture and
+  // this call — preGateBlocks.indexOf(block) relies on object identity.
+  const indexMap = new Map();
+  for (let newIdx = 0; newIdx < parsed.renderableBlocks.length; newIdx++) {
+    const block = parsed.renderableBlocks[newIdx];
+    const oldIdx = preGateBlocks.indexOf(block);
+    if (oldIdx !== -1) indexMap.set(oldIdx, newIdx);
+  }
+  parsed.visibleText = parsed.visibleText.replace(
+    /\x00BLOCK:(\d+)\x00/g,
+    (_, idxStr) => {
+      const newIdx = indexMap.get(parseInt(idxStr, 10));
+      return newIdx !== undefined ? `\x00BLOCK:${newIdx}\x00` : '';
+    }
   );
 }
 

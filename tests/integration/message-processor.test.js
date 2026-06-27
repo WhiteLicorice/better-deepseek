@@ -136,7 +136,7 @@ describe("message processor integration", () => {
 
     expect(mocks.mount).toHaveBeenCalledOnce();
     const props = mocks.mount.mock.calls[0][1].props;
-    expect(props.text).toBe("Intro");
+    expect(props.text).toBe("Intro\n\x00BLOCK:0\x00");
     expect(props.blocks[0].name).toBe("visualizer");
     expect(node.querySelector(".ds-markdown").classList.contains("bds-hidden-message")).toBe(true);
   });
@@ -151,7 +151,7 @@ describe("message processor integration", () => {
     processMessageNode(node);
 
     expect(mocks.mount).toHaveBeenCalledOnce();
-    expect(mocks.mount.mock.calls[0][1].props.text).toBe("Updated intro");
+    expect(mocks.mount.mock.calls[0][1].props.text).toBe("Updated intro\n\x00BLOCK:0\x00");
     expect(document.querySelectorAll(".mock-overlay")).toHaveLength(1);
   });
 

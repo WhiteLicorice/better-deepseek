@@ -71,6 +71,41 @@
     innerOpen = next;
   }
 
+  function interleave(text, blocks) {
+    const segments = [];
+    const markerRegex = /\x00BLOCK:(\d+)\x00/g;
+    const usedBlockIndices = new Set();
+
+    if (text) {
+      let lastEnd = 0;
+      let match;
+      while ((match = markerRegex.exec(text)) !== null) {
+        const textBefore = text.substring(lastEnd, match.index);
+        if (textBefore) {
+          segments.push({ type: 'text', content: textBefore });
+        }
+        const blockIdx = parseInt(match[1], 10);
+        if (blockIdx >= 0 && blockIdx < blocks.length) {
+          segments.push({ type: 'block', block: blocks[blockIdx] });
+          usedBlockIndices.add(blockIdx);
+        }
+        lastEnd = match.index + match[0].length;
+      }
+      const textAfter = text.substring(lastEnd);
+      if (textAfter) {
+        segments.push({ type: 'text', content: textAfter });
+      }
+    }
+
+    for (let i = 0; i < blocks.length; i++) {
+      if (!usedBlockIndices.has(i)) {
+        segments.push({ type: 'block', block: blocks[i] });
+      }
+    }
+
+    return segments;
+  }
+
   function parseQuestions(content) {
     const parsed = parseLooseJson(content);
     return Array.isArray(parsed.value) ? parsed.value : [];
@@ -141,16 +176,16 @@
 </script>
 
 <div class="bds-message-overlay">
-  <!-- TEXT -->
-  {#if text && text.trim()}
-    <div class="bds-sanitized-text">
-      {@html marked.parse(text)}
-    </div>
-  {/if}
-
-  <!-- TOOLS BELOW TEXT -->
-  <div class="bds-tool-blocks">
-    {#each blocks as block}
+  <!-- INTERLEAVED TEXT AND BLOCKS -->
+  {#each interleave(text, blocks) as segment}
+    {#if segment.type === 'text'}
+      {#if segment.content?.trim()}
+        <div class="bds-sanitized-text">
+          {@html marked.parse(segment.content)}
+        </div>
+      {/if}
+    {:else}
+      {@const block = segment.block}
       {#if block.name === 'visualizer'}
         <VisualizerCard
           content={block.content}
@@ -168,7 +203,6 @@
         <AutoCodeResultCard language={block.attrs.language} status={block.attrs.status} output={block.content} />
       {:else if block.name === 'ask_question'}
         <div class="bds-question-info-card bds-questions-card" class:bds-q-collapsed={!outerOpen}>
-          <!-- Entire header is the toggle now, giving excellent click area and UX -->
           <div 
             class="bds-q-header-toggle" 
             onclick={toggleOuter} 
@@ -352,8 +386,8 @@
       {:else}
         <ToolCard name={block.name} content={block.content} />
       {/if}
-    {/each}
-  </div>
+    {/if}
+  {/each}
 
   <!-- LOADING INDICATOR AT THE BOTTOM -->
   {#if loading}

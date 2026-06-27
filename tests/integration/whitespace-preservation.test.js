@@ -689,7 +689,7 @@ describe("parseBdsMessage — visibleText output", () => {
     const raw =
       "Check this:\n<BDS:html>```html\n<div>text</div>\n```</BDS:html>\nCool right?";
     const result = parseBdsMessage(raw);
-    expect(result.visibleText).toBe("Check this:\n\nCool right?");
+    expect(result.visibleText).toBe("Check this:\n\x00BLOCK:0\x00\nCool right?");
   });
 
   it("strips LONG_WORK wrappers from visibleText", () => {

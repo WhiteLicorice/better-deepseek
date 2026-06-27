@@ -36,6 +36,7 @@ function normalizeAutoTextTarget(value) {
  */
 export function parseBdsMessage(rawText, isSettled = false) {
   let text = String(rawText || "");
+  const renderableTagMatches = [];
 
   // Intercept unclosed tags if the message is fully settled (AI stopped generating).
   // This prevents infinite "Working..." animations and lost tool output.
@@ -157,7 +158,9 @@ export function parseBdsMessage(rawText, isSettled = false) {
     );
 
     if (RENDERABLE_TOOLS.has(name)) {
+      const blockIdx = result.renderableBlocks.length;
       result.renderableBlocks.push({ name, attrs, content });
+      renderableTagMatches.push({ original: match[0], index: match.index, blockIdx });
     }
 
     if (name === "memory_write") {
@@ -298,7 +301,9 @@ export function parseBdsMessage(rawText, isSettled = false) {
     const attrs = parseTagAttributes(match[1] || "");
     if (!attrs.src && !attrs.query && !attrs.q && !attrs.search) continue;
     const query = attrs.src ? "" : (attrs.query || attrs.q || attrs.search || "");
+    const blockIdx = result.renderableBlocks.length;
     result.renderableBlocks.push({ name: "image", attrs, content: query });
+    renderableTagMatches.push({ original: match[0], index: match.index, blockIdx });
   }
 
   const selfClosingMemoryRegex = /<BDS:memory_write([^>]*)\/>/gi;
@@ -322,33 +327,20 @@ export function parseBdsMessage(rawText, isSettled = false) {
     });
   }
 
-  // Remove skill_create tags from visible text so the raw content doesn't leak
-  // The tag content is saved to skill storage; only the UI card is shown.
-  text = text.replace(/<BDS:skill_create[^>]*>[\s\S]*?<\/BDS:skill_create>/gi, '');
-
-  result.visibleText = sanitizeVisibleText(text);
-
   // UNIVERSAL INTERFACE LOCK: Detect if ANY BDS tag is currently open (not closed)
   // This handles streaming for all tools (Visualizer, LongWork, etc.)
   const allBdsTags = Array.from(text.matchAll(/<BDS:([A-Za-z0-9_:]+)[^>]*>/gi));
   const allBdsCloseTags = Array.from(text.matchAll(/<\/BDS:([A-Za-z0-9_:]+)>/gi));
 
-  // Determine if there's an open tag that hasn't been closed yet
-  // We check if the last open tag has a corresponding close tag after it
   let streamingTagName = null;
   let streamingTagStartIdx = -1;
 
-  // Simple heuristic: if number of open tags > number of close tags, we are streaming
-  // Or more accurately: find the last open tag and see if there's a close tag for it later
   for (let i = allBdsTags.length - 1; i >= 0; i--) {
     const openTag = allBdsTags[i];
     const tagName = openTag[1].toLowerCase();
     
-    // EXCEPTION: AUTO tags are background instructions/requests, 
-    // they should never trigger the UI's "Working..." overlay.
     if (tagName.startsWith("auto") && tagName !== "auto:code_runner") continue;
 
-    // Check if this specific tag name has a close tag appearing after this open tag
     const hasClose = allBdsCloseTags.some(ct => 
       ct[1].toLowerCase() === tagName && ct.index > openTag.index
     );
@@ -363,11 +355,30 @@ export function parseBdsMessage(rawText, isSettled = false) {
   result.isStreamingTool = streamingTagStartIdx !== -1;
   result.streamingTagName = streamingTagName;
 
+  // Build visible text: truncate at streaming point if streaming
+  let visibleText;
   if (result.isStreamingTool) {
-    // Cut off visibility at the start of the FIRST open tool tag
-    // (In case there are multiple, though unlikely)
-    result.visibleText = sanitizeVisibleText(text.substring(0, streamingTagStartIdx));
+    visibleText = text.substring(0, streamingTagStartIdx);
+  } else {
+    visibleText = text;
   }
+
+  // Replace renderable block tags with inline position markers
+  // Process in reverse index order so earlier replacements don't shift later ones
+  const sortedMatches = [...renderableTagMatches]
+    .filter(m => m.index + m.original.length <= visibleText.length)
+    .sort((a, b) => b.index - a.index);
+
+  for (const { original, index, blockIdx } of sortedMatches) {
+    const marker = `\x00BLOCK:${blockIdx}\x00`;
+    visibleText = visibleText.substring(0, index) + marker + visibleText.substring(index + original.length);
+  }
+
+  // Remove skill_create tags not captured by pairTagRegex (fallback cleanup)
+  visibleText = visibleText.replace(/<BDS:skill_create[^>]*>[\s\S]*?<\/BDS:skill_create>/gi, '');
+
+  // Strip all remaining BDS tags; markers survive (no <BDS: prefix)
+  result.visibleText = sanitizeVisibleText(visibleText);
 
   // Summary card for memory_write if more than 3 in one message
   if (result.memoryWrites.length > 3) {
