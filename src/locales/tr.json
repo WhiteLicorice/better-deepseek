@@ -432,6 +432,10 @@
     "toolCard": {
       "pythonRunner": "Python Çalıştırıcı"
     },
+    "imageCard": {
+      "searching": "Wikimedia aranıyor...",
+      "close": "Kapat"
+    },
     "downloadCard": {
       "download": "İndir"
     },

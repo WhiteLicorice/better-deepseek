@@ -15,6 +15,7 @@
   import DeepResearchReportCard from "./DeepResearchReportCard.svelte";
   import DeepResearchStepDoneCard from "./DeepResearchStepDoneCard.svelte";
   import LoadingIndicator from "./LoadingIndicator.svelte";
+  import ImageCard from "./ImageCard.svelte";
   import { t } from "../../lib/i18n.svelte.js";
   import { parseLooseJson } from "../parser/json-repair.js";
 
@@ -346,6 +347,8 @@
             <div class="bds-question-title">{t('messageOverlay.memoryStored', { count: block.attrs.count })}</div>
           </div>
         </div>
+      {:else if block.name === 'image'}
+        <ImageCard content={block.content} attrs={block.attrs} />
       {:else}
         <ToolCard name={block.name} content={block.content} />
       {/if}

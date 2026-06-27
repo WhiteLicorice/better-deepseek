@@ -432,6 +432,10 @@
     "toolCard": {
       "pythonRunner": "Запуск Python"
     },
+    "imageCard": {
+      "searching": "Поиск Wikimedia...",
+      "close": "Закрыть"
+    },
     "downloadCard": {
       "download": "Скачать"
     },

@@ -432,6 +432,10 @@
     "toolCard": {
       "pythonRunner": "Python 运行器"
     },
+    "imageCard": {
+      "searching": "正在搜索 Wikimedia...",
+      "close": "关闭"
+    },
     "downloadCard": {
       "download": "下载"
     },

@@ -19,7 +19,7 @@ import { sanitizeVisibleText } from "./text-sanitizer.js";
 import { extractHttpUrl } from "../../lib/utils/url-normalizer.js";
 
 // Tool renderers that have visual cards
-const RENDERABLE_TOOLS = new Set(["html", "latex", "visualizer", "pptx", "excel", "docx", "ask_question", "character_create", "skill_create", "auto:code_runner", "auto_code_result", "auto:request_web_fetch", "auto:request_github_fetch", "auto:search", "deep_research_plan", "deep_research_status", "deep_research_report", "deep_research_step_done"]);
+const RENDERABLE_TOOLS = new Set(["html", "latex", "visualizer", "pptx", "excel", "docx", "ask_question", "character_create", "skill_create", "auto:code_runner", "auto_code_result", "auto:request_web_fetch", "auto:request_github_fetch", "auto:search", "deep_research_plan", "deep_research_status", "deep_research_report", "deep_research_step_done", "image"]);
 
 function normalizeAutoHttpTarget(value) {
   return extractHttpUrl(value);
@@ -291,6 +291,14 @@ export function parseBdsMessage(rawText, isSettled = false) {
       "create_file"
     );
     result.createFiles.push({ fileName, content });
+  }
+
+  const selfClosingImageRegex = /<BDS:IMAGE\s*([^>]*)\/>/gi;
+  while ((match = selfClosingImageRegex.exec(text)) !== null) {
+    const attrs = parseTagAttributes(match[1] || "");
+    if (!attrs.src && !attrs.query && !attrs.q && !attrs.search) continue;
+    const query = attrs.src ? "" : (attrs.query || attrs.q || attrs.search || "");
+    result.renderableBlocks.push({ name: "image", attrs, content: query });
   }
 
   const selfClosingMemoryRegex = /<BDS:memory_write([^>]*)\/>/gi;

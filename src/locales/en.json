@@ -443,6 +443,10 @@
     "toolCard": {
       "pythonRunner": "Python Runner"
     },
+    "imageCard": {
+      "searching": "Searching...",
+      "close": "Close"
+    },
     "downloadCard": {
       "download": "Download"
     },
