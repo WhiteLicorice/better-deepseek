@@ -231,6 +231,7 @@ async function run() {
   }
 
   console.log(`\n✅ All builds complete. Output ready in ${distFolderName}/`);
+  console.log(`${new Date(Date.now()).toLocaleString()}`);
 
   if (isAndroid) {
     console.log(`\nℹ️  Run scripts/copy-to-android-assets.js to stage the bundle for Gradle.`);
