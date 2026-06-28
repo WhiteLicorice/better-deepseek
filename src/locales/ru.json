@@ -436,7 +436,8 @@
     },
     "imageCard": {
       "searching": "Поиск Wikimedia...",
-      "close": "Закрыть"
+      "close": "Закрыть",
+      "notFound": "Изображение не найдено"
     },
     "downloadCard": {
       "download": "Скачать"

@@ -447,7 +447,8 @@
     },
     "imageCard": {
       "searching": "Searching...",
-      "close": "Close"
+      "close": "Close",
+      "notFound": "Image not found"
     },
     "downloadCard": {
       "download": "Download"

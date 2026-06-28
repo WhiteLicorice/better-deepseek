@@ -436,7 +436,8 @@
     },
     "imageCard": {
       "searching": "正在搜索 Wikimedia...",
-      "close": "关闭"
+      "close": "关闭",
+      "notFound": "未找到图片"
     },
     "downloadCard": {
       "download": "下载"

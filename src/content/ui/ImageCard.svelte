@@ -11,6 +11,12 @@
   let descriptionUrl = $state("");
   let showFullscreen = $state(false);
   let dialogRef = $state(null);
+  let cardRef = $state(null);
+  let imgRef = $state(null);
+  let inViewport = $state(false);
+  let imgLoaded = $state(false);
+
+  let showSkeleton = $derived(status !== "error" && !imgLoaded);
 
   let query = $derived(
     attrs.src ? "" : (attrs.query || attrs.q || content.trim() || "")
@@ -27,7 +33,7 @@
       status = "error";
       return;
     }
-    status = "loading";
+    status = "searching";
     const controller = new AbortController();
     searchImages({
       query,
@@ -50,6 +56,34 @@
     }).catch(() => { status = "error"; });
 
     return () => controller.abort();
+  });
+
+  $effect(() => {
+    const el = cardRef;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          inViewport = true;
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "400px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+
+  $effect(() => {
+    if (!imgRef) return;
+    const img = imgRef;
+    if (img.complete && img.naturalWidth > 0) {
+      imgLoaded = true;
+      return;
+    }
+    const onLoad = () => { imgLoaded = true; };
+    img.addEventListener("load", onLoad);
+    return () => img.removeEventListener("load", onLoad);
   });
 
   function portal(node) {
@@ -77,20 +111,31 @@
   });
 </script>
 
-{#if status === "loading"}
-  <div class="bds-image-card bds-image-loading">
-    <span class="bds-image-spinner"></span>
-    <span class="bds-image-loading-text">{t('imageCard.searching')}</span>
-  </div>
-{:else if status === "loaded"}
-  <div class="bds-image-card">
-    <div class="bds-image-wrapper" onclick={openFullscreen}>
-      <img
-        src={imageUrl}
-        alt={attrs.alt || query}
-        style={attrs.style}
-        loading="lazy"
-      />
+<div bind:this={cardRef} class="bds-image-card">
+  {#if status === "searching"}
+    <div class="bds-image-skeleton">
+      <div class="bds-image-skeleton-shape"></div>
+    </div>
+  {:else if status === "loaded"}
+    <div class="bds-image-wrapper" class:bds-image-wrapper--loaded={imgLoaded} onclick={openFullscreen}>
+      {#if showSkeleton}
+        <div class="bds-image-skeleton bds-image-skeleton--overlay">
+          <div class="bds-image-skeleton-shape"></div>
+        </div>
+      {/if}
+      {#if inViewport}
+        <img
+          bind:this={imgRef}
+          src={imageUrl}
+          alt={attrs.alt || query}
+          style={attrs.style}
+          class:bds-image--loaded={imgLoaded}
+        />
+      {:else}
+        <div class="bds-image-skeleton bds-image-skeleton--overlay">
+          <div class="bds-image-skeleton-shape"></div>
+        </div>
+      {/if}
       {#if attrs.caption || descriptionUrl}
         <div class="bds-image-overlay">
           {#if attrs.caption}
@@ -107,8 +152,15 @@
         </div>
       {/if}
     </div>
-  </div>
-{/if}
+  {:else if status === "error"}
+    <div class="bds-image-error">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+      <span class="bds-image-error-text">{t('imageCard.notFound')}</span>
+    </div>
+  {/if}
+</div>
 
 {#if showFullscreen}
   <div class="bds-image-fullscreen" use:portal onclick={closeFullscreen} role="presentation">
@@ -127,40 +179,46 @@
     background: var(--bds-bg-panel, #1e1f23);
     margin: 10px 0;
     max-width: 100%;
+    min-height: 100px;
   }
 
-  .bds-image-loading {
+  .bds-image-skeleton {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 20px;
     justify-content: center;
+    padding: 0;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    max-height: 400px;
+    overflow: hidden;
   }
 
-  .bds-image-spinner {
-    width: 18px;
-    height: 18px;
-    border: 2px solid var(--bds-border, #3a3b3f);
-    border-top-color: var(--bds-accent, #4d6bfe);
-    border-radius: 50%;
-    animation: bds-spin 0.8s linear infinite;
+  .bds-image-skeleton--overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    aspect-ratio: unset;
   }
 
-  @keyframes bds-spin {
-    to {
-      transform: rotate(360deg);
-    }
+  .bds-image-skeleton-shape {
+    width: 100%;
+    height: 100%;
+    border-radius: 12px;
+    background: var(--bds-bg-elevated, #2a2b30);
+    animation: bds-shimmer 1.6s ease-in-out infinite;
   }
 
-  .bds-image-loading-text {
-    color: var(--bds-text-secondary, #8e8ea0);
-    font-size: 13px;
+  @keyframes bds-shimmer {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
   }
 
   .bds-image-wrapper {
     position: relative;
     display: block;
     width: 100%;
+    min-height: 80px;
     max-height: 400px;
     overflow: hidden;
     cursor: pointer;
@@ -169,9 +227,19 @@
   .bds-image-wrapper img {
     display: block;
     width: 100%;
-    height: 100%;
+    height: auto;
     object-fit: cover;
     border-radius: 12px;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+
+  .bds-image-wrapper--loaded img {
+    opacity: 1;
+  }
+
+  .bds-image-wrapper img.bds-image--loaded {
+    opacity: 1;
   }
 
   .bds-image-overlay {
@@ -208,6 +276,25 @@
   .bds-image-credit:hover {
     color: #fff;
     text-decoration: underline;
+  }
+
+  .bds-image-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 18px 16px;
+    justify-content: center;
+    color: var(--bds-text-tertiary, #6b6b7b);
+    font-size: 13px;
+  }
+
+  .bds-image-error svg {
+    flex-shrink: 0;
+    opacity: 0.5;
+  }
+
+  .bds-image-error-text {
+    color: var(--bds-text-secondary, #8e8ea0);
   }
 
   .bds-image-fullscreen {

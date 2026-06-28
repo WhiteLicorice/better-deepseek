@@ -436,7 +436,8 @@
     },
     "imageCard": {
       "searching": "Wikimedia aranıyor...",
-      "close": "Kapat"
+      "close": "Kapat",
+      "notFound": "Resim bulunamadı"
     },
     "downloadCard": {
       "download": "İndir"

@@ -25,8 +25,7 @@ describe("ImageCard", () => {
     });
     await flushUi();
 
-    expect(target.querySelector(".bds-image-loading")).not.toBeNull();
-    expect(target.textContent).toContain("Searching...");
+    expect(target.querySelector(".bds-image-skeleton")).not.toBeNull();
     expect(searchImagesMock).toHaveBeenCalledWith({
       query: "sunset",
       count: 1,
@@ -103,8 +102,7 @@ describe("ImageCard", () => {
     await flushUi();
 
     expect(target.querySelector("img")).toBeNull();
-    expect(target.querySelector(".bds-image-loading")).toBeNull();
-    expect(target.textContent).not.toContain("Searching...");
+    expect(target.querySelector(".bds-image-skeleton")).toBeNull();
     expect(searchImagesMock).not.toHaveBeenCalled();
     cleanup();
   });
@@ -120,7 +118,7 @@ describe("ImageCard", () => {
     await flushUi();
 
     expect(target.querySelector("img")).toBeNull();
-    expect(target.querySelector(".bds-image-loading")).toBeNull();
+    expect(target.querySelector(".bds-image-skeleton")).toBeNull();
     cleanup();
   });
 
@@ -135,7 +133,7 @@ describe("ImageCard", () => {
     await flushUi();
 
     expect(target.querySelector("img")).toBeNull();
-    expect(target.querySelector(".bds-image-loading")).toBeNull();
+    expect(target.querySelector(".bds-image-skeleton")).toBeNull();
     cleanup();
   });
 

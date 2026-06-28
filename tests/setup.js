@@ -57,6 +57,19 @@ if (!globalThis.ResizeObserver) {
   };
 }
 
+if (!globalThis.IntersectionObserver) {
+  globalThis.IntersectionObserver = class {
+    constructor(callback) {
+      this.callback = callback;
+    }
+    observe(el) {
+      this.callback([{ isIntersecting: true, target: el }]);
+    }
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 if (typeof window !== "undefined") {
   window.confirm = vi.fn(() => true);
 } else if (!globalThis.confirm) {
