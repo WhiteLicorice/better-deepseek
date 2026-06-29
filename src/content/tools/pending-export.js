@@ -3,6 +3,7 @@
  * Handles triggering exports after navigating to a different chat.
  */
 
+import { devLog } from "../../lib/dev-log.js";
 import { exportSession } from "./exporter.js";
 
 export async function setPendingExport(url, format) {
@@ -27,7 +28,7 @@ export async function checkPendingExport() {
 
   // Check if we are on the target page
   if (window.location.href === pendingExport.url) {
-    console.log("[BDS] Triggering pending export for:", pendingExport.url);
+    devLog("Export", "Triggering pending export for:", pendingExport.url);
     
     // Wait for chat to load
     await waitForChatToLoad();

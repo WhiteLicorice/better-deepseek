@@ -6,6 +6,7 @@
  * Persists minimal run metadata under STORAGE_KEYS.deepResearchRuns.
  */
 
+import { devLog } from "../lib/dev-log.js";
 import { BRIDGE_EVENTS, STORAGE_KEYS } from "../lib/constants.js";
 import { makeId } from "../lib/utils/helpers.js";
 import { normalizeHttpUrl } from "../lib/utils/url-normalizer.js";
@@ -624,7 +625,7 @@ async function runCurrentStep(run) {
     if (step.action === "fetch") {
       const url = normalizeHttpUrl(step.query);
       const file = await fetchAndConvertWebPage(url, (status) => {
-        console.log(`[BDS:DEEP_RESEARCH] Fetch status for step ${step.id}: ${status}`);
+        devLog("DeepResearch", `Fetch status for step ${step.id}: ${status}`);
       });
       if (file) {
         const text = await readFileText(file);
@@ -642,7 +643,7 @@ async function runCurrentStep(run) {
       // Search step
       const deepFetch = clampDeepFetch(step.deepFetch ?? DEEP_FETCH_DEFAULT);
       const result = await searchWeb(step.query, deepFetch, (status) => {
-        console.log(`[BDS:DEEP_RESEARCH] Search status for step ${step.id}: ${status}`);
+        devLog("DeepResearch", `Search status for step ${step.id}: ${status}`);
       }, {
         purpose: step.purpose,
         sourceType: step.sourceType,

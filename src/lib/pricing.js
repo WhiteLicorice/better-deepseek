@@ -6,6 +6,7 @@
  * 3. Use embedded fallback pricing
  */
 
+import { devLog } from "./dev-log.js";
 import { EMBEDDED_PRICING, PRICING_URLS } from "./constants.js";
 
 let pricingCache = null;
@@ -80,7 +81,7 @@ export async function initPricing() {
       const pricing = await fetchOfficialPricing();
       if (pricing && pricing.models && Object.keys(pricing.models).length > 0) {
         pricingCache = pricing;
-        // console.log("[BDS] Pricing loaded from official site");
+        // devLog("Pricing", "Pricing loaded from official site");
         return pricingCache;
       }
     } catch (e) {
@@ -92,7 +93,7 @@ export async function initPricing() {
       const pricing = await fetchGitHubPricing();
       if (pricing && pricing.models && Object.keys(pricing.models).length > 0) {
         pricingCache = pricing;
-        // console.log("[BDS] Pricing loaded from GitHub");
+        // devLog("Pricing", "Pricing loaded from GitHub");
         return pricingCache;
       }
     } catch (e) {
@@ -101,7 +102,7 @@ export async function initPricing() {
 
     // Tier 3: Use embedded fallback
     pricingCache = EMBEDDED_PRICING;
-    // console.log("[BDS] Using embedded fallback pricing");
+    // devLog("Pricing", "Using embedded fallback pricing");
     return pricingCache;
   })();
 

@@ -1,3 +1,5 @@
+import { devLog } from "../lib/dev-log.js";
+
 /**
  * Hides the "Download mobile App" item from DeepSeek's settings dropdown
  * (.ds-dropdown-menu). The menu uses the same DOM structure as per-chat context
@@ -25,7 +27,7 @@ export function hideDrawerAppItem() {
       const label = opt.querySelector(".ds-dropdown-menu-option__label");
       if (label?.textContent.trim().includes(DRAWER_APP_ITEM_TEXT)) {
         opt.setAttribute(HIDE_ATTR, "");
-        console.log("[BDS] Hidden drawer app item");
+        devLog("HideDrawer", "Hidden drawer app item");
       }
     }
   }

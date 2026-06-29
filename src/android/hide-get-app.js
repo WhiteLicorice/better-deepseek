@@ -1,3 +1,5 @@
+import { devLog } from "../lib/dev-log.js";
+
 /**
  * Hides the "Get App" promotional button injected by chat.deepseek.com on mobile viewports.
  * Installed by src/platform/globals-android.js when the Android content bundle starts.
@@ -27,7 +29,7 @@ export function hideGetAppButton() {
       const target = getHideTarget(span);
       if (target && !target.hasAttribute(HIDE_ATTR)) {
         target.setAttribute(HIDE_ATTR, "");
-        console.log("[BDS] Hidden Get App container");
+        devLog("HideGetApp", "Hidden Get App container");
       }
     }
   }

@@ -3,6 +3,7 @@
  * Handles automatic requests from DeepSeek.
  */
 
+import { devLog } from "../lib/dev-log.js";
 import { fetchAndConvertWebPage } from "./files/web-reader.js";
 import { searchWeb } from "./files/search-reader.js";
 import { fetchGitHubRepo } from "./files/github-reader.js";
@@ -55,11 +56,11 @@ export async function handleAutoWebFetch(url) {
   if (processedWebFetches.has(targetUrl)) return;
   processedWebFetches.add(targetUrl);
 
-  console.log(`[BDS:AUTO] Starting automatic web fetch for: ${targetUrl}`);
+  devLog("Auto", `Starting automatic web fetch for: ${targetUrl}`);
 
   try {
     const file = await fetchAndConvertWebPage(targetUrl, (status) => {
-      console.log(`[BDS:AUTO] Web Fetch Status: ${status}`);
+      devLog("Auto", `Web Fetch Status: ${status}`);
     });
 
     if (file) {
@@ -81,14 +82,14 @@ export async function handleAutoGitHubFetch(repoUrl) {
   if (processedGitHubFetches.has(targetRepoUrl)) return;
   processedGitHubFetches.add(targetRepoUrl);
 
-  console.log(`[BDS:AUTO] Starting automatic GitHub fetch for: ${targetRepoUrl}`);
+  devLog("Auto", `Starting automatic GitHub fetch for: ${targetRepoUrl}`);
 
   try {
     const token = String(appState.settings.githubToken || "").trim();
     const file = await fetchGitHubRepo(
       targetRepoUrl,
       (status) => {
-        console.log(`[BDS:AUTO] GitHub Fetch Status: ${status}`);
+        devLog("Auto", `GitHub Fetch Status: ${status}`);
       },
       { token }
     );
@@ -116,7 +117,7 @@ export async function handleAutoTwitterFetch(url) {
   if (processedTwitterFetches.has(targetUrl)) return;
   processedTwitterFetches.add(targetUrl);
 
-  console.log(`[BDS:AUTO] Starting automatic Twitter fetch for: ${targetUrl}`);
+  devLog("Auto", `Starting automatic Twitter fetch for: ${targetUrl}`);
 
   try {
     const file = await fetchTwitterTweet(targetUrl);
@@ -143,7 +144,7 @@ export async function handleAutoYouTubeFetch(url) {
   if (processedYouTubeFetches.has(targetUrl)) return;
   processedYouTubeFetches.add(targetUrl);
 
-  console.log(`[BDS:AUTO] Starting automatic YouTube fetch for: ${targetUrl}`);
+  devLog("Auto", `Starting automatic YouTube fetch for: ${targetUrl}`);
 
   try {
     const file = await fetchYouTubeData(targetUrl);
@@ -170,11 +171,11 @@ export async function handleAutoSearch(query, deepFetch = 0, options = {}) {
   if (processedSearchQueries.has(dedupeKey)) return;
   processedSearchQueries.add(dedupeKey);
 
-  console.log(`[BDS:AUTO] Starting automatic search for: ${q}${deepFetch > 0 ? ` (deepFetch=${deepFetch})` : ""}`);
+  devLog("Auto", `Starting automatic search for: ${q}${deepFetch > 0 ? ` (deepFetch=${deepFetch})` : ""}`);
 
   try {
     const result = await searchWeb(q, deepFetch, (status) => {
-      console.log(`[BDS:AUTO] Search Status: ${status}`);
+      devLog("Auto", `Search Status: ${status}`);
     }, options);
 
     if (result.file) {
@@ -230,11 +231,11 @@ export async function handleAutoSearchForRun(query, deepFetch = 0, runId = "", o
   if (runSet.has(dedupeKey)) return;
   runSet.add(dedupeKey);
 
-  console.log(`[BDS:AUTO] Starting run-scoped search for: ${q} (runId=${runId}, deepFetch=${deepFetch})`);
+  devLog("Auto", `Starting run-scoped search for: ${q} (runId=${runId}, deepFetch=${deepFetch})`);
 
   try {
     const result = await searchWeb(q, deepFetch, (status) => {
-      console.log(`[BDS:AUTO] Search Status: ${status}`);
+      devLog("Auto", `Search Status: ${status}`);
     }, options);
 
     if (result.file) {
@@ -306,7 +307,7 @@ export async function handleAutoCodeRunnerResult(language, status, output) {
     `</BetterDeepSeek>`
   ].join("\n");
 
-  console.log(`[BDS:AUTO] Sending code runner result (${status})...`);
+  devLog("Auto", `Sending code runner result (${status})...`);
   await injectPureTextAndSend(autoMessage);
 }
 
@@ -336,7 +337,7 @@ export async function handleAutoErrorReport(toolName, error, originalCode) {
     `</BetterDeepSeek>`
   ].join("\n");
 
-  console.log(`[BDS:AUTO] Sending error report for ${toolName}...`);
+  devLog("Auto", `Sending error report for ${toolName}...`);
 
   // We use injectFileAndSend without a file for pure text injection
   await injectPureTextAndSend(autoMessage);
@@ -782,7 +783,7 @@ function sendCurrentChatInputResult(logLabel = "Auto message") {
               finish({ ok: false, reason: "over_limit", attempts });
               return;
             }
-            console.log(`[BDS:AUTO] ${logLabel} sent successfully after ${attempts} attempts.`);
+            devLog("Auto", `${logLabel} sent successfully after ${attempts} attempts.`);
             finish({ ok: true, reason: "", attempts });
           }, SEND_POST_CLICK_LIMIT_CHECK_MS);
           return;

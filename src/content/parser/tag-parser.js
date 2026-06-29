@@ -1,3 +1,5 @@
+import { devLog } from "../../lib/dev-log.js";
+
 /**
  * Parse tag attributes from a string like: fileName="test.py" content="..."
  * Handles escaped quotes (\" ) inside attribute values.
@@ -111,7 +113,7 @@ function stripLeadingChatter(content) {
   // Look for the first occurrence of a JS keyword at the start of a line
   const jsStartMatch = output.match(/(?:\r?\n|^)\s*(const|let|var|function|async|import|class|await|document)\s+/);
   if (jsStartMatch && jsStartMatch.index > 0) {
-    console.log(`[BDS:Parser] Stripping leading chatter for JS block: "${output.substring(0, 30)}..."`);
+    devLog("Parser", `Stripping leading chatter for JS block: "${output.substring(0, 30)}..."`);
     return output.substring(jsStartMatch.index).replace(/^(?:[\t ]*\r?\n)+/, "").replace(/(?:\r?\n[\t ]*)+$/, "");
   }
 

@@ -1,3 +1,4 @@
+import { devLog } from "../../lib/dev-log.js"
 import { injectPureTextAndSend, findChatEditor } from "../auto.js"
 import { extractMessageMarkdown } from "../dom/message-text.js"
 import { isSystemGenerating } from "../message-processor.svelte.js"
@@ -52,34 +53,34 @@ function hasMessages() {
 }
 
 function waitForGenerationEnd(timeoutMs = 120000) {
-  console.log("[BDS:Handoff] waitForGenerationEnd started")
+  devLog("Handoff", "waitForGenerationEnd started")
 
   return new Promise((resolve, reject) => {
     let seenStop = false
     const timeout = setTimeout(() => {
-      console.log("[BDS:Handoff] TIMEOUT - waited 120s, seenStop:", seenStop)
+      devLog("Handoff", "TIMEOUT - waited 120s, seenStop:", seenStop)
       reject(new Error("Timed out waiting for response"))
     }, timeoutMs)
 
     const timer = setInterval(() => {
       const generating = isSystemGenerating()
-      console.log("[BDS:Handoff] poll - generating:", generating, "seenStop:", seenStop)
+      devLog("Handoff", "poll - generating:", generating, "seenStop:", seenStop)
       if (generating) seenStop = true
       if (seenStop && !generating) {
-        console.log("[BDS:Handoff] Generation ended, settling...")
+        devLog("Handoff", "Generation ended, settling...")
         clearInterval(timer)
         clearTimeout(timeout)
         setTimeout(() => {
           const nodes = Array.from(new Set(document.querySelectorAll(".ds-message")))
-          console.log("[BDS:Handoff] messageNodes found:", nodes.length)
+          devLog("Handoff", "messageNodes found:", nodes.length)
           if (nodes.length > 0) {
             const latest = nodes[nodes.length - 1]
             const md = extractMessageMarkdown(latest)
             const txt = latest.textContent || ""
-            console.log("[BDS:Handoff] Handoff extracted, markdown length:", md?.length, "text length:", txt.length)
+            devLog("Handoff", "Handoff extracted, markdown length:", md?.length, "text length:", txt.length)
             resolve(md || txt)
           } else {
-            console.log("[BDS:Handoff] ERROR - no messages found after generation")
+            devLog("Handoff", "ERROR - no messages found after generation")
             reject(new Error("No message found"))
           }
         }, 1000)
@@ -90,79 +91,79 @@ function waitForGenerationEnd(timeoutMs = 120000) {
 
 export async function performSummarize() {
   if (!hasMessages()) {
-    console.log("[BDS:Handoff] performSummarize - no messages")
+    devLog("Handoff", "performSummarize - no messages")
     if (state.ui) state.ui.showToast("No messages to summarize")
     return
   }
-  console.log("[BDS:Handoff] performSummarize - sending PROMPT_A")
+  devLog("Handoff", "performSummarize - sending PROMPT_A")
   const ok = await injectPureTextAndSend(PROMPT_A)
-  console.log("[BDS:Handoff] performSummarize - send result:", ok)
+  devLog("Handoff", "performSummarize - send result:", ok)
   if (!ok && state.ui) state.ui.showToast("Failed to send summarization prompt")
 }
 
 export async function performCompress() {
   if (!hasMessages()) {
-    console.log("[BDS:Handoff] performCompress - no messages")
+    devLog("Handoff", "performCompress - no messages")
     if (state.ui) state.ui.showToast("No messages to compress")
     return
   }
-  console.log("[BDS:Handoff] performCompress - sending PROMPT_A")
+  devLog("Handoff", "performCompress - sending PROMPT_A")
   try {
     const ok = await injectPureTextAndSend(PROMPT_A)
-    console.log("[BDS:Handoff] performCompress - send result:", ok)
+    devLog("Handoff", "performCompress - send result:", ok)
     if (!ok) {
       if (state.ui) state.ui.showToast("Failed to send handoff prompt")
       return
     }
-    console.log("[BDS:Handoff] performCompress - waiting for generation end")
+    devLog("Handoff", "performCompress - waiting for generation end")
     const handoff = await waitForGenerationEnd()
-    console.log("[BDS:Handoff] performCompress - handoff received, length:", handoff.length)
+    devLog("Handoff", "performCompress - handoff received, length:", handoff.length)
     const modelType = detectModelType()
-    console.log("[BDS:Handoff] performCompress - modelType detected:", modelType)
+    devLog("Handoff", "performCompress - modelType detected:", modelType)
     sessionStorage.setItem("bds:pending-handoff", JSON.stringify({ handoff, modelType }))
-    console.log("[BDS:Handoff] performCompress - navigating to /")
+    devLog("Handoff", "performCompress - navigating to /")
     window.location.href = "https://chat.deepseek.com/"
   } catch (err) {
-    console.log("[BDS:Handoff] performCompress - error:", err.message)
+    devLog("Handoff", "performCompress - error:", err.message)
     if (state.ui) state.ui.showToast(`Handoff failed: ${err.message}`)
   }
 }
 
 export function setDeepSeekModel(modelName) {
-  console.log(`[BDS:Handoff] setDeepSeekModel("${modelName}") called`)
+  devLog("Handoff", `setDeepSeekModel("${modelName}") called`)
   const radiogroup = document.querySelector('[role="radiogroup"]')
-  console.log("[BDS:Handoff] setDeepSeekModel - radiogroup found:", !!radiogroup)
+  devLog("Handoff", "setDeepSeekModel - radiogroup found:", !!radiogroup)
   if (!radiogroup) { console.error('[BDS:Handoff] setDeepSeekModel - radiogroup not found'); return false }
   const buttons = radiogroup.querySelectorAll('[role="radio"]')
-  console.log("[BDS:Handoff] setDeepSeekModel - buttons in radiogroup:", buttons.length)
+  devLog("Handoff", "setDeepSeekModel - buttons in radiogroup:", buttons.length)
   buttons.forEach((b, i) => {
-    console.log(`[BDS:Handoff] setDeepSeekModel - btn #${i}: checked="${b.getAttribute('aria-checked')}" data-model-type="${b.getAttribute('data-model-type')}" text="${(b.textContent || '').trim().substring(0, 40)}"`)
+    devLog("Handoff", `setDeepSeekModel - btn #${i}: checked="${b.getAttribute('aria-checked')}" data-model-type="${b.getAttribute('data-model-type')}" text="${(b.textContent || '').trim().substring(0, 40)}"`)
   })
   const targetBtn = Array.from(buttons).find(btn => {
     const textMatch = btn.textContent.toLowerCase().includes(modelName.toLowerCase())
     const dataMatch = btn.getAttribute('data-model-type') === modelName.toLowerCase()
-    console.log(`[BDS:Handoff] setDeepSeekModel - match check: text="${(btn.textContent || '').trim().substring(0, 30)}" textMatch=${textMatch} dataMatch=${dataMatch}`)
+    devLog("Handoff", `setDeepSeekModel - match check: text="${(btn.textContent || '').trim().substring(0, 30)}" textMatch=${textMatch} dataMatch=${dataMatch}`)
     return textMatch || dataMatch
   })
-  console.log("[BDS:Handoff] setDeepSeekModel - targetBtn found:", !!targetBtn)
+  devLog("Handoff", "setDeepSeekModel - targetBtn found:", !!targetBtn)
   if (!targetBtn) { console.error(`[BDS:Handoff] setDeepSeekModel - model "${modelName}" not found among buttons`); return false }
-  console.log("[BDS:Handoff] setDeepSeekModel - targetBtn checked:", targetBtn.getAttribute('aria-checked'))
-  if (targetBtn.getAttribute('aria-checked') === 'true') { console.log(`[BDS:Handoff] setDeepSeekModel - already "${modelName}", skipping`); return true }
-  console.log("[BDS:Handoff] setDeepSeekModel - dispatching mousedown/mouseup/click")
+  devLog("Handoff", "setDeepSeekModel - targetBtn checked:", targetBtn.getAttribute('aria-checked'))
+  if (targetBtn.getAttribute('aria-checked') === 'true') { devLog("Handoff", `setDeepSeekModel - already "${modelName}", skipping`); return true }
+  devLog("Handoff", "setDeepSeekModel - dispatching mousedown/mouseup/click")
   targetBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }))
   targetBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }))
   targetBtn.click()
-  console.log(`[BDS:Handoff] setDeepSeekModel - click dispatched for "${modelName}"`)
+  devLog("Handoff", `setDeepSeekModel - click dispatched for "${modelName}"`)
   return true
 }
 
 export function checkPendingHandoff() {
   const stored = sessionStorage.getItem("bds:pending-handoff")
   if (!stored) {
-    console.log("[BDS:Handoff] checkPendingHandoff - no pending handoff")
+    devLog("Handoff", "checkPendingHandoff - no pending handoff")
     return
   }
-  console.log("[BDS:Handoff] checkPendingHandoff - pending handoff found")
+  devLog("Handoff", "checkPendingHandoff - pending handoff found")
   sessionStorage.removeItem("bds:pending-handoff")
 
   let handoff, modelType
@@ -174,30 +175,30 @@ export function checkPendingHandoff() {
     handoff = stored
     modelType = "default"
   }
-  console.log("[BDS:Handoff] checkPendingHandoff - modelType:", modelType, "handoff length:", handoff.length)
+  devLog("Handoff", "checkPendingHandoff - modelType:", modelType, "handoff length:", handoff.length)
 
   const full = `${PROMPT_B_PREAMBLE}\n\n${handoff}\n\n${PROMPT_B_POSTAMBLE}`
 
   ;(async () => {
     if (modelType !== "default") {
-      console.log("[BDS:Handoff] checkPendingHandoff - need to switch model to:", modelType)
+      devLog("Handoff", "checkPendingHandoff - need to switch model to:", modelType)
       for (let i = 0; i < 30; i++) {
-        console.log("[BDS:Handoff] checkPendingHandoff - model retry #" + i)
-        if (setDeepSeekModel(modelType)) { console.log("[BDS:Handoff] checkPendingHandoff - model switched on attempt #" + i); break }
+        devLog("Handoff", "checkPendingHandoff - model retry #" + i)
+        if (setDeepSeekModel(modelType)) { devLog("Handoff", "checkPendingHandoff - model switched on attempt #" + i); break }
         await new Promise(r => setTimeout(r, 500))
       }
     } else {
-      console.log("[BDS:Handoff] checkPendingHandoff - modelType=default, skipping model switch")
+      devLog("Handoff", "checkPendingHandoff - modelType=default, skipping model switch")
     }
     for (let i = 0; i < 30; i++) {
       const ok = await injectPureTextAndSend(full, "Context handoff")
       if (ok) {
-        console.log("[BDS:Handoff] checkPendingHandoff - injected successfully")
+        devLog("Handoff", "checkPendingHandoff - injected successfully")
         return
       }
       await new Promise(r => setTimeout(r, 500))
     }
-    console.log("[BDS:Handoff] checkPendingHandoff - all 30 attempts failed")
+    devLog("Handoff", "checkPendingHandoff - all 30 attempts failed")
     if (state.ui) state.ui.showToast("Failed to open new session for handoff — editor not found")
   })()
 }

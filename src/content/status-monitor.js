@@ -4,6 +4,7 @@
  * Polls status.deepseek.com/api/v2/status.json to detect outages.
  */
 
+import { devLog } from "../lib/dev-log.js";
 import state from "./state.js";
 
 const STATUS_API = "https://status.deepseek.com/api/v2/status.json";
@@ -37,7 +38,7 @@ export async function fetchServerStatus() {
         detail: state.serverStatus
       }));
 
-      console.log("[BDS] Server status updated:", state.serverStatus);
+      devLog("Status", "Server status updated:", state.serverStatus);
     }
   } catch (error) {
     console.warn("[BDS] Failed to fetch server status:", error);
@@ -53,7 +54,7 @@ export function startStatusMonitor() {
   
   // TODO: Replace with proper Playwright network mocking (page.route) in E2E suite
   if (window.__mockDeepSeek) {
-    console.log("[BDS] Skipping status monitor in test environment");
+    devLog("Status", "Skipping status monitor in test environment");
     return;
   }
   
