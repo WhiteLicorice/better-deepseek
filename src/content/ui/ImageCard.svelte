@@ -4,9 +4,8 @@
 
   let { content, attrs = {} } = $props();
 
-  let status = $state("idle");
-  let imageUrl = $state(null);
-  let fullImageUrl = $state(null);
+  let imageUrl = $state(attrs.src || null);
+  let fullImageUrl = $state(attrs.src || null);
   let fileTitle = $state("");
   let descriptionUrl = $state("");
   let showFullscreen = $state(false);
@@ -15,25 +14,24 @@
   let imgRef = $state(null);
   let inViewport = $state(false);
   let imgLoaded = $state(false);
-
-  let showSkeleton = $derived(status !== "error" && !imgLoaded);
+  let imgWidth = $state(null);
+  let imgHeight = $state(null);
 
   let query = $derived(
     attrs.src ? "" : (attrs.query || attrs.q || content.trim() || "")
   );
 
+  let aspectRatio = $derived(
+    imgWidth && imgHeight ? imgWidth / imgHeight : 16 / 9
+  );
+
+  let status = $state(
+    attrs.src ? "loaded" : (query ? "searching" : "error")
+  );
+
   $effect(() => {
-    if (attrs.src) {
-      imageUrl = attrs.src;
-      fullImageUrl = attrs.src;
-      status = "loaded";
-      return;
-    }
-    if (!query) {
-      status = "error";
-      return;
-    }
-    status = "searching";
+    if (attrs.src) return;
+    if (!query) return;
     const controller = new AbortController();
     searchImages({
       query,
@@ -49,6 +47,8 @@
         fullImageUrl = result.fullUrl;
         fileTitle = result.title;
         descriptionUrl = result.descriptionUrl;
+        imgWidth = result.width;
+        imgHeight = result.height;
         status = "loaded";
       } else {
         status = "error";
@@ -117,8 +117,13 @@
       <div class="bds-image-skeleton-shape"></div>
     </div>
   {:else if status === "loaded"}
-    <div class="bds-image-wrapper" class:bds-image-wrapper--loaded={imgLoaded} onclick={openFullscreen}>
-      {#if showSkeleton}
+    <div
+      class="bds-image-wrapper"
+      style="aspect-ratio: {aspectRatio}"
+      class:bds-image-wrapper--loaded={imgLoaded}
+      onclick={openFullscreen}
+    >
+      {#if !imgLoaded}
         <div class="bds-image-skeleton bds-image-skeleton--overlay">
           <div class="bds-image-skeleton-shape"></div>
         </div>
@@ -131,10 +136,6 @@
           style={attrs.style}
           class:bds-image--loaded={imgLoaded}
         />
-      {:else}
-        <div class="bds-image-skeleton bds-image-skeleton--overlay">
-          <div class="bds-image-skeleton-shape"></div>
-        </div>
       {/if}
       {#if attrs.caption || descriptionUrl}
         <div class="bds-image-overlay">
@@ -218,7 +219,6 @@
     position: relative;
     display: block;
     width: 100%;
-    min-height: 80px;
     max-height: 400px;
     overflow: hidden;
     cursor: pointer;
