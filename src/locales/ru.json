@@ -172,7 +172,9 @@
       "snippetUpdated": "Сниппет обновлен!",
       "editingSnippet": "Редактирование сниппета: {{name}}",
       "exitEditMode": "Выйти из режима редактирования",
-      "noSnippets": "CSS-сниппетов пока нет."
+      "noSnippets": "CSS-сниппетов пока нет.",
+      "advancedSearchPlaceholder": "Поиск настроек...",
+      "advancedNoResults": "Совпадений не найдено."
     },
     "skillList": {
       "title": "Набор навыков",

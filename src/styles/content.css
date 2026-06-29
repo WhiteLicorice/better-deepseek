@@ -4548,6 +4548,80 @@ textarea.bds-input,
 }
 
 
+/* ── Advanced Settings Search ── */
+.bds-advanced-search-wrapper {
+  padding: 8px 12px;
+}
+.bds-advanced-search-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bds-bg-input);
+  border: 1px solid var(--bds-border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  transition: border-color var(--bds-transition);
+}
+.bds-advanced-search-input-wrapper:focus-within {
+  border-color: var(--bds-accent);
+}
+.bds-advanced-search-icon {
+  flex: none;
+  opacity: 0.4;
+}
+.bds-advanced-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--bds-text-primary);
+  font-size: 12px;
+}
+.bds-advanced-autocomplete {
+  border: 1px solid var(--bds-border);
+  border-radius: 8px;
+  max-height: 150px;
+  overflow-y: auto;
+  margin-top: 4px;
+  margin-bottom: 4px;
+}
+.bds-advanced-ac-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--bds-text-primary);
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.bds-advanced-ac-item:hover,
+.bds-advanced-ac-item.selected {
+  background: var(--bds-bg-hover);
+}
+.bds-advanced-ac-label {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bds-advanced-ac-section {
+  font-size: 10px;
+  opacity: 0.5;
+  margin-left: auto;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.bds-advanced-no-results {
+  padding: 8px 4px;
+  font-size: 11px;
+  opacity: 0.5;
+  text-align: center;
+}
+
 /* ── Command Help Overlay ── */
 .bds-cmd-help-overlay {
   position: fixed;

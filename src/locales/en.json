@@ -180,7 +180,9 @@
       "snippetUpdated": "Snippet updated!",
       "editingSnippet": "Editing snippet: {{name}}",
       "exitEditMode": "Exit Edit Mode",
-      "noSnippets": "No CSS snippets yet."
+      "noSnippets": "No CSS snippets yet.",
+      "advancedSearchPlaceholder": "Search settings...",
+      "advancedNoResults": "No matching settings found."
     },
     "skillList": {
       "title": "Skill Set",

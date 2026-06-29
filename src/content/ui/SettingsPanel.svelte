@@ -95,6 +95,9 @@
   let subIntegrationsOpen = $state(false);
   let subUtilitiesOpen = $state(false);
   let subCSSOpen = $state(false);
+  let advancedSearchQuery = $state("");
+  let autocompleteSelectedIndex = $state(-1);
+  let savedSectionStates = $state(null);
   let lastCheckedDate = $state("");
   let updatingLanguages = $state(false);
 
@@ -391,6 +394,156 @@
   let projectInstructions = $state(activeProject?.customInstructions || "");
   let projectSaveTimer = null;
   const GITHUB_TOKEN_MASK_CHAR = "\u25cf";
+
+  // ── Single source of truth: section → setting i18n keys ──
+  const SECTION_SETTINGS = [
+    { key: 'subLanguage', labelKey: 'settings.subLanguage', settingKeys: [
+      'settings.syncLocale', 'settings.selectLanguage', 'settings.checkUpdates',
+      'settings.resetFactory', 'settings.preferredLang',
+    ]},
+    { key: 'subChat', labelKey: 'settings.subChat', settingKeys: [
+      'settings.collapseLongUserMessages', 'settings.loadAllHistoryOnSession', 'settings.chatSessionCap',
+    ]},
+    { key: 'subProjects', labelKey: 'settings.subProjects', settingKeys: [
+      'settings.projectAutoContext', 'settings.processGitignore',
+      'settings.autoDownloadFiles', 'settings.autoDownloadZip',
+    ]},
+    { key: 'subInjection', labelKey: 'settings.subInjection', settingKeys: [
+      'settings.disableSystemPrompt', 'settings.disableMemory',
+      'settings.injectSystemDateTime', 'settings.skipDeletionConfirmation',
+      'settings.injectionFrequency',
+    ]},
+    { key: 'subResearch', labelKey: 'settings.subResearch', settingKeys: [
+      'settings.contextGuardEnabled', 'settings.contextGuardLimit',
+      'settings.contextGuardStopPercent',
+    ]},
+    { key: 'subVoice', labelKey: 'settings.subVoice', settingKeys: [
+      'settings.voiceMode', 'settings.autoSubmitVoice',
+      'settings.speechLanguage', 'settings.vadSilenceTimeout',
+    ]},
+    { key: 'subIntegrations', labelKey: 'settings.subIntegrations', settingKeys: [
+      'settings.markdownMaxDepth', 'settings.githubToken',
+      'settings.tokenPriceEstimation', 'settings.showTimestamps',
+    ]},
+    { key: 'subCSS', labelKey: 'settings.subCSS', settingKeys: [
+      'settings.customCSS', 'settings.cssPresets',
+      'settings.saveAsSnippet', 'settings.manageSnippets',
+    ]},
+    { key: 'subUtilities', labelKey: 'settings.subUtilities', settingKeys: [
+      'apiPlayground.title', 'drawer.exportAll', 'drawer.importAll',
+    ]},
+  ];
+
+  let searchIndex = $derived(
+    SECTION_SETTINGS.map(s => ({
+      sectionKey: s.key,
+      sectionLabel: t(s.labelKey),
+      settings: s.settingKeys.map(k => ({ label: t(k) }))
+    }))
+  );
+
+  let filteredSearchSections = $derived.by(() => {
+    const q = advancedSearchQuery.toLowerCase().trim();
+    if (!q) return null;
+    return searchIndex.map(section => {
+      const sectionMatch = section.sectionLabel.toLowerCase().includes(q);
+      return { ...section, match: sectionMatch || section.settings.some(s => s.label.toLowerCase().includes(q)) };
+    }).filter(s => s.match);
+  });
+
+  let autocompleteItems = $derived.by(() => {
+    const q = advancedSearchQuery.toLowerCase().trim();
+    if (!q || q.length < 1) return [];
+    const items = [];
+    const seen = new Set();
+    for (const section of searchIndex) {
+      const sl = section.sectionLabel.toLowerCase();
+      if (sl.includes(q) && !seen.has(section.sectionKey)) {
+        seen.add(section.sectionKey);
+        items.push({ type: 'section', sectionKey: section.sectionKey, label: section.sectionLabel });
+      }
+      for (const setting of section.settings) {
+        if (setting.label.toLowerCase().includes(q)) {
+          const dedupKey = section.sectionKey + '::' + setting.label;
+          if (!seen.has(dedupKey)) {
+            seen.add(dedupKey);
+            items.push({ type: 'setting', sectionKey: section.sectionKey, label: setting.label, parentLabel: section.sectionLabel });
+          }
+        }
+      }
+    }
+    return items;
+  });
+
+  let searchActive = $derived(advancedSearchQuery.trim().length > 0);
+
+  $effect(() => {
+    autocompleteItems;
+    autocompleteSelectedIndex = -1;
+  });
+
+  function snapshotSectionStates() {
+    return {
+      subLanguage: subLanguageOpen, subChat: subChatOpen,
+      subProjects: subProjectsOpen, subInjection: subInjectionOpen,
+      subResearch: subResearchOpen, subVoice: subVoiceOpen,
+      subIntegrations: subIntegrationsOpen, subCSS: subCSSOpen,
+      subUtilities: subUtilitiesOpen,
+    };
+  }
+
+  function restoreSectionStates(states) {
+    if (!states) return;
+    subLanguageOpen = states.subLanguage; subChatOpen = states.subChat;
+    subProjectsOpen = states.subProjects; subInjectionOpen = states.subInjection;
+    subResearchOpen = states.subResearch; subVoiceOpen = states.subVoice;
+    subIntegrationsOpen = states.subIntegrations; subCSSOpen = states.subCSS;
+    subUtilitiesOpen = states.subUtilities;
+  }
+
+  let wasSearchActive = false;
+
+  $effect(() => {
+    if (searchActive && !wasSearchActive) {
+      savedSectionStates = snapshotSectionStates();
+    } else if (!searchActive && wasSearchActive && savedSectionStates) {
+      restoreSectionStates(savedSectionStates);
+      savedSectionStates = null;
+    }
+    wasSearchActive = searchActive;
+    if (!searchActive) return;
+    const matchingKeys = new Set(filteredSearchSections?.map(s => s.sectionKey) || []);
+    subLanguageOpen = matchingKeys.has('subLanguage');
+    subChatOpen = matchingKeys.has('subChat');
+    subProjectsOpen = matchingKeys.has('subProjects');
+    subInjectionOpen = matchingKeys.has('subInjection');
+    subResearchOpen = matchingKeys.has('subResearch');
+    subVoiceOpen = matchingKeys.has('subVoice');
+    subIntegrationsOpen = matchingKeys.has('subIntegrations');
+    subCSSOpen = matchingKeys.has('subCSS');
+    subUtilitiesOpen = matchingKeys.has('subUtilities');
+  });
+
+  function isSectionMatch(sectionKey) {
+    if (!searchActive) return true;
+    return filteredSearchSections?.some(s => s.sectionKey === sectionKey) ?? false;
+  }
+
+  function handleAdvancedSearchKeydown(e) {
+    if (!autocompleteItems.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); autocompleteSelectedIndex = Math.min(autocompleteSelectedIndex + 1, autocompleteItems.length - 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); autocompleteSelectedIndex = autocompleteSelectedIndex <= 0 ? autocompleteItems.length - 1 : autocompleteSelectedIndex - 1; }
+    else if (e.key === 'Enter') { e.preventDefault(); if (autocompleteSelectedIndex < 0) autocompleteSelectedIndex = 0; selectAutocompleteItem(); }
+    else if (e.key === 'Escape') { e.preventDefault(); advancedSearchQuery = ''; }
+  }
+
+  function selectAutocompleteItem() {
+    const item = autocompleteItems[autocompleteSelectedIndex];
+    if (!item) return;
+    advancedSearchQuery = item.label;
+  }
+
+  function handleAutocompleteMouseDown(e, index) { e.preventDefault(); autocompleteSelectedIndex = index; selectAutocompleteItem(); }
 
   function shouldShowGithubTokenByDefault(tokenValue = githubToken) {
     return !String(tokenValue || "").trim();
@@ -1118,8 +1271,46 @@
 </button>
 
 <div class="bds-advanced-content" class:open={advancedOpen}>
+  {#if advancedOpen}
+    <div class="bds-advanced-search-wrapper">
+      <div class="bds-advanced-search-input-wrapper">
+        <svg class="bds-advanced-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          type="text"
+          class="bds-advanced-search-input"
+          placeholder={t('settings.advancedSearchPlaceholder')}
+          bind:value={advancedSearchQuery}
+          onkeydown={handleAdvancedSearchKeydown}
+        />
+      </div>
+      {#if advancedSearchQuery.trim().length > 0 && autocompleteItems.length > 0}
+        <div class="bds-advanced-autocomplete">
+          {#each autocompleteItems as item, i}
+            <button
+              type="button"
+              class="bds-advanced-ac-item"
+              class:selected={i === autocompleteSelectedIndex}
+              onmousedown={(e) => handleAutocompleteMouseDown(e, i)}
+              onmouseenter={() => { autocompleteSelectedIndex = i; }}
+            >
+              <span class="bds-advanced-ac-label">{item.label}</span>
+              {#if item.type === 'setting'}
+                <span class="bds-advanced-ac-section">— {item.parentLabel}</span>
+              {/if}
+            </button>
+          {/each}
+        </div>
+      {/if}
+      {#if advancedSearchQuery.trim().length > 0 && filteredSearchSections?.length === 0}
+        <div class="bds-advanced-no-results">{t('settings.advancedNoResults')}</div>
+      {/if}
+    </div>
+  {/if}
   <div class="bds-advanced-inner">
-    <!-- subLanguage -->
+    <!-- Each sub-section visibility is controlled by isSectionMatch() when search is active -->
+    {#if isSectionMatch('subLanguage')}
     <button type="button" class="bds-sub-toggle" class:open={subLanguageOpen} onclick={() => subLanguageOpen = !subLanguageOpen} aria-expanded={subLanguageOpen}>
       {t('settings.subLanguage')}
       <span class="bds-chevron">
@@ -1174,8 +1365,9 @@
         </div>
       </div>
     </div>
+    {/if}
 
-    <!-- subChat -->
+    {#if isSectionMatch('subChat')}
     <button type="button" class="bds-sub-toggle" class:open={subChatOpen} onclick={() => subChatOpen = !subChatOpen} aria-expanded={subChatOpen}>
       {t('settings.subChat')}
       <span class="bds-chevron">
@@ -1216,8 +1408,9 @@
         </div>
       </div>
     </div>
+    {/if}
 
-    <!-- subProjects -->
+    {#if isSectionMatch('subProjects')}
     <button type="button" class="bds-sub-toggle" class:open={subProjectsOpen} onclick={() => subProjectsOpen = !subProjectsOpen} aria-expanded={subProjectsOpen}>
       {t('settings.subProjects')}
       <span class="bds-chevron">
@@ -1276,8 +1469,9 @@
         </div>
       </div>
     </div>
+    {/if}
 
-    <!-- subInjection -->
+    {#if isSectionMatch('subInjection')}
     <button type="button" class="bds-sub-toggle" class:open={subInjectionOpen} onclick={() => subInjectionOpen = !subInjectionOpen} aria-expanded={subInjectionOpen}>
       {t('settings.subInjection')}
       <span class="bds-chevron">
@@ -1340,8 +1534,9 @@
         {/if}
       </div>
     </div>
+    {/if}
 
-    <!-- subResearch -->
+    {#if isSectionMatch('subResearch')}
     <button type="button" class="bds-sub-toggle" class:open={subResearchOpen} onclick={() => subResearchOpen = !subResearchOpen} aria-expanded={subResearchOpen}>
       {t('settings.subResearch')}
       <span class="bds-chevron">
@@ -1387,8 +1582,9 @@
         {/if}
       </div>
     </div>
+    {/if}
 
-    <!-- subVoice -->
+    {#if isSectionMatch('subVoice')}
     <button type="button" class="bds-sub-toggle" class:open={subVoiceOpen} onclick={() => subVoiceOpen = !subVoiceOpen} aria-expanded={subVoiceOpen}>
       {t('settings.subVoice')}
       <span class="bds-chevron">
@@ -1440,8 +1636,9 @@
         </div>
       </div>
     </div>
+    {/if}
 
-    <!-- subIntegrations -->
+    {#if isSectionMatch('subIntegrations')}
     <button type="button" class="bds-sub-toggle" class:open={subIntegrationsOpen} onclick={() => subIntegrationsOpen = !subIntegrationsOpen} aria-expanded={subIntegrationsOpen}>
       {t('settings.subIntegrations')}
       <span class="bds-chevron">
@@ -1501,8 +1698,9 @@
         </p>
       </div>
     </div>
+    {/if}
 
-    <!-- subCSS -->
+    {#if isSectionMatch('subCSS')}
     <button type="button" class="bds-sub-toggle" class:open={subCSSOpen} onclick={() => subCSSOpen = !subCSSOpen} aria-expanded={subCSSOpen}>
       {t('settings.subCSS')}
       <span class="bds-chevron">
@@ -1555,8 +1753,9 @@
         </div>
       </div>
     </div>
+    {/if}
 
-    <!-- subUtilities -->
+    {#if isSectionMatch('subUtilities')}
     <button type="button" class="bds-sub-toggle" class:open={subUtilitiesOpen} onclick={() => subUtilitiesOpen = !subUtilitiesOpen} aria-expanded={subUtilitiesOpen}>
       {t('settings.subUtilities')}
       <span class="bds-chevron">
@@ -1586,6 +1785,7 @@
         </div>
       </div>
     </div>
+    {/if}
   </div>
 </div>
 

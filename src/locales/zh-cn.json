@@ -172,7 +172,9 @@
       "snippetUpdated": "片段已更新！",
       "editingSnippet": "正在编辑片段: {{name}}",
       "exitEditMode": "退出编辑模式",
-      "noSnippets": "暂无 CSS 片段。"
+      "noSnippets": "暂无 CSS 片段。",
+      "advancedSearchPlaceholder": "搜索设置...",
+      "advancedNoResults": "未找到匹配的设置。"
     },
     "skillList": {
       "title": "技能集",

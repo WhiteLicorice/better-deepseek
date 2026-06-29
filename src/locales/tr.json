@@ -172,7 +172,9 @@
       "snippetUpdated": "Snippet güncellendi!",
       "editingSnippet": "Düzenlenen snippet: {{name}}",
       "exitEditMode": "Düzenlemeden Çık",
-      "noSnippets": "Henüz CSS snippet'ı yok."
+      "noSnippets": "Henüz CSS snippet'ı yok.",
+      "advancedSearchPlaceholder": "Ayarlarda ara...",
+      "advancedNoResults": "Eşleşen ayar bulunamadı."
     },
     "skillList": {
       "title": "Yetenek Seti",
