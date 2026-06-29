@@ -327,7 +327,7 @@ function findComposerControlsWrapper(fileInput) {
     return sendButton.parentElement;
   }
 
-  const editor = document.querySelector("textarea#chat-input, textarea[placeholder], [contenteditable='true']");
+  const editor = findComposerEditor();
   return editor?.parentElement || null;
 }
 
@@ -371,9 +371,26 @@ function findNativePromptActionRow() {
 }
 
 function findComposerEditor() {
-  return document.querySelector(
-    "textarea#chat-input, .ds-textarea textarea, textarea[placeholder], [role='textbox'], [contenteditable='true']",
-  );
+  const selectors = [
+    "textarea#chat-input",
+    ".ds-textarea textarea",
+    '[role="textbox"][contenteditable]',
+    '[role="textbox"]',
+    ".ProseMirror[contenteditable]",
+    "textarea[placeholder]",
+    "input[placeholder]",
+    "[contenteditable]",
+  ];
+
+  for (const selector of selectors) {
+    const editor = Array.from(document.querySelectorAll(selector))
+      .find((candidate) => !candidate?.closest?.(
+        "#bds-root, .bds-question-panel, .bds-dr-revision-panel, .bds-attach-wrapper, .bds-rag-preview"
+      ));
+    if (editor) return editor;
+  }
+
+  return null;
 }
 
 function isAfterNode(reference, candidate) {
@@ -642,6 +659,8 @@ export function startUrlWatcher() {
         scheduleScan()
         setupCommandListener()
         checkPendingExport()
+      } else if (!autocompleteInstance && !cmdSetupTimer) {
+        setupCommandListener()
       }
       return;
     }
@@ -698,11 +717,13 @@ export function startUrlWatcher() {
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible") {
       scheduleScan();
+      if (!autocompleteInstance) setupCommandListener();
     }
   });
 
   window.addEventListener("focus", () => {
     scheduleScan();
+    if (!autocompleteInstance) setupCommandListener();
   });
 
   window.addEventListener("bds:settingsChanged", () => {
@@ -725,15 +746,17 @@ function retrySetupCommandListener() {
     console.log("[BDS:Cmd] retrySetupCommandListener skipped")
     return
   }
-  let pollCount = 0
-  cmdSetupTimer = window.setInterval(() => {
-    pollCount++
-    if (autocompleteInstance) { clearInterval(cmdSetupTimer); cmdSetupTimer = 0; console.log("[BDS:Cmd] poll#" + pollCount + " cancelled (autoInst set)"); return }
+  let delay = 500
+  const MAX_DELAY = 30000
+  const poll = () => {
+    if (autocompleteInstance) { cmdSetupTimer = 0; console.log("[BDS:Cmd] poll cancelled (autoInst set)"); return }
     const ed = findComposerEditor()
-    console.log("[BDS:Cmd] poll#" + pollCount + " editor=", !!ed, "tag=", ed?.tagName, "id=", ed?.id)
-    if (ed) { clearInterval(cmdSetupTimer); cmdSetupTimer = 0; setupCommandListener(ed) }
-  }, 500)
-  setTimeout(() => { if (cmdSetupTimer) { clearInterval(cmdSetupTimer); cmdSetupTimer = 0; console.log("[BDS:Cmd] poll TIMEOUT after 15s") } }, 15000)
+    console.log("[BDS:Cmd] poll editor=", !!ed, "tag=", ed?.tagName, "id=", ed?.id)
+    if (ed) { cmdSetupTimer = 0; setupCommandListener(ed); return }
+    delay = Math.min(delay * 2, MAX_DELAY)
+    cmdSetupTimer = setTimeout(poll, delay)
+  }
+  cmdSetupTimer = setTimeout(poll, delay)
 }
 
 function setupCommandListener(editor) {
