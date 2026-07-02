@@ -21,6 +21,7 @@ const SEARCH_FETCH_OPTIONS = {
     "Cache-Control": "no-cache, no-store",
     Pragma: "no-cache",
   },
+  cache: "no-store",
   credentials: "omit",
   redirect: "follow",
 };
@@ -63,7 +64,12 @@ function isHttpUrl(value) {
 function extractUrlFromDdgLink(href) {
   if (!href) return "";
   try {
-    const url = new URL(href.startsWith("//") ? "https:" + href : href);
+    const normalizedHref = href.startsWith("//")
+      ? "https:" + href
+      : href.startsWith("/")
+        ? "https://duckduckgo.com" + href
+        : href;
+    const url = new URL(normalizedHref);
     const uddg = url.searchParams.get("uddg");
     return uddg ? decodeURIComponent(uddg) : href;
   } catch {

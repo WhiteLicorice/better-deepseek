@@ -51,6 +51,12 @@ async function importAutoModule() {
   return await import("../../src/content/auto.js");
 }
 
+async function flushMicrotasks() {
+  for (let i = 0; i < 5; i++) {
+    await Promise.resolve();
+  }
+}
+
 describe("auto integration", () => {
   beforeEach(() => {
     resetAppState();
@@ -854,6 +860,60 @@ describe("auto integration", () => {
 
     expect(readerMocks.searchWeb).toHaveBeenCalledTimes(2);
     const runQueries = getRunSearchQueries("run-1");
+    expect(runQueries?.size).toBe(1);
+  });
+
+  it("removes global dedupe key when search result injection fails, allowing retry", async () => {
+    document.body.innerHTML = `<input type="file" multiple />`;
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      writable: true,
+      value: [],
+    });
+    readerMocks.searchWeb.mockResolvedValue({
+      file: new File(["results"], "q.md", { type: "text/markdown" }),
+      results: [{ title: "R1", url: "https://a.com", snippet: "s" }],
+      query: "injection retry",
+      deepFetch: 0,
+    });
+    const { handleAutoSearch } = await importAutoModule();
+
+    await handleAutoSearch("injection retry");
+    await flushMicrotasks();
+
+    setupAutoDom();
+    await handleAutoSearch("injection retry");
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(readerMocks.searchWeb).toHaveBeenCalledTimes(2);
+  });
+
+  it("removes run-scoped dedupe key when search result injection fails, allowing retry", async () => {
+    document.body.innerHTML = `<input type="file" multiple />`;
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      writable: true,
+      value: [],
+    });
+    readerMocks.searchWeb.mockResolvedValue({
+      file: new File(["results"], "q.md", { type: "text/markdown" }),
+      results: [{ title: "R1", url: "https://a.com", snippet: "s" }],
+      query: "run injection retry",
+      deepFetch: 0,
+    });
+    const { handleAutoSearchForRun, getRunSearchQueries } = await importAutoModule();
+
+    await handleAutoSearchForRun("run injection retry", 0, "run-injection");
+    await flushMicrotasks();
+
+    setupAutoDom();
+    await handleAutoSearchForRun("run injection retry", 0, "run-injection");
+    await vi.advanceTimersByTimeAsync(600);
+
+    expect(readerMocks.searchWeb).toHaveBeenCalledTimes(2);
+    const runQueries = getRunSearchQueries("run-injection");
     expect(runQueries?.size).toBe(1);
   });
 });

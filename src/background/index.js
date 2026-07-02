@@ -380,21 +380,25 @@ function detectCharsetFromHtml(buffer) {
 
 async function fetchPageContent(url, options = {}) {
   if (!url) throw new Error("No URL provided.");
+  const safeOptions = options && typeof options === "object" ? options : {};
 
   const fetchOptions = {
-    method: options.method || 'GET',
-    headers: options.headers || {},
+    method: safeOptions.method || "GET",
+    headers: safeOptions.headers || {},
   };
 
-  if (options.body) {
-    fetchOptions.body = options.body;
+  if (safeOptions.body) {
+    fetchOptions.body = safeOptions.body;
   }
 
-  if (options.credentials) {
-    fetchOptions.credentials = options.credentials;
+  if (safeOptions.cache) {
+    fetchOptions.cache = safeOptions.cache;
   }
-  if (options.redirect) {
-    fetchOptions.redirect = options.redirect;
+  if (safeOptions.credentials) {
+    fetchOptions.credentials = safeOptions.credentials;
+  }
+  if (safeOptions.redirect) {
+    fetchOptions.redirect = safeOptions.redirect;
   }
 
   const resp = await fetch(url, fetchOptions);

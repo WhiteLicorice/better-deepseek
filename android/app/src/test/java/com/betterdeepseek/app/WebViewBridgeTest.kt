@@ -207,6 +207,7 @@ class WebViewBridgeTest {
             put("url", server.url("/tolerant").toString())
             put("options", JSONObject().apply {
                 put("method", "GET")
+                put("cache", "no-store")
                 put("credentials", "omit")
                 put("redirect", "follow")
             })

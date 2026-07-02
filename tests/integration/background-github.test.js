@@ -156,11 +156,13 @@ describe("background bds-fetch-url", () => {
     await fetchPageContent("https://example.com", {
       method: "GET",
       headers: { Accept: "text/html" },
+      cache: "no-store",
       credentials: "omit",
       redirect: "follow",
     });
 
     const fetchArgs = globalThis.fetch.mock.calls[0];
+    expect(fetchArgs[1].cache).toBe("no-store");
     expect(fetchArgs[1].credentials).toBe("omit");
     expect(fetchArgs[1].redirect).toBe("follow");
     expect(fetchArgs[1].method).toBe("GET");

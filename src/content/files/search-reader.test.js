@@ -37,6 +37,10 @@ function ddgHref(realUrl) {
   return `//duckduckgo.com/l/?uddg=${encodeURIComponent(realUrl)}&rut=test`;
 }
 
+function ddgRelativeHref(realUrl) {
+  return `/l/?uddg=${encodeURIComponent(realUrl)}&rut=test`;
+}
+
 function makeResultHtml(results) {
   const rows = [];
   results.forEach((r, index) => {
@@ -59,6 +63,16 @@ function makeResultHtml(results) {
     rows.push("<tr><td>&nbsp;</td><td>&nbsp;</td></tr>");
   });
   return `<html><body><table border="0">${rows.join("\n")}</table></body></html>`;
+}
+
+function makeDdgHtmlResultHtml(results) {
+  const blocks = results
+    .map((r) => `<div class="result">
+      <a class="result__a" href="${ddgRelativeHref(r.url || "")}">${r.title}</a>
+      <a class="result__snippet">${r.snippet || ""}</a>
+    </div>`)
+    .join("\n");
+  return `<html><body>${blocks}</body></html>`;
 }
 
 function toBase64Url(value) {
@@ -168,6 +182,26 @@ describe("parseSearchResults", () => {
     ]);
   });
 
+  it("parses DuckDuckGo HTML result blocks with relative redirect URLs", () => {
+    const html = makeDdgHtmlResultHtml([
+      {
+        title: "DuckDuckGo HTML Result",
+        url: "https://example.com/ddg-html",
+        snippet: "A result from the HTML endpoint.",
+      },
+    ]);
+
+    const results = parseSearchResults(html);
+
+    expect(results).toEqual([
+      {
+        title: "DuckDuckGo HTML Result",
+        url: "https://example.com/ddg-html",
+        snippet: "A result from the HTML endpoint.",
+      },
+    ]);
+  });
+
   it("handles entirely malformed HTML without crashing", () => {
     expect(parseSearchResults("not even html")).toEqual([]);
     expect(parseSearchResults("")).toEqual([]);
@@ -228,6 +262,11 @@ describe("extractUrlFromDdgLink", () => {
   it("handles absolute DDG URLs", () => {
     const href = "https://duckduckgo.com/l/?uddg=https%3A%2F%2Fexample.com&rut=abc";
     expect(extractUrlFromDdgLink(href)).toBe("https://example.com");
+  });
+
+  it("handles relative DDG HTML redirect URLs", () => {
+    const href = "/l/?uddg=https%3A%2F%2Fexample.com%2Fhtml&rut=abc";
+    expect(extractUrlFromDdgLink(href)).toBe("https://example.com/html");
   });
 
   it("handles malformed input without crashing", () => {
@@ -593,6 +632,7 @@ describe("searchWeb", () => {
     expect(sentMessage.options.headers).toBeDefined();
     expect(sentMessage.options.headers.Accept).toContain("text/html");
     expect(sentMessage.options.headers).not.toHaveProperty("User-Agent");
+    expect(sentMessage.options.cache).toBe("no-store");
     expect(sentMessage.options.credentials).toBe("omit");
     expect(sentMessage.options.redirect).toBe("follow");
   });
@@ -603,7 +643,7 @@ describe("searchWeb", () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        html: makeResultHtml([
+        html: makeDdgHtmlResultHtml([
           { title: "test result one", url: "https://html-result.com/one", snippet: "test content about tests" },
           { title: "test result two", url: "https://html-result.com/two", snippet: "more test content" },
           { title: "test result three", url: "https://html-result.com/three", snippet: "third test result" },
