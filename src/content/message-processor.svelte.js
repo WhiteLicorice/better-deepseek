@@ -826,10 +826,7 @@ function syncVisibilityState(node, isLatestAssistant, stateData, isSettled) {
     refreshSessionTotalDisplayInline();
   }
 }
-/**
- * Apply RTL styling directly to the native message's markdown container
- * for messages that don't trigger an overlay.
- */
+
 /**
  * Apply RTL styling directly to the native message's markdown container
  * for messages that don't trigger an overlay.
@@ -837,33 +834,19 @@ function syncVisibilityState(node, isLatestAssistant, stateData, isSettled) {
 function applyRtlToNative(node, isRtl) {
   if (!isRtl) return;
 
-  // Find all markdown containers inside this message node
+  // Find ALL markdown containers (including thinking blocks)
   const allMarkdown = node.querySelectorAll('.ds-markdown, [class*="markdown"]');
-  let target = null;
-
-  for (const el of allMarkdown) {
-    // Skip if inside a thinking block
-    if (el.closest('.ds-think-content, [class*="think"]')) continue;
-    // Skip if inside a cursor or other transient elements
-    if (el.closest('.ds-cursor')) continue;
-    // Take the first non-thinking markdown container
-    target = el;
-    break;
-  }
-
-  // Fallback: if nothing found, use the last markdown (often the main content)
-  if (!target) {
-    target = node.querySelector('.ds-markdown:last-child, [class*="markdown"]:last-child');
-  }
-
-  if (target) {
+  
+  for (const target of allMarkdown) {
+    // Skip cursor elements
+    if (target.closest('.ds-cursor')) continue;
+    
     target.setAttribute('dir', 'rtl');
     target.style.direction = 'rtl';
     target.style.textAlign = 'right';
     target.classList.add('bds-rtl-native');
   }
 }
-
 /**
  * Play voice response using Web Speech Synthesis.
  */
