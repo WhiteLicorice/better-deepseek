@@ -794,6 +794,7 @@ export const DEFAULT_REMOTE_CONFIG = {
       expertMode: { show: true, showPlus: false, showUploadFile: false, showUploadFolder: false, showGithub: false, showWeb: false, showProject: true, showVoice: true },
       instantMode: { show: true, showPlus: true, showUploadFile: true, showUploadFolder: true, showGithub: true, showWeb: true, showProject: true, showVoice: true },
       deepthinkMode: { show: true, showPlus: true, showUploadFile: true, showUploadFolder: true, showGithub: true, showWeb: true, showProject: true, showVoice: true },
+      visionMode: { show: true, showPlus: true, showUploadFile: true, showUploadFolder: true, showGithub: true, showWeb: true, showProject: true, showVoice: true },
     },
     fileUpload: { enabled: true, expertModeBlocked: true, dataTransfer: true, nativeInput: true },
     codeBlocks: { runButtons: { python: true, javascript: true, typescript: true } },

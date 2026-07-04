@@ -17,8 +17,10 @@ import android.webkit.JavascriptInterface
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.documentfile.provider.DocumentFile
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
+import java.io.InputStream
 import java.util.Locale
 import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
@@ -30,11 +32,18 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Text file entry returned by the native Android picker to JavaScript. */
-internal data class PickedFile(val name: String, val content: String)
+/** File entry returned by the native Android picker to JavaScript. */
+internal data class PickedFile(
+        val name: String,
+        val content: String,
+        val encoding: String? = null,
+        val mime: String? = null,
+)
 
 /** Native-picked file that could not be delivered to JavaScript. */
 internal data class SkippedFile(val name: String, val reason: String)
+
+internal data class BoundedReadResult(val bytes: ByteArray, val overflowed: Boolean)
 
 internal data class PickReadResult(
         val files: List<PickedFile>,
@@ -42,9 +51,35 @@ internal data class PickReadResult(
         val folderName: String?,
 )
 
+private data class FolderImageCounter(var accepted: Int = 0)
+
 internal sealed class PickedItemResult {
     data class Ok(val file: PickedFile) : PickedItemResult()
     data class Skipped(val name: String, val reason: String) : PickedItemResult()
+}
+
+internal fun readBoundedBytes(stream: InputStream, capBytes: Long): BoundedReadResult {
+    val output = ByteArrayOutputStream(minOf(capBytes, 8192L).toInt())
+    val buffer = ByteArray(8192)
+    var total = 0L
+
+    while (true) {
+        val remaining = capBytes - total
+        val readLimit =
+                if (remaining >= buffer.size) buffer.size
+                else (remaining + 1).coerceAtLeast(1).toInt()
+        val read = stream.read(buffer, 0, readLimit)
+        if (read == -1) {
+            return BoundedReadResult(output.toByteArray(), overflowed = false)
+        }
+        if (total + read > capBytes) {
+            val keep = (capBytes - total).toInt()
+            if (keep > 0) output.write(buffer, 0, keep)
+            return BoundedReadResult(output.toByteArray(), overflowed = true)
+        }
+        output.write(buffer, 0, read)
+        total += read
+    }
 }
 
 internal fun classifyPickedFile(
@@ -52,7 +87,15 @@ internal fun classifyPickedFile(
         byteSize: Long,
         content: String?,
         requireKnownExtension: Boolean,
+        acceptImages: Boolean = false,
 ): PickedItemResult {
+    if (hasImageFileExtension(name)) {
+        return if (acceptImages) {
+            PickedItemResult.Skipped(name, "unreadable")
+        } else {
+            PickedItemResult.Skipped(name, "image-requires-vision")
+        }
+    }
     if (byteSize > WebViewBridge.MAX_PICKED_FILE_SIZE) {
         return PickedItemResult.Skipped(name, "too-large")
     }
@@ -79,6 +122,37 @@ internal fun classifyPickedFile(
     return PickedItemResult.Ok(PickedFile(name, content))
 }
 
+internal fun encodePickedImage(
+        name: String,
+        bytes: ByteArray,
+        capBytes: Long = WebViewBridge.MAX_PICKED_IMAGE_SIZE,
+): PickedItemResult {
+    if (bytes.size.toLong() > capBytes) {
+        return PickedItemResult.Skipped(name, "too-large")
+    }
+    return PickedItemResult.Ok(
+            PickedFile(
+                    name = name,
+                    content = java.util.Base64.getEncoder().encodeToString(bytes),
+                    encoding = "base64",
+                    mime = mimeForImageName(name),
+            )
+    )
+}
+
+internal fun mimeForImageName(name: String): String {
+    val ext = fileExtension(name)
+    return WebViewBridge.IMAGE_MIME_TYPES[ext] ?: "application/octet-stream"
+}
+
+internal fun classifyFolderImageCap(name: String, acceptedImageCount: Int): PickedItemResult? {
+    return if (acceptedImageCount >= WebViewBridge.MAX_FOLDER_IMAGES) {
+        PickedItemResult.Skipped(name, "image-cap-exceeded")
+    } else {
+        null
+    }
+}
+
 internal fun buildPickResultScripts(requestId: String, payloadJson: String): List<String> {
     val safeId = sanitizePickRequestId(requestId)
     if (safeId.isEmpty()) return emptyList()
@@ -99,9 +173,17 @@ private fun sanitizePickRequestId(requestId: String): String =
         requestId.filter { it.isLetterOrDigit() || it == '-' }.take(64)
 
 private fun hasTextFileExtension(filename: String): Boolean {
-    val ext = filename.substringAfterLast('.', "").lowercase()
+    val ext = fileExtension(filename)
     return ext.isNotEmpty() && ext in WebViewBridge.TEXT_EXTENSIONS
 }
+
+private fun hasImageFileExtension(filename: String): Boolean {
+    val ext = fileExtension(filename)
+    return ext.isNotEmpty() && ext in WebViewBridge.IMAGE_EXTENSIONS
+}
+
+private fun fileExtension(filename: String): String =
+        filename.substringAfterLast('.', "").lowercase()
 
 /**
  * @JavascriptInterface object exposed to the WebView as `window.AndroidBridge`.
@@ -193,7 +275,11 @@ class WebViewBridge(
                         ?: return
         if (safeId.isEmpty()) return
 
-        val safeMode = if (mode == "folder") "folder" else "files"
+        val safeMode =
+                when (mode) {
+                    "folder", "folder+images", "files+images" -> mode
+                    else -> "files"
+                }
         val handler = onPickFiles
         if (handler == null) {
             deliverPickError(safeId, "picker-launch-failed")
@@ -214,6 +300,8 @@ class WebViewBridge(
                     JSONObject().apply {
                         put("name", file.name)
                         put("content", file.content)
+                        if (file.encoding != null) put("encoding", file.encoding)
+                        if (file.mime != null) put("mime", file.mime)
                     }
             )
         }
@@ -269,8 +357,15 @@ class WebViewBridge(
         mainHandler.post { evaluateJs?.invoke(script) }
     }
 
-    internal fun readPickedContentUri(uri: Uri): PickedItemResult {
+    internal fun readPickedContentUri(uri: Uri, acceptImages: Boolean = false): PickedItemResult {
         val name = resolvePickedDisplayName(uri)
+        if (hasImageFileExtension(name)) {
+            if (!acceptImages) {
+                return PickedItemResult.Skipped(name, "image-requires-vision")
+            }
+            return readPickedImageUri(uri, name)
+        }
+
         val length = runCatching { getContentLength(uri) }.getOrDefault(-1L)
         if (length > MAX_PICKED_FILE_SIZE) {
             return PickedItemResult.Skipped(name, "too-large")
@@ -279,7 +374,11 @@ class WebViewBridge(
         val content =
                 try {
                     context.contentResolver.openInputStream(uri)?.use { stream ->
-                        stream.bufferedReader(Charsets.UTF_8).readText()
+                        val read = readBoundedBytes(stream, MAX_PICKED_FILE_SIZE)
+                        if (read.overflowed) {
+                            return PickedItemResult.Skipped(name, "too-large")
+                        }
+                        String(read.bytes, Charsets.UTF_8)
                     }
                 } catch (t: Throwable) {
                     Log.w(TAG, "readPickedContentUri failed for $uri", t)
@@ -288,13 +387,14 @@ class WebViewBridge(
         return classifyPickedFile(name, length, content, requireKnownExtension = false)
     }
 
-    internal fun readPickedFolderTree(treeUri: Uri): PickReadResult {
+    internal fun readPickedFolderTree(treeUri: Uri, acceptImages: Boolean = false): PickReadResult {
         val docTree = DocumentFile.fromTreeUri(context, treeUri)
                 ?: return PickReadResult(emptyList(), emptyList(), "folder")
         val folderName = docTree.name ?: "folder"
         val files = mutableListOf<PickedFile>()
         val skipped = mutableListOf<SkippedFile>()
-        traverseDocumentTree(docTree, "", files, skipped, 0)
+        val imageCounter = FolderImageCounter()
+        traverseDocumentTree(docTree, "", files, skipped, 0, acceptImages, imageCounter)
         return PickReadResult(files, skipped, folderName)
     }
 
@@ -326,7 +426,9 @@ class WebViewBridge(
             pathPrefix: String,
             out: MutableList<PickedFile>,
             skipped: MutableList<SkippedFile>,
-            depth: Int
+            depth: Int,
+            acceptImages: Boolean,
+            imageCounter: FolderImageCounter,
     ) {
         if (depth > MAX_FOLDER_DEPTH) return
         for (child in dir.listFiles()) {
@@ -338,9 +440,9 @@ class WebViewBridge(
             val relPath = if (pathPrefix.isEmpty()) name else "$pathPrefix/$name"
             if (isSkippedPath(relPath)) continue
             if (child.isDirectory) {
-                traverseDocumentTree(child, relPath, out, skipped, depth + 1)
+                traverseDocumentTree(child, relPath, out, skipped, depth + 1, acceptImages, imageCounter)
             } else if (child.isFile) {
-                when (val picked = readDocumentFile(child, relPath)) {
+                when (val picked = readDocumentFile(child, relPath, acceptImages, imageCounter)) {
                     is PickedItemResult.Ok -> out.add(picked.file)
                     is PickedItemResult.Skipped -> skipped.add(SkippedFile(picked.name, picked.reason))
                 }
@@ -348,8 +450,22 @@ class WebViewBridge(
         }
     }
 
-    private fun readDocumentFile(file: DocumentFile, relPath: String): PickedItemResult {
+    private fun readDocumentFile(
+            file: DocumentFile,
+            relPath: String,
+            acceptImages: Boolean,
+            imageCounter: FolderImageCounter,
+    ): PickedItemResult {
         val name = file.name ?: return PickedItemResult.Skipped(relPath, "unreadable")
+        if (hasImageFileExtension(name)) {
+            if (!acceptImages) {
+                return PickedItemResult.Skipped(relPath, "image-requires-vision")
+            }
+            classifyFolderImageCap(relPath, imageCounter.accepted)?.let { return it }
+            return readPickedImageDocument(file, relPath).also { result ->
+                if (result is PickedItemResult.Ok) imageCounter.accepted += 1
+            }
+        }
         if (!isTextFileExtension(name)) {
             return PickedItemResult.Skipped(relPath, "unsupported-type")
         }
@@ -360,13 +476,67 @@ class WebViewBridge(
         val content =
                 try {
                     context.contentResolver.openInputStream(file.uri)?.use { stream ->
-                        stream.bufferedReader(Charsets.UTF_8).readText()
+                        val read = readBoundedBytes(stream, MAX_PICKED_FILE_SIZE)
+                        if (read.overflowed) {
+                            return PickedItemResult.Skipped(relPath, "too-large")
+                        }
+                        String(read.bytes, Charsets.UTF_8)
                     }
                 } catch (t: Throwable) {
                     Log.w(TAG, "readDocumentFile failed for $relPath", t)
                     null
-                }
+        }
         return classifyPickedFile(relPath, length, content, requireKnownExtension = true)
+    }
+
+    private fun readPickedImageUri(uri: Uri, name: String): PickedItemResult {
+        val length = runCatching { getContentLength(uri) }.getOrDefault(-1L)
+        if (length > MAX_PICKED_IMAGE_SIZE) {
+            return PickedItemResult.Skipped(name, "too-large")
+        }
+        val bytes =
+                try {
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        val read = readBoundedBytes(stream, MAX_PICKED_IMAGE_SIZE)
+                        if (read.overflowed) {
+                            return PickedItemResult.Skipped(name, "too-large")
+                        }
+                        read.bytes
+                    }
+                } catch (t: Throwable) {
+                    Log.w(TAG, "readPickedImageUri failed for $uri", t)
+                    null
+                }
+        return if (bytes == null) {
+            PickedItemResult.Skipped(name, "unreadable")
+        } else {
+            encodePickedImage(name, bytes)
+        }
+    }
+
+    private fun readPickedImageDocument(file: DocumentFile, relPath: String): PickedItemResult {
+        val length = file.length()
+        if (length > MAX_PICKED_IMAGE_SIZE) {
+            return PickedItemResult.Skipped(relPath, "too-large")
+        }
+        val bytes =
+                try {
+                    context.contentResolver.openInputStream(file.uri)?.use { stream ->
+                        val read = readBoundedBytes(stream, MAX_PICKED_IMAGE_SIZE)
+                        if (read.overflowed) {
+                            return PickedItemResult.Skipped(relPath, "too-large")
+                        }
+                        read.bytes
+                    }
+                } catch (t: Throwable) {
+                    Log.w(TAG, "readPickedImageDocument failed for $relPath", t)
+                    null
+                }
+        return if (bytes == null) {
+            PickedItemResult.Skipped(relPath, "unreadable")
+        } else {
+            encodePickedImage(relPath, bytes)
+        }
     }
 
     private fun getDisplayName(uri: Uri): String? =
@@ -953,6 +1123,11 @@ class WebViewBridge(
         /** Max bytes per native-picked text file. */
         internal const val MAX_PICKED_FILE_SIZE = 2L * 1024 * 1024
 
+        /** Max bytes per native-picked image file. */
+        internal const val MAX_PICKED_IMAGE_SIZE = 8L * 1024 * 1024
+
+        internal const val MAX_FOLDER_IMAGES = 10
+
         internal const val MAX_PICK_CHUNK_CHARS = 200_000
 
         private const val MAX_FOLDER_DEPTH = 15
@@ -964,6 +1139,18 @@ class WebViewBridge(
                         "rs", "rb", "php", "sh", "yml", "yaml", "toml", "ini", "csv", "sql",
                         "xml", "env", "cs", "csproj", "sln", "fs", "fsproj", "razor",
                         "swift", "kt", "dart"
+                )
+
+        internal val IMAGE_EXTENSIONS = setOf("png", "jpg", "jpeg", "webp", "gif", "bmp")
+
+        internal val IMAGE_MIME_TYPES =
+                mapOf(
+                        "png" to "image/png",
+                        "jpg" to "image/jpeg",
+                        "jpeg" to "image/jpeg",
+                        "webp" to "image/webp",
+                        "gif" to "image/gif",
+                        "bmp" to "image/bmp",
                 )
 
         private val SKIP_DIRS =

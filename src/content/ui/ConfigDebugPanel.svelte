@@ -11,6 +11,12 @@
   function show() { visible = true; }
   function hide() { visible = false; }
   function toggle() { visible = !visible; }
+  function attachMenuModelKey(model) {
+    if (model === "vision") return "visionMode";
+    if (model === "expert") return "expertMode";
+    if (model === "deepthink") return "deepthinkMode";
+    return "instantMode";
+  }
 
   function refresh() {
     currentModel = detectModelType();
@@ -189,9 +195,9 @@
               <label class="bds-cdtoggle">
                 <input
                   type="checkbox"
-                  checked={getEffective(currentModel === "expert" ? "features.attachMenu.expertMode." + flag : currentModel === "deepthink" ? "features.attachMenu.deepthinkMode." + flag : "features.attachMenu.instantMode." + flag)}
+                  checked={getEffective("features.attachMenu." + attachMenuModelKey(currentModel) + "." + flag)}
                   onchange={(e) => {
-                    const p = "features.attachMenu." + (currentModel === "expert" ? "expertMode" : currentModel === "deepthink" ? "deepthinkMode" : "instantMode") + "." + flag;
+                    const p = "features.attachMenu." + attachMenuModelKey(currentModel) + "." + flag;
                     setBool(p, e.target.checked);
                   }}
                 />

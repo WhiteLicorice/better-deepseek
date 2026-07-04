@@ -3,11 +3,14 @@ package com.betterdeepseek.app
 import android.content.Context
 import android.content.SharedPreferences
 import org.json.JSONObject
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.util.Base64
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
 import org.mockito.kotlin.any
@@ -64,9 +67,23 @@ class WebViewBridgePickerTest {
 
     @Test
     fun `classifyPickedFile skips unknown extensions in folder mode as unsupported-type`() {
-        val result = classifyPickedFile("photo.png", -1, "not image data", requireKnownExtension = true)
+        val result = classifyPickedFile("archive.zip", -1, "not text", requireKnownExtension = true)
 
-        assertSkipped(result, "photo.png", "unsupported-type")
+        assertSkipped(result, "archive.zip", "unsupported-type")
+    }
+
+    @Test
+    fun `classifyPickedFile skips images as image-requires-vision when images not accepted`() {
+        val result =
+                classifyPickedFile(
+                        "photo.png",
+                        -1,
+                        "not decoded as text",
+                        requireKnownExtension = false,
+                        acceptImages = false,
+                )
+
+        assertSkipped(result, "photo.png", "image-requires-vision")
     }
 
     @Test
@@ -135,6 +152,58 @@ class WebViewBridgePickerTest {
         bridge.pickFiles("files", "req-1")
 
         assertTrue(scripts.joinToString("\n").contains("picker-launch-failed"))
+    }
+
+    @Test
+    fun `pickFiles normalizes image modes without dropping the variant`() {
+        val modes = mutableListOf<String>()
+        bridge.onPickFiles = { mode, _ -> modes.add(mode) }
+
+        bridge.pickFiles("files+images", "req-1")
+        bridge.pickFiles("folder+images", "req-2")
+        bridge.pickFiles("banana", "req-3")
+
+        assertEquals(listOf("files+images", "folder+images", "files"), modes)
+    }
+
+    @Test
+    fun `encodePickedImage encodes an image under the cap as base64 with mime`() {
+        val bytes = byteArrayOf(0x01, 0x02, 0x03, 0x04)
+
+        val result = encodePickedImage("photo.png", bytes)
+
+        assertTrue(result is PickedItemResult.Ok)
+        val file = (result as PickedItemResult.Ok).file
+        assertEquals("photo.png", file.name)
+        assertEquals("base64", file.encoding)
+        assertEquals("image/png", file.mime)
+        assertArrayEquals(bytes, Base64.getDecoder().decode(file.content))
+    }
+
+    @Test
+    fun `encodePickedImage skips an oversized image as too-large`() {
+        val result = encodePickedImage("photo.png", byteArrayOf(1, 2, 3, 4), capBytes = 3)
+
+        assertSkipped(result, "photo.png", "too-large")
+    }
+
+    @Test
+    fun `mimeForImageName maps image extensions to mime types`() {
+        assertEquals("image/png", mimeForImageName("a.png"))
+        assertEquals("image/jpeg", mimeForImageName("a.jpg"))
+        assertEquals("image/jpeg", mimeForImageName("a.jpeg"))
+        assertEquals("image/webp", mimeForImageName("a.webp"))
+        assertEquals("image/gif", mimeForImageName("a.gif"))
+        assertEquals("image/bmp", mimeForImageName("a.bmp"))
+    }
+
+    @Test
+    fun `classifyFolderImageCap reports image-cap-exceeded at the folder image limit`() {
+        assertNull(classifyFolderImageCap("img9.png", WebViewBridge.MAX_FOLDER_IMAGES - 1))
+
+        val result = classifyFolderImageCap("img10.png", WebViewBridge.MAX_FOLDER_IMAGES)
+
+        assertSkipped(result!!, "img10.png", "image-cap-exceeded")
     }
 
     private fun assertSkipped(result: PickedItemResult, name: String, reason: String) {

@@ -34,6 +34,8 @@ describe("RemoteConfigManager", () => {
       expect(am.expertMode.show).toBe(true);
       expect(am.expertMode.showUploadFile).toBe(false);
       expect(am.deepthinkMode.show).toBe(true);
+      expect(am.visionMode.show).toBe(true);
+      expect(am.visionMode.showUploadFile).toBe(true);
     });
 
     it("defaults are deep-copied so raw getter never mutates builtins", () => {
@@ -397,8 +399,15 @@ describe("AttachMenu config integration (DOM model switching)", () => {
     expertRadio.setAttribute("aria-checked", "false");
     expertRadio.textContent = "Expert";
 
+    const visionRadio = document.createElement("div");
+    visionRadio.setAttribute("role", "radio");
+    visionRadio.setAttribute("data-model-type", "vision");
+    visionRadio.setAttribute("aria-checked", "false");
+    visionRadio.textContent = "Vision";
+
     radioGroup.appendChild(defaultRadio);
     radioGroup.appendChild(expertRadio);
+    radioGroup.appendChild(visionRadio);
     document.body.appendChild(radioGroup);
   });
 
@@ -407,7 +416,7 @@ describe("AttachMenu config integration (DOM model switching)", () => {
   });
 
   function getModelKey(modelType) {
-    return modelType === "expert" ? "expertMode" : modelType === "instant" ? "instantMode" : "deepthinkMode";
+    return modelType === "vision" ? "visionMode" : modelType === "expert" ? "expertMode" : modelType === "instant" ? "instantMode" : "deepthinkMode";
   }
 
   it("detects expert mode from radio group", () => {
@@ -418,6 +427,25 @@ describe("AttachMenu config integration (DOM model switching)", () => {
   it("detects instant mode from radio group", () => {
     defaultRadio.setAttribute("aria-checked", "true");
     expect(detectModelType()).toBe("instant");
+  });
+
+  it("detects vision mode from radio group", () => {
+    radioGroup.querySelector('[data-model-type="vision"]').setAttribute("aria-checked", "true");
+    expect(detectModelType()).toBe("vision");
+  });
+
+  it("vision mode uses the visionMode config block", () => {
+    radioGroup.querySelector('[data-model-type="vision"]').setAttribute("aria-checked", "true");
+    remoteConfig.applyRemote({
+      features: { attachMenu: { visionMode: { showUploadFile: false } } },
+    });
+
+    const model = detectModelType();
+    const modelKey = getModelKey(model);
+
+    expect(modelKey).toBe("visionMode");
+    expect(getFlag(`features.attachMenu.${modelKey}.show`)).toBe(true);
+    expect(getFlag(`features.attachMenu.${modelKey}.showUploadFile`)).toBe(false);
   });
 
   it("instant mode shows attach menu with default config", () => {
@@ -512,6 +540,11 @@ describe("AttachMenu config integration (DOM model switching)", () => {
     it("detects expert from reasoner model badge text", () => {
       badge.textContent = "deepseek-reasoner";
       expect(detectModelType()).toBe("expert");
+    });
+
+    it("detects vision from model badge text", () => {
+      badge.textContent = "Vision";
+      expect(detectModelType()).toBe("vision");
     });
   });
 });

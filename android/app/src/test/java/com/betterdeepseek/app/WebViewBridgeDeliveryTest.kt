@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.Looper
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -48,6 +49,29 @@ class WebViewBridgeDeliveryTest {
                 "unsupported-type",
                 payload.getJSONArray("skipped").getJSONObject(0).getString("reason"),
         )
+    }
+
+    @Test
+    fun `deliverPickedFiles serializes encoding and mime only when present`() {
+        bridge.deliverPickedFiles(
+                "req-1",
+                listOf(
+                        PickedFile("notes.md", "# hi"),
+                        PickedFile("photo.png", "AQID", "base64", "image/png"),
+                ),
+                emptyList(),
+                null,
+        )
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val payload = reassemblePayload(scripts)
+        val textFile = payload.getJSONArray("files").getJSONObject(0)
+        val imageFile = payload.getJSONArray("files").getJSONObject(1)
+        assertFalse(textFile.has("encoding"))
+        assertFalse(textFile.has("mime"))
+        assertEquals("base64", imageFile.getString("encoding"))
+        assertEquals("image/png", imageFile.getString("mime"))
     }
 
     @Test

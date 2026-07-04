@@ -6,6 +6,7 @@ import {
   isNativeFilePickerAvailable,
   nativePickFiles,
   PICK_ERRORS,
+  pickedEntryToFile,
 } from "../../../src/platform/android-file-picker.js";
 import {
   dispatchPickResult,
@@ -18,6 +19,15 @@ function readBlobText(blob) {
     reader.onload = () => resolve(reader.result);
     reader.onerror = () => reject(reader.error);
     reader.readAsText(blob);
+  });
+}
+
+function readBlobBytes(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
   });
 }
 
@@ -396,5 +406,46 @@ describe("buildFolderFileFromNative", () => {
     expect(text).toContain("README.md");
     expect(text).toContain("--- [FILE: README.md] ---");
     expect(text).toContain("# Project");
+  });
+
+  it("excludes base64 entries from workspace content but keeps them in the tree", async () => {
+    const file = buildFolderFileFromNative(
+      [
+        { name: "src/index.js", content: "console.log('hello');" },
+        { name: "assets/photo.png", content: "AQID", encoding: "base64", mime: "image/png" },
+      ],
+      "repo",
+    );
+
+    const text = await readBlobText(file);
+    expect(text).toContain("assets");
+    expect(text).toContain("photo.png");
+    expect(text).toContain("--- [FILE: src/index.js] ---");
+    expect(text).not.toContain("--- [FILE: assets/photo.png] ---");
+    expect(text).not.toContain("AQID");
+  });
+});
+
+describe("pickedEntryToFile", () => {
+  it("builds a typed image File from base64", async () => {
+    const file = pickedEntryToFile({
+      name: "photo.png",
+      content: "AQID",
+      encoding: "base64",
+      mime: "image/png",
+    });
+
+    expect(file.name).toBe("photo.png");
+    expect(file.type).toBe("image/png");
+    expect(file.size).toBe(3);
+    expect(Array.from(await readBlobBytes(file))).toEqual([1, 2, 3]);
+  });
+
+  it("builds a text file when no encoding is present", async () => {
+    const file = pickedEntryToFile({ name: "notes.md", content: "# Notes" });
+
+    expect(file.name).toBe("notes.md");
+    expect(file.type).toBe("text/plain");
+    expect(await readBlobText(file)).toBe("# Notes");
   });
 });

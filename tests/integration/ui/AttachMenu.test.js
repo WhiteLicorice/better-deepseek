@@ -90,6 +90,15 @@ function installAndroidBridgeMock(handler = () => window.__testPickPayload) {
   };
 }
 
+function installModelSwitcher(selectedModel) {
+  document.body.insertAdjacentHTML("beforeend", `
+    <div role="radiogroup">
+      <div role="radio" data-model-type="instant" aria-checked="${selectedModel === "instant"}">Instant</div>
+      <div role="radio" data-model-type="vision" aria-checked="${selectedModel === "vision"}">Vision</div>
+    </div>
+  `);
+}
+
 async function flushNativePick() {
   await new Promise((resolve) => setTimeout(resolve, 20));
   await flushUi();
@@ -169,6 +178,41 @@ describe("AttachMenu integration", () => {
         <div role="radio" data-model-type="expert" aria-checked="true">Expert</div>
       </div>
     `);
+    const nativeInput = setupNativeInput();
+    const { target, cleanup } = renderSvelte(AttachMenu, { nativeInput });
+
+    await flushModelWatcher();
+
+    expect(target.querySelector(".bds-attach-wrapper")).toBeTruthy();
+    expect(target.querySelector(".bds-project-btn")).toBeTruthy();
+    expect(target.querySelector(".bds-mic-btn")).toBeTruthy();
+    expect(target.querySelector(".bds-plus-btn")).toBeNull();
+    cleanup();
+  });
+
+  it("uses visionMode visibility flags when Vision mode is selected", async () => {
+    document.body.insertAdjacentHTML("beforeend", `
+      <div role="radiogroup">
+        <div role="radio" data-model-type="instant" aria-checked="false">Instant</div>
+        <div role="radio" data-model-type="vision" aria-checked="true">Vision</div>
+      </div>
+    `);
+    remoteConfig.applyRemote({
+      features: {
+        attachMenu: {
+          visionMode: {
+            show: true,
+            showPlus: false,
+            showUploadFile: false,
+            showUploadFolder: false,
+            showGithub: false,
+            showWeb: false,
+            showProject: true,
+            showVoice: true,
+          },
+        },
+      },
+    });
     const nativeInput = setupNativeInput();
     const { target, cleanup } = renderSvelte(AttachMenu, { nativeInput });
 
@@ -371,6 +415,94 @@ describe("AttachMenu integration", () => {
     expect(Array.from(nativeInput.files, (file) => file.name)).toEqual(["a.md"]);
     expect(changeHandler).toHaveBeenCalled();
     expect(state.ui.showToast).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it("requests files+images mode when model type is vision", async () => {
+    installModelSwitcher("vision");
+    installAndroidBridgeMock(() => ({
+      files: [{ name: "a.md", content: "# A" }],
+      skipped: [],
+    }));
+    const nativeInput = setupNativeInput();
+    const { target, cleanup } = renderSvelte(AttachMenu, { nativeInput });
+
+    await flushModelWatcher();
+    target.querySelector(".bds-plus-btn").click();
+    await flushUi();
+    getAttachItemByText("Upload File").click();
+    await flushNativePick();
+
+    expect(window.AndroidBridge.pickFiles).toHaveBeenCalledWith("files+images", expect.any(String));
+    cleanup();
+  });
+
+  it("injects native-picked images as typed Files on Android", async () => {
+    installModelSwitcher("vision");
+    installAndroidBridgeMock(() => ({
+      files: [{ name: "photo.png", content: "AQID", encoding: "base64", mime: "image/png" }],
+      skipped: [],
+    }));
+    const nativeInput = setupNativeInput();
+    const { target, cleanup } = renderSvelte(AttachMenu, { nativeInput });
+
+    await flushModelWatcher();
+    target.querySelector(".bds-plus-btn").click();
+    await flushUi();
+    getAttachItemByText("Upload File").click();
+    await flushNativePick();
+
+    expect(Array.from(nativeInput.files, (file) => [file.name, file.type, file.size])).toEqual([
+      ["photo.png", "image/png", 3],
+    ]);
+    cleanup();
+  });
+
+  it("toasts imagesRequireVision when native skips images outside Vision mode", async () => {
+    installModelSwitcher("instant");
+    installAndroidBridgeMock(() => ({
+      files: [],
+      skipped: [{ name: "photo.png", reason: "image-requires-vision" }],
+    }));
+    const nativeInput = setupNativeInput();
+    const { target, cleanup } = renderSvelte(AttachMenu, { nativeInput });
+
+    await flushModelWatcher();
+    target.querySelector(".bds-plus-btn").click();
+    await flushUi();
+    getAttachItemByText("Upload File").click();
+    await flushNativePick();
+
+    expect(state.ui.showToast).toHaveBeenCalledWith(
+      "Images can only be attached in Vision mode.",
+    );
+    cleanup();
+  });
+
+  it("injects native folder workspace plus separate image attachments in Vision mode", async () => {
+    installModelSwitcher("vision");
+    installAndroidBridgeMock(() => ({
+      files: [
+        { name: "src/index.js", content: "console.log('hi');" },
+        { name: "assets/photo.png", content: "AQID", encoding: "base64", mime: "image/png" },
+      ],
+      folderName: "repo",
+      skipped: [],
+    }));
+    const nativeInput = setupNativeInput();
+    const { target, cleanup } = renderSvelte(AttachMenu, { nativeInput });
+
+    await flushModelWatcher();
+    target.querySelector(".bds-plus-btn").click();
+    await flushUi();
+    getAttachItemByText("Upload Folder").click();
+    await flushNativePick();
+
+    expect(window.AndroidBridge.pickFiles).toHaveBeenCalledWith("folder+images", expect.any(String));
+    expect(Array.from(nativeInput.files, (file) => [file.name, file.type])).toEqual([
+      ["repo_workspace.txt", "text/plain"],
+      ["assets/photo.png", "image/png"],
+    ]);
     cleanup();
   });
 

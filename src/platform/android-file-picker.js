@@ -222,16 +222,29 @@ export function nativePickFiles(mode = "files") {
   });
 }
 
+export function pickedEntryToFile(entry) {
+  const name = entry?.name || "picked_file";
+  if (entry?.encoding === "base64") {
+    const binary = atob(String(entry.content || ""));
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new File([bytes], name, {
+      type: entry.mime || "application/octet-stream",
+    });
+  }
+  return new File([String(entry?.content || "")], name, { type: "text/plain" });
+}
+
 export function buildFolderFileFromNative(files, folderName) {
   if (!files || files.length === 0) return null;
 
   const tree = buildPathTree(files.map((file) => file.name));
+  const textFiles = files.filter((file) => file.encoding !== "base64");
   let content =
     "Directory Tree:\n" +
     renderPathTree(tree) +
     "\n\n========================================\n\n";
 
-  for (const file of files) {
+  for (const file of textFiles) {
     content += "\n\n--- [FILE: " + file.name + "] ---\n\n";
     content += file.content;
   }

@@ -350,6 +350,7 @@
       "someFilesSkipped": "{{skipped}} of {{total}} selected file(s) could not be attached (unsupported, too large, or binary).",
       "folderNoTextFiles": "No supported text files were found in the selected folder.",
       "pickTimeout": "The file picker did not return a result. Please try again.",
+      "imagesRequireVision": "Images can only be attached in Vision mode.",
       "buttonTitle": "Advanced Upload",
       "attachProject": "Attach Project",
       "voicePrompt": "Voice Prompt",

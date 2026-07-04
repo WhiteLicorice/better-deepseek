@@ -152,11 +152,14 @@ class MainActivity : ComponentActivity() {
             }
 
     @Volatile private var pendingPickFilesRequestId: String? = null
+    @Volatile private var pendingPickFilesMode: String? = null
 
     private val multiFileLauncher: ActivityResultLauncher<Array<String>> =
             registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
                 val requestId = pendingPickFilesRequestId ?: return@registerForActivityResult
+                val acceptImages = pendingPickFilesMode?.endsWith("+images") == true
                 pendingPickFilesRequestId = null
+                pendingPickFilesMode = null
                 if (uris.isEmpty()) {
                     bridge.deliverPickError(requestId, "cancelled")
                     return@registerForActivityResult
@@ -167,7 +170,7 @@ class MainActivity : ComponentActivity() {
                         val files = mutableListOf<PickedFile>()
                         val skipped = mutableListOf<SkippedFile>()
                         for (uri in uris) {
-                            when (val result = bridge.readPickedContentUri(uri)) {
+                            when (val result = bridge.readPickedContentUri(uri, acceptImages)) {
                                 is PickedItemResult.Ok -> files.add(result.file)
                                 is PickedItemResult.Skipped ->
                                         skipped.add(SkippedFile(result.name, result.reason))
@@ -184,7 +187,9 @@ class MainActivity : ComponentActivity() {
     private val folderPickerLauncher: ActivityResultLauncher<Uri?> =
             registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { treeUri ->
                 val requestId = pendingPickFilesRequestId ?: return@registerForActivityResult
+                val acceptImages = pendingPickFilesMode?.endsWith("+images") == true
                 pendingPickFilesRequestId = null
+                pendingPickFilesMode = null
                 if (treeUri == null) {
                     bridge.deliverPickError(requestId, "cancelled")
                     return@registerForActivityResult
@@ -192,7 +197,7 @@ class MainActivity : ComponentActivity() {
                 bridge.deliverPickStatus(requestId, "reading")
                 Thread {
                     try {
-                        val result = bridge.readPickedFolderTree(treeUri)
+                        val result = bridge.readPickedFolderTree(treeUri, acceptImages)
                         bridge.deliverPickedFiles(
                                 requestId,
                                 result.files,
@@ -225,19 +230,22 @@ class MainActivity : ComponentActivity() {
         bridge = WebViewBridge(applicationContext)
         cookieManager = CookieManager.getInstance()
         pendingPickFilesRequestId = savedInstanceState?.getString(STATE_PENDING_PICK_REQUEST_ID)
+        pendingPickFilesMode = savedInstanceState?.getString(STATE_PENDING_PICK_MODE)
 
         bridge.onPickFiles = { mode, requestId ->
             runOnUiThread {
                 try {
                     pendingPickFilesRequestId = requestId
+                    pendingPickFilesMode = mode
                     when (mode) {
-                        "folder" -> folderPickerLauncher.launch(null)
+                        "folder", "folder+images" -> folderPickerLauncher.launch(null)
                         else -> multiFileLauncher.launch(arrayOf("*/*"))
                     }
                     bridge.deliverPickStatus(requestId, "opened")
                 } catch (t: Throwable) {
                     Log.e(TAG, "Native file picker launch failed", t)
                     pendingPickFilesRequestId = null
+                    pendingPickFilesMode = null
                     bridge.deliverPickError(requestId, "picker-launch-failed")
                 }
             }
@@ -369,6 +377,7 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         pendingPickFilesRequestId?.let { outState.putString(STATE_PENDING_PICK_REQUEST_ID, it) }
+        pendingPickFilesMode?.let { outState.putString(STATE_PENDING_PICK_MODE, it) }
     }
 
     override fun onDestroy() {
@@ -688,6 +697,7 @@ class MainActivity : ComponentActivity() {
         // SAF picker result launchers can survive Activity recreation; the reloaded WebView may
         // have no matching JS listener, but the JS-side timeout bounds any surviving wait.
         private const val STATE_PENDING_PICK_REQUEST_ID = "bds_pending_pick_request_id"
+        private const val STATE_PENDING_PICK_MODE = "bds_pending_pick_mode"
 
         // Default WebView background colours used in the inset-padding area behind transparent
         // system bars. Approximates DeepSeek's own page backgrounds so the status/nav bar region

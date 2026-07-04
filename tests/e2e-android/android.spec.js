@@ -142,6 +142,38 @@ test("Upload File on Android uses native picker bridge and injects markdown", as
   expect(await page.evaluate(() => window.__mockDeepSeek.uploadInputClickedDirectly)).toBe(false);
 });
 
+test("Upload File on Android requests images in Vision mode", async ({ page }) => {
+  await page.evaluate(() => {
+    const switcher = document.createElement("div");
+    switcher.setAttribute("role", "radiogroup");
+    switcher.innerHTML = `
+      <div role="radio" data-model-type="instant" aria-checked="false">Instant</div>
+      <div role="radio" data-model-type="vision" aria-checked="true">Vision</div>
+    `;
+    document.body.appendChild(switcher);
+    window.__bdsNativeFilePicker = (mode) => {
+      window.__mockDeepSeek.nativeVisionUploadFileMode = mode;
+      return {
+        files: [{ name: "photo.png", content: "AQID", encoding: "base64", mime: "image/png" }],
+      };
+    };
+  });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+
+  await page.locator(".bds-plus-btn").click({ force: true });
+  await page
+    .locator(".bds-attach-dropdown .bds-attach-item")
+    .filter({ hasText: "Upload File" })
+    .click({ force: true });
+
+  await expect
+    .poll(() => page.evaluate(() => window.__mockDeepSeek.nativeVisionUploadFileMode))
+    .toBe("files+images");
+  await expect
+    .poll(() => page.evaluate(() => window.__mockDeepSeek.getAttachedFiles()))
+    .toContain("photo.png");
+});
+
 test("Upload Folder on Android uses native picker bridge and injects workspace", async ({ page }) => {
   await page.evaluate(() => {
     window.__bdsNativeFilePicker = (mode) => {

@@ -145,6 +145,7 @@ export function detectModelType() {
       const checked = switcher.querySelector('[aria-checked="true"]');
       if (checked) {
         const dt = checked.getAttribute("data-model-type");
+        if (dt === "vision") return "vision";
         if (dt === "expert") return "expert";
         if (dt === "deepthink") return "deepthink";
         return "instant";
@@ -156,6 +157,7 @@ export function detectModelType() {
     const el = document.querySelector(badgeSel);
     if (el) {
       const text = (el.textContent || "").toLowerCase().trim();
+      if (text.includes("vision")) return "vision";
       if (text === "expert" || text === "deepseek-reasoner") return "expert";
       if (text === "instant" || text === "deepseek-chat") return "instant";
       if (

@@ -15,6 +15,7 @@
     isNativeFilePickerAvailable,
     nativePickFiles,
     PICK_ERRORS,
+    pickedEntryToFile,
   } from "../../platform/android-file-picker.js";
   import {
     getFilesForProject,
@@ -115,7 +116,7 @@
   function updateVisibility() {
     try {
       const enabled = getFlag("features.attachMenu.enabled");
-      const modelKey = currentModelType === "expert" ? "expertMode" : currentModelType === "instant" ? "instantMode" : "deepthinkMode";
+      const modelKey = currentModelType === "vision" ? "visionMode" : currentModelType === "expert" ? "expertMode" : currentModelType === "instant" ? "instantMode" : "deepthinkMode";
       shouldShowAttach = !!(enabled && getFlag(`features.attachMenu.${modelKey}.show`));
       const show = shouldShowAttach;
       shouldShowPlus = show && !!getFlag(`features.attachMenu.${modelKey}.showPlus`);
@@ -525,28 +526,39 @@
     return message || t(fallbackKey);
   }
 
+  function showNativePickSkips(skipped, attachedCount, emptyKey) {
+    if (!appState.ui) return;
+    if (skipped.some((item) => item.reason === "image-requires-vision")) {
+      appState.ui.showToast(t("attachMenu.imagesRequireVision"));
+      return;
+    }
+    if (attachedCount > 0 && skipped.length > 0) {
+      appState.ui.showToast(t("attachMenu.someFilesSkipped", {
+        skipped: skipped.length,
+        total: skipped.length + attachedCount,
+      }));
+      return;
+    }
+    if (attachedCount === 0) {
+      appState.ui.showToast(t(emptyKey));
+    }
+  }
+
   async function handleUploadFile() {
     closeMenu();
     if (isAndroidTarget && isNativeFilePickerAvailable()) {
       try {
-        const result = await nativePickFiles("files");
+        const wantImages = currentModelType === "vision";
+        const result = await nativePickFiles(wantImages ? "files+images" : "files");
         if (result.cancelled) return;
         const files = result.files || [];
         const skipped = result.skipped || [];
         if (files.length > 0) {
           for (const file of files) {
-            const blob = new Blob([file.content], { type: "text/plain" });
-            injectFile(new File([blob], file.name, { type: "text/plain" }));
+            injectFile(pickedEntryToFile(file));
           }
-          if (skipped.length > 0 && appState.ui) {
-            appState.ui.showToast(t("attachMenu.someFilesSkipped", {
-              skipped: skipped.length,
-              total: skipped.length + files.length,
-            }));
-          }
-        } else if (appState.ui) {
-          appState.ui.showToast(t("attachMenu.noFilesPicked"));
         }
+        showNativePickSkips(skipped, files.length, "attachMenu.noFilesPicked");
       } catch (err) {
         if (appState.ui) {
           appState.ui.showToast(pickErrorMessage(err, "attachMenu.filePickFailed"));
@@ -569,25 +581,23 @@
     if (isAndroidTarget) {
       if (isNativeFilePickerAvailable()) {
         try {
-          const result = await nativePickFiles("folder");
+          const wantImages = currentModelType === "vision";
+          const result = await nativePickFiles(wantImages ? "folder+images" : "folder");
           if (result.cancelled) return;
           const files = result.files || [];
           const skipped = result.skipped || [];
+          const images = files.filter((file) => file.encoding === "base64");
           if (files.length > 0) {
             const fakeFile = buildFolderFileFromNative(
               files,
               result.folderName,
             );
             if (fakeFile) injectFile(fakeFile);
-            if (skipped.length > 0 && appState.ui) {
-              appState.ui.showToast(t("attachMenu.someFilesSkipped", {
-                skipped: skipped.length,
-                total: skipped.length + files.length,
-              }));
+            for (const image of images) {
+              injectFile(pickedEntryToFile(image));
             }
-          } else if (appState.ui) {
-            appState.ui.showToast(t("attachMenu.folderNoTextFiles"));
           }
+          showNativePickSkips(skipped, files.length, "attachMenu.folderNoTextFiles");
         } catch (err) {
           if (appState.ui) {
             appState.ui.showToast(pickErrorMessage(err, "attachMenu.folderPickFailed"));
@@ -602,9 +612,20 @@
     if (!nativeInput) return;
 
     try {
-      const fakeFile = await pickFolderAndConcatenate();
-      if (fakeFile) {
-        injectFile(fakeFile);
+      const result = await pickFolderAndConcatenate({
+        includeImages: currentModelType === "vision",
+      });
+      if (result?.workspaceFile) {
+        injectFile(result.workspaceFile);
+      }
+      for (const imageFile of result?.imageFiles || []) {
+        injectFile(imageFile);
+      }
+      if (result?.skippedImages > 0 && appState.ui) {
+        appState.ui.showToast(t("attachMenu.someFilesSkipped", {
+          skipped: result.skippedImages,
+          total: result.skippedImages + (result.imageFiles?.length || 0),
+        }));
       }
     } catch (err) {
       if (err?.name === "AbortError") {

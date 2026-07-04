@@ -350,6 +350,7 @@
       "someFilesSkipped": "Seçilen {{total}} dosyadan {{skipped}} tanesi eklenemedi (desteklenmiyor, çok büyük veya ikili).",
       "folderNoTextFiles": "Seçilen klasörde desteklenen metin dosyası bulunamadı.",
       "pickTimeout": "Dosya seçici sonuç döndürmedi. Lütfen tekrar deneyin.",
+      "imagesRequireVision": "Görseller yalnızca Vision modunda eklenebilir.",
       "buttonTitle": "Gelişmiş Yükleme",
       "attachProject": "Projeyi Bağla",
       "voicePrompt": "Sesli Komut",
