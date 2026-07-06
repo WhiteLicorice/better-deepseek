@@ -35,9 +35,24 @@ class AndroidLinkRoutingTest {
 
     @Test
     fun `Google OAuth hosts stay inside the WebView`() {
+        assertFalse(shouldOpenExternally(Uri.parse("https://google.com/")))
+        assertFalse(shouldOpenExternally(Uri.parse("https://www.google.com/gsi/select")))
+        assertFalse(shouldOpenExternally(Uri.parse("https://myaccount.google.com/")))
         assertFalse(shouldOpenExternally(Uri.parse("https://accounts.google.com/o/oauth2/v2/auth")))
         assertFalse(shouldOpenExternally(Uri.parse("https://login.accounts.google.com/path")))
         assertFalse(shouldOpenExternally(Uri.parse("https://accounts.youtube.com/accounts/SetSID")))
+        assertFalse(shouldOpenExternally(Uri.parse("https://lh3.googleusercontent.com/a/x")))
+        assertTrue(shouldOpenExternally(Uri.parse("https://www.googleapis.com/oauth2/v3/certs")))
+        assertTrue(shouldOpenExternally(Uri.parse("https://oauthaccountmanager.googleapis.com/")))
+    }
+
+    @Test
+    fun `isGoogleAuthHost matches identity hosts only`() {
+        assertTrue(isGoogleAuthHost("accounts.google.com"))
+        assertTrue(isGoogleAuthHost("www.google.com"))
+        assertTrue(isGoogleAuthHost("lh3.googleusercontent.com"))
+        assertFalse(isGoogleAuthHost("www.googleapis.com"))
+        assertFalse(isGoogleAuthHost("github.com"))
     }
 
     @Test
@@ -54,6 +69,8 @@ class AndroidLinkRoutingTest {
     @Test
     fun `popup capture follows internal routing allowlist`() {
         assertTrue(shouldCapturePopupInApp(Uri.parse("https://accounts.google.com/o/oauth2/v2/auth")))
+        assertTrue(shouldCapturePopupInApp(Uri.parse("https://www.google.com/gsi/select")))
+        assertTrue(shouldCapturePopupInApp(Uri.parse("https://lh3.googleusercontent.com/a/x")))
         assertTrue(shouldCapturePopupInApp(Uri.parse("https://chat.deepseek.com/sign_in")))
         assertTrue(
                 shouldCapturePopupInApp(

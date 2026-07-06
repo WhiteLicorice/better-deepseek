@@ -89,6 +89,22 @@ class WebViewNavigationTest {
     }
 
     @Test
+    fun `intermediate Google OAuth host stays in WebView`() {
+        for (url in listOf(
+                "https://www.google.com/gsi/select",
+                "https://accounts.google.com/signin/oauth/consent",
+        )) {
+            val request = mock<WebResourceRequest> {
+                on { this.url } doReturn Uri.parse(url)
+                on { isForMainFrame } doReturn true
+            }
+
+            val result = webView.webViewClient.shouldOverrideUrlLoading(webView, request)
+            assertFalse("Google OAuth hop must stay inside WebView: $url", result)
+        }
+    }
+
+    @Test
     fun `Google OAuth requests are not intercepted`() {
         val request = mock<WebResourceRequest> {
             on { url } doReturn Uri.parse("https://accounts.google.com/o/oauth2/v2/auth")

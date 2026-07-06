@@ -53,15 +53,18 @@ internal fun shouldOpenExternally(url: Uri, assetHost: String = "bds-asset.local
     if (host == assetHost.lowercase()) return false
     if (host == "deepseek.com" || host.endsWith(".deepseek.com")) return false
     if (host == "hcaptcha.com" || host.endsWith(".hcaptcha.com")) return false
-    if (
-            host == "accounts.google.com" ||
-                    host.endsWith(".accounts.google.com") ||
-                    host == "accounts.youtube.com"
-    ) {
-        return false
-    }
+    if (isGoogleAuthHost(host)) return false
 
     return true
+}
+
+internal fun isGoogleAuthHost(host: String): Boolean {
+    val h = host.lowercase()
+    return h == "google.com" ||
+            h.endsWith(".google.com") ||
+            h == "accounts.youtube.com" ||
+            h == "googleusercontent.com" ||
+            h.endsWith(".googleusercontent.com")
 }
 
 internal fun shouldCapturePopupInApp(url: Uri, assetHost: String = "bds-asset.local"): Boolean {
@@ -80,13 +83,34 @@ internal fun parseChromeMajorVersion(ua: String): String? {
     return CHROME_VERSION_REGEX.find(ua)?.groupValues?.get(1)?.substringBefore('.')
 }
 
+internal fun parseAndroidPlatformVersion(ua: String): String? {
+    return Regex("""Android\s+(\d+(?:\.\d+)*)""").find(ua)?.groupValues?.get(1)
+}
+
+internal fun parseDeviceModel(ua: String): String? {
+    val inner =
+            Regex("""Android\s+[\d.]+;\s*([^;)]+)""")
+                    .find(ua)
+                    ?.groupValues
+                    ?.get(1)
+                    ?.trim()
+                    ?: return null
+    return inner.substringBefore(" Build/").trim().ifBlank { null }
+}
+
 internal fun buildUserAgentMetadata(derivedUa: String): UserAgentMetadata {
-    val chromeVersion = CHROME_VERSION_REGEX.find(derivedUa)?.groupValues?.get(1)
     val builder = UserAgentMetadata.Builder().setPlatform("Android").setMobile(true)
+    val chromeVersion = CHROME_VERSION_REGEX.find(derivedUa)?.groupValues?.get(1)
     if (chromeVersion != null) {
         val majorVersion = chromeVersion.substringBefore('.')
         val brandVersions =
                 listOf(
+                        // GREASE brand; real Chrome includes a placeholder brand.
+                        UserAgentMetadata.BrandVersion.Builder()
+                                .setBrand("Not/A)Brand")
+                                .setMajorVersion("8")
+                                .setFullVersion("8.0.0.0")
+                                .build(),
                         UserAgentMetadata.BrandVersion.Builder()
                                 .setBrand("Chromium")
                                 .setMajorVersion(majorVersion)
@@ -100,6 +124,10 @@ internal fun buildUserAgentMetadata(derivedUa: String): UserAgentMetadata {
                 )
         builder.setFullVersion(chromeVersion).setBrandVersionList(brandVersions)
     }
+    // Mobile Chrome sends empty architecture and default bitness; platformVersion and model match the UA.
+    builder.setArchitecture("").setBitness(UserAgentMetadata.BITNESS_DEFAULT)
+    parseAndroidPlatformVersion(derivedUa)?.let { builder.setPlatformVersion(it) }
+    parseDeviceModel(derivedUa)?.let { builder.setModel(it) }
     return builder.build()
 }
 
@@ -546,15 +574,6 @@ class MainActivity : ComponentActivity() {
                         isUserGesture: Boolean,
                         resultMsg: android.os.Message?
                 ): Boolean {
-                    val targetUrl = view?.hitTestResult?.extra
-                    if (!targetUrl.isNullOrBlank()) {
-                        val uri = Uri.parse(targetUrl)
-                        if (!shouldCapturePopupInApp(uri, getString(R.string.bds_asset_authority))) {
-                            openExternalUrl(uri)
-                            return false
-                        }
-                    }
-
                     val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
                     val popup =
                             WebView(this@MainActivity).apply {
