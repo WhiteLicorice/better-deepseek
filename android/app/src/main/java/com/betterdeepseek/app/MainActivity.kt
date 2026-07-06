@@ -64,6 +64,10 @@ internal fun shouldOpenExternally(url: Uri, assetHost: String = "bds-asset.local
     return true
 }
 
+internal fun shouldCapturePopupInApp(url: Uri, assetHost: String = "bds-asset.local"): Boolean {
+    return !shouldOpenExternally(url, assetHost)
+}
+
 internal fun deriveWebViewUserAgent(defaultUserAgent: String): String {
     return defaultUserAgent
             .replace(Regex(""";\s*wv(?=\))"""), "")
@@ -169,9 +173,14 @@ private val CHROME_VERSION_REGEX = Regex("""\bChrome/(\d+(?:\.\d+)*)""")
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
+    private lateinit var rootLayout: FrameLayout
     private lateinit var assetLoader: WebViewAssetLoader
     private lateinit var bridge: WebViewBridge
     private lateinit var cookieManager: CookieManager
+    private lateinit var derivedUserAgent: String
+
+    private var popupContainer: FrameLayout? = null
+    private var popupWebView: WebView? = null
 
     private var pendingFileChooser: ValueCallback<Array<Uri>>? = null
     private val fileChooserLauncher: ActivityResultLauncher<Intent> =
@@ -285,7 +294,7 @@ class MainActivity : ComponentActivity() {
         // DeepSeek's persisted theme drives colours; system dark mode is only the first-launch
         // fallback (before any reportTheme call has been persisted to prefs).
         val isPageDark = bridge.getLastKnownIsDark(default = isSystemDark)
-        val derivedUserAgent =
+        derivedUserAgent =
                 deriveWebViewUserAgent(WebSettings.getDefaultUserAgent(this@MainActivity))
 
         webView =
@@ -295,17 +304,7 @@ class MainActivity : ComponentActivity() {
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                     ViewGroup.LayoutParams.MATCH_PARENT
                             )
-                    settings.apply {
-                        javaScriptEnabled = true
-                        domStorageEnabled = true
-                        databaseEnabled = true
-                        useWideViewPort = true
-                        loadWithOverviewMode = true
-                        mediaPlaybackRequiresUserGesture = false
-                        mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-                        cacheMode = WebSettings.LOAD_DEFAULT
-                        userAgentString = derivedUserAgent
-                    }
+                    applyBdsWebSettings(this, derivedUserAgent)
                     addJavascriptInterface(bridge, BRIDGE_NAME)
                     webViewClient = bdsWebViewClient()
                     webChromeClient = bdsWebChromeClient()
@@ -314,14 +313,12 @@ class MainActivity : ComponentActivity() {
                     setBackgroundColor(if (isPageDark) PAGE_BG_DARK else PAGE_BG_LIGHT)
                 }
 
-        configureWebViewCookiePolicy(webView)
-        configureWebViewFingerprint(webView, derivedUserAgent)
         applySystemLocaleCookie()
 
         // FrameLayout wrapper receives system-bar padding and expands its bottom inset for IME.
         // WebView.setPadding() does not shift the viewport reliably, so the wrapper is the
         // inset target. Its background fills the padding band behind the system bars.
-        val rootLayout = FrameLayout(this).apply {
+        rootLayout = FrameLayout(this).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -359,7 +356,10 @@ class MainActivity : ComponentActivity() {
                 this,
                 object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
-                        if (webView.canGoBack()) {
+                        val popup = popupWebView
+                        if (popup != null) {
+                            closePopup(popup)
+                        } else if (webView.canGoBack()) {
                             webView.goBack()
                         } else {
                             moveTaskToBack(true)
@@ -367,6 +367,25 @@ class MainActivity : ComponentActivity() {
                     }
                 }
         )
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun applyBdsWebSettings(webView: WebView, derivedUa: String) {
+        webView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            databaseEnabled = true
+            useWideViewPort = true
+            loadWithOverviewMode = true
+            mediaPlaybackRequiresUserGesture = false
+            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            cacheMode = WebSettings.LOAD_DEFAULT
+            userAgentString = derivedUa
+            setSupportMultipleWindows(true)
+            javaScriptCanOpenWindowsAutomatically = true
+        }
+        configureWebViewCookiePolicy(webView)
+        configureWebViewFingerprint(webView, derivedUa)
     }
 
     private fun configureWebViewCookiePolicy(webView: WebView) {
@@ -425,6 +444,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        popupWebView?.let { closePopup(it) }
         bridge.onThemeChanged = null
         bridge.evaluateJs = null
         bridge.onPickFiles = null
@@ -517,8 +537,8 @@ class MainActivity : ComponentActivity() {
                 }
 
                 /**
-                 * Supply a stub WebView when JS calls window.open() so the caller never receives
-                 * null. Visible popup targets still go through the same external-link routing.
+                 * Capture OAuth popups in-app so window.opener/postMessage flows stay attached to
+                 * the main WebView session.
                  */
                 override fun onCreateWindow(
                         view: WebView?,
@@ -529,19 +549,92 @@ class MainActivity : ComponentActivity() {
                     val targetUrl = view?.hitTestResult?.extra
                     if (!targetUrl.isNullOrBlank()) {
                         val uri = Uri.parse(targetUrl)
-                        if (shouldOpenExternally(uri, getString(R.string.bds_asset_authority))) {
+                        if (!shouldCapturePopupInApp(uri, getString(R.string.bds_asset_authority))) {
                             openExternalUrl(uri)
                             return false
                         }
                     }
 
-                    val transport = resultMsg?.obj as? WebView.WebViewTransport
-                    val stub = WebView(this@MainActivity)
-                    transport?.webView = stub
-                    resultMsg?.sendToTarget()
+                    val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
+                    val popup =
+                            WebView(this@MainActivity).apply {
+                                applyBdsWebSettings(this, derivedUserAgent)
+                                webViewClient = popupWebViewClient(this)
+                                webChromeClient = popupWebChromeClient(this)
+                                setBackgroundColor(Color.WHITE)
+                            }
+                    attachPopup(popup)
+                    transport.webView = popup
+                    resultMsg.sendToTarget()
                     return true
                 }
             }
+
+    private fun popupWebViewClient(popup: WebView) =
+            object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(
+                        view: WebView,
+                        request: WebResourceRequest
+                ): Boolean {
+                    val url = request.url ?: return false
+                    if (!request.isForMainFrame) return false
+                    if (!shouldOpenExternally(url, getString(R.string.bds_asset_authority))) {
+                        return false
+                    }
+                    openExternalUrl(url)
+                    closePopup(popup)
+                    return true
+                }
+            }
+
+    private fun popupWebChromeClient(popup: WebView) =
+            object : WebChromeClient() {
+                override fun onCloseWindow(window: WebView?) {
+                    closePopup(popup)
+                }
+
+                override fun onCreateWindow(
+                        view: WebView?,
+                        isDialog: Boolean,
+                        isUserGesture: Boolean,
+                        resultMsg: android.os.Message?
+                ): Boolean {
+                    return false
+                }
+            }
+
+    private fun attachPopup(popup: WebView) {
+        popupWebView?.let { closePopup(it) }
+        val container =
+                FrameLayout(this).apply {
+                    layoutParams =
+                            FrameLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                            )
+                    addView(
+                            popup,
+                            FrameLayout.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                            ),
+                    )
+                }
+        popupContainer = container
+        popupWebView = popup
+        rootLayout.addView(container)
+    }
+
+    private fun closePopup(popup: WebView) {
+        if (popupWebView !== popup) return
+        popupWebView = null
+        popupContainer?.let { container ->
+            container.removeView(popup)
+            rootLayout.removeView(container)
+        }
+        popupContainer = null
+        popup.destroy()
+    }
 
     // External URL handling
 

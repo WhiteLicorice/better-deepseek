@@ -52,6 +52,18 @@ class AndroidLinkRoutingTest {
     }
 
     @Test
+    fun `popup capture follows internal routing allowlist`() {
+        assertTrue(shouldCapturePopupInApp(Uri.parse("https://accounts.google.com/o/oauth2/v2/auth")))
+        assertTrue(shouldCapturePopupInApp(Uri.parse("https://chat.deepseek.com/sign_in")))
+        assertTrue(
+                shouldCapturePopupInApp(
+                        Uri.parse("https://newassets.hcaptcha.com/captcha/v1/hcaptcha.html")
+                )
+        )
+        assertFalse(shouldCapturePopupInApp(Uri.parse("https://github.com/EdgeTypE/better-deepseek")))
+    }
+
+    @Test
     fun `non-http schemes are not routed as browser links`() {
         assertFalse(shouldOpenExternally(Uri.parse("mailto:hello@example.com")))
         assertFalse(shouldOpenExternally(Uri.parse("javascript:alert(1)")))
