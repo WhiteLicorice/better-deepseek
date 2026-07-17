@@ -138,4 +138,69 @@ describe("host wrapper", () => {
     expect(msg.nextElementSibling).toBe(w1);
     expect(msg2.nextElementSibling).toBe(w2);
   });
+
+  it("detach removes wrapper from DOM but preserves it off-DOM", () => {
+    const host = getOrCreateHost(msg, "bds-overlay-host");
+    const wrapper = getOrCreateWrapper(msg);
+    expect(document.contains(wrapper)).toBe(true);
+
+    // Detach message — wrapper (sibling) stays in DOM until getOrCreateWrapper runs
+    msg.remove();
+    expect(document.contains(msg)).toBe(false);
+
+    // getOrCreateWrapper detects detached message, removes wrapper from DOM
+    const refound = getOrCreateWrapper(msg);
+    expect(refound).toBe(wrapper);
+    expect(document.contains(wrapper)).toBe(false);
+    // Wrapper still tracked for message off-DOM
+  });
+
+  it("reconnect reinserts same wrapper adjacent to message", () => {
+    const host = getOrCreateHost(msg, "bds-overlay-host");
+    const wrapper = getOrCreateWrapper(msg);
+
+    msg.remove();
+    // Call getOrCreateWrapper to trigger wrapper detachment from DOM
+    getOrCreateWrapper(msg);
+    expect(document.contains(wrapper)).toBe(false);
+
+    // Reconnect to a different parent
+    const newParent = document.createElement("div");
+    document.body.appendChild(newParent);
+    newParent.appendChild(msg);
+
+    const refound = getOrCreateWrapper(msg);
+    expect(refound).toBe(wrapper);
+    expect(document.contains(wrapper)).toBe(true);
+    expect(wrapper.parentElement).toBe(newParent);
+    expect(msg.nextElementSibling).toBe(wrapper);
+  });
+
+  it("feature host removal works on detached wrapper", () => {
+    const host = getOrCreateHost(msg, "bds-overlay-host");
+    const wrapper = getOrCreateWrapper(msg);
+
+    msg.remove();
+    // Trigger wrapper detachment from DOM
+    getOrCreateWrapper(msg);
+    expect(document.contains(wrapper)).toBe(false);
+
+    // Should still be able to remove a feature host from detached wrapper
+    removeMessageHost(msg, "bds-overlay-host");
+    expect(wrapper.querySelector(".bds-overlay-host")).toBeNull();
+    // Only feature host was removed, wrapper still detached (childless → removed)
+    expect(document.contains(wrapper)).toBe(false);
+  });
+
+  it("permanent disposal clears ownership from both maps", () => {
+    getOrCreateHost(msg, "bds-overlay-host");
+    const wrapper = getOrCreateWrapper(msg);
+
+    removeAllMessageHosts(msg);
+
+    expect(document.contains(wrapper)).toBe(false);
+    // Fresh call creates a new wrapper
+    const fresh = getOrCreateWrapper(msg);
+    expect(fresh).not.toBe(wrapper);
+  });
 });

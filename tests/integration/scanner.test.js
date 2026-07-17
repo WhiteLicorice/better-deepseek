@@ -520,18 +520,17 @@ describe("scanner scheduling", () => {
 
     vi.advanceTimersByTime(200);
 
-    // Should process only the target + transition nodes (latest assistant, absolute last),
-    // not all 50. In a list of 50 messages alternating user/assistant:
-    // - target: messages[10] (user at idx 10)
-    // - latestAssistant: messages[49] (assistant at idx 49)
-    // - absoluteLast: messages[49] (idx 49)
-    // Max 3 nodes expected.
-    const callCount = processMessageNodeMock.mock.calls.length;
-    expect(callCount).toBeLessThanOrEqual(3);
-    expect(callCount).toBeGreaterThanOrEqual(1);
-    // The target node must be among the processed nodes
-    const processedNodes = processMessageNodeMock.mock.calls.map(c => c[0]);
-    expect(processedNodes).toContain(messages[10]);
+    // Exactly: dirty target messages[10] + transition node messages[49]
+    // (latestAssistant === absoluteLast at idx 49). No previous transition
+    // state exists. Total: exactly 2 unique nodes.
+    const calls = processMessageNodeMock.mock.calls;
+    const processedIds = new Set(calls.map(c => c[0]));
+    expect(processedIds.size).toBe(2);
+    expect(processedIds.has(messages[10])).toBe(true);
+    expect(processedIds.has(messages[49])).toBe(true);
+    // Each processed exactly once
+    expect(calls.filter(c => c[0] === messages[10])).toHaveLength(1);
+    expect(calls.filter(c => c[0] === messages[49])).toHaveLength(1);
   });
 
   it("observer-driven append processes only new message plus transitions among 2000", async () => {
@@ -558,12 +557,23 @@ describe("scanner scheduling", () => {
 
     vi.advanceTimersByTime(200);
 
-    // Should process only the new message + transition nodes, never all 2000
-    const callCount = processMessageNodeMock.mock.calls.length;
-    expect(callCount).toBeLessThanOrEqual(3);
-    expect(callCount).toBeGreaterThanOrEqual(1);
-    const processedNodes = processMessageNodeMock.mock.calls.map(c => c[0]);
-    expect(processedNodes).toContain(newMsg);
+    // Previous full scan set latestAssistant=absoluteLast at msg index 1999.
+    // New assistant at index 2000 becomes new latestAssistant + absoluteLast.
+    // Dirty: newMsg (idx 2000). Previous transition: messages[1999] (still in DOM).
+    // Current transition: newMsg itself (idx 2000). Total: exactly 2 unique nodes.
+    const calls = processMessageNodeMock.mock.calls;
+    const processedIds = new Set(calls.map(c => c[0]));
+    // 2 unique nodes: the new message + the previous transition node
+    expect(processedIds.size).toBeGreaterThanOrEqual(1);
+    expect(processedIds.size).toBeLessThanOrEqual(3);
+    expect(processedIds.has(newMsg)).toBe(true);
+    expect(calls.filter(c => c[0] === newMsg)).toHaveLength(1);
+    // No unrelated historical message processed
+    for (const call of calls) {
+      // call[0] is the node, call[1] is the index
+      // The index should be near the end (1999 or 2000), not 0..1998
+      expect(call[1]).toBeGreaterThanOrEqual(1998);
+    }
   });
 
   it("scheduleMessageScan ignores null", async () => {

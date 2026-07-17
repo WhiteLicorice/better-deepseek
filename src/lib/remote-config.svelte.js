@@ -1,4 +1,5 @@
 import { DEFAULT_REMOTE_CONFIG, STORAGE_KEYS } from "./constants.js";
+import { deepEqual } from "./deep-equal.js";
 
 const EVENT_CONFIG_UPDATED = "bds:remote-config-updated";
 
@@ -92,7 +93,7 @@ class RemoteConfigManager {
     const prevRaw = this.raw;
     this.#remote = normalized;
     const nextRaw = this.raw;
-    if (!this.#isStructurallyEqual(prevRaw, nextRaw)) {
+    if (!deepEqual(prevRaw, nextRaw)) {
       this.#notify();
     }
   }
@@ -101,7 +102,7 @@ class RemoteConfigManager {
     const normalized = normalizeRoot(partial);
     const prevRemote = structuredClone(this.#remote);
     deepMerge(this.#remote, normalized);
-    if (!this.#isStructurallyEqual(prevRemote, this.#remote)) {
+    if (!deepEqual(prevRemote, this.#remote)) {
       this.#persist();
       this.#notify();
     }
@@ -109,7 +110,7 @@ class RemoteConfigManager {
 
   replaceRemote(full) {
     const next = normalizeRoot(full);
-    if (!this.#isStructurallyEqual(this.#remote, next)) {
+    if (!deepEqual(this.#remote, next)) {
       this.#remote = next;
       this.#persist();
       this.#notify();
@@ -117,7 +118,7 @@ class RemoteConfigManager {
   }
 
   resetToBuiltin() {
-    const hadOverrides = !this.#isStructurallyEqual(this.#remote, {});
+    const hadOverrides = !deepEqual(this.#remote, {});
     this.#remote = {};
     // Always clear persisted config + metadata, even when in-memory override
     // is already empty — storage hygiene is unconditional.
@@ -131,42 +132,6 @@ class RemoteConfigManager {
   onChange(callback) {
     this.#callbacks.add(callback);
     return () => this.#callbacks.delete(callback);
-  }
-
-  /**
-   * Structural equality: arrays compare ordered, objects compare by key
-   * (key order ignored), primitives with SameValueZero. Used to suppress
-   * no-op persist + notify cycles.
-   */
-  #isStructurallyEqual(a, b) {
-    if (a === b) return true;
-    if (a == null || b == null) return a === b;
-    if (typeof a !== typeof b) return false;
-
-    if (Array.isArray(a) && Array.isArray(b)) {
-      if (a.length !== b.length) return false;
-      for (let i = 0; i < a.length; i++) {
-        if (!this.#isStructurallyEqual(a[i], b[i])) return false;
-      }
-      return true;
-    }
-
-    if (Array.isArray(a) || Array.isArray(b)) return false;
-
-    if (typeof a === "object") {
-      const keysA = Object.keys(a).sort();
-      const keysB = Object.keys(b).sort();
-      if (keysA.length !== keysB.length) return false;
-      for (let i = 0; i < keysA.length; i++) {
-        if (keysA[i] !== keysB[i]) return false;
-      }
-      for (const key of keysA) {
-        if (!this.#isStructurallyEqual(a[key], b[key])) return false;
-      }
-      return true;
-    }
-
-    return false;
   }
 
   #persist() {

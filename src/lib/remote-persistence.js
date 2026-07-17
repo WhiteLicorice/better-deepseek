@@ -2,9 +2,11 @@
  * Remote-data persistence helpers.
  *
  * Pure functions for fetching remote config, status, and locales with
- * structural no-op checks before writing to storage. Extracted from the
- * background service worker so tests can inject fetch, storage, and time
- * without importing the side-effectful entrypoint.
+ * structural no-op checks before writing to storage. Each function:
+ *   - Fetches all relevant stored keys in one `storage.get`.
+ *   - Computes one combined update object containing only changed keys.
+ *   - Calls `storage.set()` at most once.
+ *   - Returns `{ success, writtenKeys, error }`.
  */
 
 import { deepEqual } from "./deep-equal.js";
@@ -18,105 +20,129 @@ export const REMOTE_STATUS_URL =
 export const LOCALE_BASE_URL =
   "https://raw.githubusercontent.com/EdgeTypE/better-deepseek/main/src/locales";
 
+const STORAGE_KEY_CONFIG = "bds_remote_config";
+const STORAGE_KEY_CONFIG_META = "bds_remote_config_meta";
+const STORAGE_KEY_ANNOUNCEMENT = "bds_remote_announcement";
+const STORAGE_KEY_LOCALES = "bds_locale_updates";
+const STORAGE_KEY_LOCALE_CHECKED = "bds_locale_update_last_checked";
+
 /**
- * Build a storage-update object containing only changed keys.
+ * Build one object containing every key whose value changed.
  * Returns null when nothing changed.
  */
-function buildStorageUpdate(storedData, newValues) {
+function computeDiff(stored, incoming) {
   /** @type {Record<string, any>} */
-  const updates = {};
+  const diff = {};
   let hasChanges = false;
-
-  for (const [key, newValue] of Object.entries(newValues)) {
-    const oldValue = storedData[key];
-    if (!deepEqual(oldValue, newValue)) {
-      updates[key] = newValue;
+  for (const [key, value] of Object.entries(incoming)) {
+    if (!deepEqual(stored[key], value)) {
+      diff[key] = value;
       hasChanges = true;
     }
   }
-
-  return hasChanges ? updates : null;
+  return hasChanges ? diff : null;
 }
 
 /**
- * Fetch and persist remote config.
- *
+ * @typedef {{ success: boolean, writtenKeys: string[], error?: string }} PersistResult
+ */
+
+// ── Remote config ──
+
+/**
  * @param {{ fetch: typeof fetch, storage: { get: Function, set: Function } }} deps
- * @param {{ now: number }}
- * @returns {Promise<{ written: boolean }>}
+ * @param {{ now?: number }} [opts]
+ * @returns {Promise<PersistResult>}
  */
 export async function persistRemoteConfig(deps, { now } = { now: Date.now() }) {
   try {
     const response = await deps.fetch(`${REMOTE_CONFIG_URL}?t=${now}`, {
       cache: "no-store",
     });
-    if (!response.ok) return { written: false };
+    if (!response.ok) {
+      return { success: false, writtenKeys: [], error: `HTTP ${response.status}` };
+    }
 
     const config = await response.json();
     // Accept only non-array plain objects as remote-config roots.
     if (!config || typeof config !== "object" || Array.isArray(config)) {
-      return { written: false };
+      return { success: false, writtenKeys: [], error: "Invalid config root" };
     }
 
-    const { bds_remote_config: currentConfig } = await deps.storage.get("bds_remote_config");
-    const configUpdate = buildStorageUpdate(
-      { bds_remote_config: currentConfig },
-      { bds_remote_config: config },
-    );
-    if (configUpdate) {
-      await deps.storage.set(configUpdate);
-    }
-
+    // Fetch both stored keys in one call
+    const stored = await deps.storage.get([
+      STORAGE_KEY_CONFIG,
+      STORAGE_KEY_CONFIG_META,
+    ]);
     const meta = { lastFetched: now, version: config.meta?.version || 0 };
-    const { bds_remote_config_meta: currentMeta } =
-      await deps.storage.get("bds_remote_config_meta");
-    const metaUpdate = buildStorageUpdate(
-      { bds_remote_config_meta: currentMeta },
-      { bds_remote_config_meta: meta },
-    );
-    if (metaUpdate) {
-      await deps.storage.set(metaUpdate);
+
+    // Build one combined diff: config + metadata together → one set() call
+    const diff = computeDiff(stored, {
+      [STORAGE_KEY_CONFIG]: config,
+      [STORAGE_KEY_CONFIG_META]: meta,
+    });
+
+    if (diff) {
+      await deps.storage.set(diff);
+      return { success: true, writtenKeys: Object.keys(diff) };
     }
 
-    return { written: !!configUpdate };
-  } catch {
-    return { written: false };
+    return { success: true, writtenKeys: [] };
+  } catch (err) {
+    return { success: false, writtenKeys: [], error: err?.message || "Unknown error" };
   }
 }
 
+// ── Remote status / announcements ──
+
 /**
- * Fetch and persist remote status / announcements.
+ * @param {{ fetch: typeof fetch, storage: { get: Function, set: Function } }} deps
+ * @param {{ now?: number }} [opts]
+ * @returns {Promise<PersistResult>}
  */
 export async function persistRemoteStatus(deps, { now } = { now: Date.now() }) {
   try {
     const response = await deps.fetch(`${REMOTE_STATUS_URL}?t=${now}`, {
       cache: "no-store",
     });
-    if (!response.ok) return { written: false };
-
-    let data = await response.json();
-    if (!data) return { written: false };
-
-    const announcements = Array.isArray(data) ? data : [data];
-    const { bds_remote_announcement: stored } =
-      await deps.storage.get("bds_remote_announcement");
-
-    const update = buildStorageUpdate(
-      { bds_remote_announcement: stored },
-      { bds_remote_announcement: announcements },
-    );
-    if (update) {
-      await deps.storage.set(update);
+    if (!response.ok) {
+      return { success: false, writtenKeys: [], error: `HTTP ${response.status}` };
     }
 
-    return { written: !!update };
-  } catch {
-    return { written: false };
+    let data = await response.json();
+    if (!data) {
+      return { success: false, writtenKeys: [], error: "Empty status payload" };
+    }
+
+    const announcements = Array.isArray(data) ? data : [data];
+    const stored = await deps.storage.get(STORAGE_KEY_ANNOUNCEMENT);
+
+    const diff = computeDiff(stored, {
+      [STORAGE_KEY_ANNOUNCEMENT]: announcements,
+    });
+
+    if (diff) {
+      await deps.storage.set(diff);
+      return { success: true, writtenKeys: Object.keys(diff) };
+    }
+
+    return { success: true, writtenKeys: [] };
+  } catch (err) {
+    return { success: false, writtenKeys: [], error: err?.message || "Unknown error" };
   }
 }
 
+// ── Locales ──
+
 /**
- * Fetch and persist locale data for the given locale codes.
+ * Fetch and persist locale data. Preserves the last stored value for any
+ * locale code whose fetch or validation failed, so a transient failure does
+ * not erase previously loaded translations.
+ *
+ * @param {{ fetch: typeof fetch, storage: { get: Function, set: Function } }} deps
+ * @param {string[]} localeCodes
+ * @param {{ now?: number }} [opts]
+ * @returns {Promise<PersistResult>}
  */
 export async function persistLocales(deps, localeCodes, { now } = { now: Date.now() }) {
   try {
@@ -125,42 +151,47 @@ export async function persistLocales(deps, localeCodes, { now } = { now: Date.no
         deps
           .fetch(`${LOCALE_BASE_URL}/${code}.json?t=${now}`, { cache: "no-store" })
           .then((r) => (r.ok ? r.json() : null))
-          .then((data) => (data?.messages ? { [code]: data } : null)),
+          .then((data) => (data?.messages ? { code, data } : null)),
       ),
     );
 
-    const updates = {};
+    // Collect successfully fetched locales
+    /** @type {Record<string, any>} */
+    const fetched = {};
     for (const result of results) {
       if (result.status === "fulfilled" && result.value) {
-        Object.assign(updates, result.value);
+        fetched[result.value.code] = result.value.data;
       }
     }
-    if (Object.keys(updates).length === 0) {
-      return { success: false, error: "No valid locale files fetched" };
+
+    if (Object.keys(fetched).length === 0) {
+      return { success: false, writtenKeys: [], error: "No valid locale files fetched" };
     }
 
-    const { bds_locale_updates: stored } = await deps.storage.get("bds_locale_updates");
-    const localeUpdate = buildStorageUpdate(
-      { bds_locale_updates: stored },
-      { bds_locale_updates: updates },
-    );
-    if (localeUpdate) {
-      await deps.storage.set(localeUpdate);
-    }
+    // Read existing stored locales so we can merge (preserve failed codes)
+    const stored = await deps.storage.get([
+      STORAGE_KEY_LOCALES,
+      STORAGE_KEY_LOCALE_CHECKED,
+    ]);
+    const storedLocales = stored[STORAGE_KEY_LOCALES] || {};
+
+    // Merge: start from stored, overwrite with freshly fetched successes.
+    // Codes that failed to fetch keep their previous value.
+    const merged = { ...storedLocales, ...fetched };
 
     const lastChecked = new Date(now).toLocaleDateString();
-    const { bds_locale_update_last_checked: storedLastChecked } =
-      await deps.storage.get("bds_locale_update_last_checked");
-    const metaUpdate = buildStorageUpdate(
-      { bds_locale_update_last_checked: storedLastChecked },
-      { bds_locale_update_last_checked: lastChecked },
-    );
-    if (metaUpdate) {
-      await deps.storage.set(metaUpdate);
+
+    const diff = computeDiff(stored, {
+      [STORAGE_KEY_LOCALES]: merged,
+      [STORAGE_KEY_LOCALE_CHECKED]: lastChecked,
+    });
+
+    if (diff) {
+      await deps.storage.set(diff);
     }
 
-    return { success: true };
-  } catch (e) {
-    return { success: false, error: e?.message };
+    return { success: true, writtenKeys: diff ? Object.keys(diff) : [] };
+  } catch (err) {
+    return { success: false, writtenKeys: [], error: err?.message || "Unknown error" };
   }
 }

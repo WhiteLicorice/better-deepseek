@@ -60,20 +60,24 @@ function scheduleNotification(changes) {
         // Check generation before each batch
         if (gen !== flushGeneration) return;
         const batch = notificationQueue.shift();
-        await notifyListeners(batch);
+        await notifyListeners(batch, gen);
       }
       flushPromise = null;
     });
   }
 }
 
-async function notifyListeners(changes) {
+async function notifyListeners(changes, generation) {
   const changeKeys = Object.keys(changes);
   if (changeKeys.length === 0) return;
 
   // Deep-clone for each listener independently so no listener can mutate
   // another listener's view or the internal state.
   for (const listener of listeners) {
+    // Recheck generation before each async yield — reset may have occurred
+    // while we were awaiting the previous listener.
+    if (generation !== flushGeneration) return;
+
     const cloned = {};
     for (const key of changeKeys) {
       cloned[key] = {
@@ -83,6 +87,9 @@ async function notifyListeners(changes) {
     }
     // Fire asynchronously to match real chrome.storage behavior
     await Promise.resolve();
+
+    // Recheck after the yield — a reset during await must not deliver
+    if (generation !== flushGeneration) return;
     listener(cloned, "local");
   }
 }
@@ -205,10 +212,12 @@ export function setChromeStorage(data) {
  * Call this instead of arbitrary waits in tests.
  */
 export async function flushStorageChanges() {
-  if (flushPromise) {
+  // Wait for the current generation's flush to complete,
+  // then yield once more so any chained microtasks settle.
+  const gen = flushGeneration;
+  while (flushPromise && gen === flushGeneration) {
     await flushPromise;
   }
-  // Ensure any remaining microtasks complete
   await Promise.resolve();
 }
 

@@ -29,14 +29,26 @@ function adoptWrapper(wrapper, node) {
 export function getOrCreateWrapper(node) {
   let wrapper = hostWrappers.get(node);
 
-  // Validate: wrapper must still be in the document, and its owner must
-  // still point to this message (prevents adoption by a different message).
-  if (wrapper && document.contains(wrapper) && wrapperOwner.get(wrapper) === node) {
-    // Ensure adjacency — if reparented, move wrapper with the message
-    if (wrapper.previousElementSibling !== node) {
-      node.insertAdjacentElement("afterend", wrapper);
+  // Cached wrapper exists — handle based on connection state
+  if (wrapper && wrapperOwner.get(wrapper) === node) {
+    if (document.contains(node)) {
+      // Message is connected — ensure wrapper is adjacent in DOM
+      if (!document.contains(wrapper) || wrapper.previousElementSibling !== node) {
+        node.insertAdjacentElement("afterend", wrapper);
+      }
+      return wrapper;
+    }
+    // Message detached — remove wrapper from live DOM but preserve it off-DOM
+    if (document.contains(wrapper)) {
+      wrapper.remove();
     }
     return wrapper;
+  }
+
+  // Cached wrapper owned by another message or missing — drop stale reference
+  if (wrapper) {
+    hostWrappers.delete(node);
+    wrapper = null;
   }
 
   // Search existing siblings for a pre-existing but unowned wrapper
@@ -55,14 +67,9 @@ export function getOrCreateWrapper(node) {
   if (!wrapper) {
     wrapper = document.createElement("div");
     wrapper.className = "bds-host-wrapper";
-    node.insertAdjacentElement("afterend", wrapper);
-  } else {
-    // Reinsert adjacency if needed
-    if (wrapper.previousElementSibling !== node) {
-      node.insertAdjacentElement("afterend", wrapper);
-    }
   }
 
+  node.insertAdjacentElement("afterend", wrapper);
   adoptWrapper(wrapper, node);
   return wrapper;
 }
@@ -90,12 +97,13 @@ export function getOrCreateHost(node, hostClass) {
  */
 export function removeMessageHost(node, hostClass) {
   const wrapper = hostWrappers.get(node);
-  if (!wrapper || !document.contains(wrapper)) return;
+  if (!wrapper) return;
   const host = wrapper.querySelector(`.${hostClass}`);
   if (host) host.remove();
   if (wrapper.childElementCount === 0) {
     wrapper.remove();
     hostWrappers.delete(node);
+    wrapperOwner.delete(wrapper);
   }
 }
 
@@ -108,5 +116,6 @@ export function removeAllMessageHosts(node) {
   if (wrapper) {
     wrapper.remove();
     hostWrappers.delete(node);
+    wrapperOwner.delete(wrapper);
   }
 }

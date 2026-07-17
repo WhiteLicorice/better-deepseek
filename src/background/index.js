@@ -450,9 +450,13 @@ const storageAdapter = {
   set: (values) => chrome.storage.local.set(values),
 };
 
-// Run once on startup
-persistRemoteStatus({ fetch, storage: storageAdapter });
-persistRemoteConfig({ fetch, storage: storageAdapter });
+// Run once on startup — log failures but don't reject
+persistRemoteStatus({ fetch, storage: storageAdapter }).then((r) => {
+  if (!r.success) console.warn("[BDS] Startup status fetch failed:", r.error);
+});
+persistRemoteConfig({ fetch, storage: storageAdapter }).then((r) => {
+  if (!r.success) console.warn("[BDS] Startup config fetch failed:", r.error);
+});
 
 const localeMods = import.meta.glob("../locales/*.json", { eager: true });
 const localeCodes = Object.keys(localeMods)

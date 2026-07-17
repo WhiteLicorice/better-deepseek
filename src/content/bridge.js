@@ -21,50 +21,56 @@ function getCurrentConversationIdForBudget() {
   return match ? match[1] : null;
 }
 
-let _bridgeEventsInstalled = false;
+let _bridgeCleanup = null;
 
 /**
  * Set up listeners for bridge events from the injected script.
- * Idempotent — subsequent calls are no-ops.
+ * Idempotent — subsequent calls return the same cleanup handle.
+ * Returns a cleanup function that removes all registered listeners
+ * and permits a later fresh setup via another `setupBridgeEvents()` call.
+ *
+ * @returns {() => void}
  */
 export function setupBridgeEvents() {
-  if (_bridgeEventsInstalled) return;
-  _bridgeEventsInstalled = true;
+  if (_bridgeCleanup) return _bridgeCleanup;
 
-  window.addEventListener(BRIDGE_EVENTS.requestConfig, () => {
+  const handlers = {};
+
+  handlers[BRIDGE_EVENTS.requestConfig] = () => {
     pushConfigToPage();
-  });
+  };
+  window.addEventListener(BRIDGE_EVENTS.requestConfig, handlers[BRIDGE_EVENTS.requestConfig]);
 
-  window.addEventListener(BRIDGE_EVENTS.networkState, (event) => {
+  handlers[BRIDGE_EVENTS.networkState] = (event) => {
     let detail = event && event.detail ? event.detail : {};
-    // Handle stringified detail (Firefox Xray Vision fix)
     if (typeof detail === "string") {
-      try {
-        detail = JSON.parse(detail);
-      } catch (e) {
+      try { detail = JSON.parse(detail); } catch (e) {
         console.error("[BDS] Failed to parse networkState detail:", e);
       }
     }
     handleNetworkState(detail);
-  });
+  };
+  window.addEventListener(BRIDGE_EVENTS.networkState, handlers[BRIDGE_EVENTS.networkState]);
 
-  window.addEventListener("bds:session-data", (event) => {
+  handlers["bds:session-data"] = (event) => {
     let data = event.detail;
     if (typeof data === "string") {
       try { data = JSON.parse(data); } catch (e) { return; }
     }
     handleSessionData(data);
-  });
+  };
+  window.addEventListener("bds:session-data", handlers["bds:session-data"]);
 
-  window.addEventListener("bds:history-msgs", (event) => {
+  handlers["bds:history-msgs"] = (event) => {
     let data = event.detail;
     if (typeof data === "string") {
       try { data = JSON.parse(data); } catch (e) { return; }
     }
     handleHistoryMessages(data);
-  });
+  };
+  window.addEventListener("bds:history-msgs", handlers["bds:history-msgs"]);
 
-  window.addEventListener("bds:token-usage", (event) => {
+  handlers["bds:token-usage"] = (event) => {
     let data = event.detail;
     if (typeof data === "string") {
       try { data = JSON.parse(data); } catch (e) { return; }
@@ -72,8 +78,6 @@ export function setupBridgeEvents() {
     if (data && data.modelName) {
       state.pricing.modelName = data.modelName;
     }
-    // Feed server-reported usage into the context budget tracker for the
-    // active Deep Research conversation (if any guard is enabled).
     if (data && state.settings.deepResearchContextGuardEnabled) {
       const conversationId = getCurrentConversationIdForBudget();
       if (conversationId) {
@@ -85,9 +89,10 @@ export function setupBridgeEvents() {
         });
       }
     }
-  });
+  };
+  window.addEventListener("bds:token-usage", handlers["bds:token-usage"]);
 
-  window.addEventListener("bds:mutation-applied", (event) => {
+  handlers["bds:mutation-applied"] = (event) => {
     let data = event.detail;
     if (typeof data === "string") {
       try { data = JSON.parse(data); } catch (e) { return; }
@@ -105,18 +110,27 @@ export function setupBridgeEvents() {
         });
       }
     }
-  });
+  };
+  window.addEventListener("bds:mutation-applied", handlers["bds:mutation-applied"]);
 
-  window.addEventListener("bds:network-error", (event) => {
+  handlers["bds:network-error"] = (event) => {
     let detail = event.detail;
     if (typeof detail === "string") {
       try { detail = JSON.parse(detail); } catch (e) { return; }
     }
     console.warn("[BDS] Network error detected:", detail);
-
-    // Trigger immediate status check
     import("./status-monitor.js").then(m => m.fetchServerStatus());
-  });
+  };
+  window.addEventListener("bds:network-error", handlers["bds:network-error"]);
+
+  _bridgeCleanup = () => {
+    for (const [event, handler] of Object.entries(handlers)) {
+      window.removeEventListener(event, handler);
+    }
+    _bridgeCleanup = null;
+  };
+
+  return _bridgeCleanup;
 }
 
 /**
