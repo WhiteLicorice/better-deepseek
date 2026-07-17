@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 
 const bridgeMocks = vi.hoisted(() => ({
   pushConfigToPage: vi.fn(),
@@ -168,5 +168,116 @@ describe("storage integration", () => {
     expect(normalizeCharacters([{ content: "", active: "yes" }, { name: "A", content: "B" }])).toHaveLength(1);
     expect(normalizeProjects([{ id: "p1", name: "P" }, null])).toHaveLength(1);
     expect(normalizeProjectFiles([{ id: "f1", projectId: "p1", content: "body" }, {}])).toHaveLength(1);
+  });
+});
+
+describe("storage loop prevention", () => {
+  beforeEach(() => {
+    resetAppState();
+    bridgeMocks.pushConfigToPage.mockReset();
+    bridgeMocks.setMaxChatSessions.mockReset();
+    messageTextMocks.setHtmlToMarkdownMaxDepth.mockReset();
+  });
+
+  afterEach(() => {
+    state.ui = null;
+  });
+
+  it("remote-config storage event writes zero times to storage (no re-entrant loop)", () => {
+    bindStorageChangeListener();
+
+    const setCallsBefore = chrome.storage.local.set.mock.calls.length;
+    emitStorageChange({
+      [STORAGE_KEYS.remoteConfig]: { newValue: { features: { attachMenu: { enabled: false } } } },
+    });
+
+    // syncFromStorage must never call set — zero new writes
+    expect(chrome.storage.local.set.mock.calls.length).toBe(setCallsBefore);
+  });
+
+  it("remote-config storage removal restores builtins without storage write", () => {
+    // Seed remote so removal has an effect
+    import("../../src/lib/remote-config.svelte.js").then(m => {
+      m.remoteConfig.syncFromStorage({ features: { attachMenu: { enabled: false } } });
+    });
+
+    bindStorageChangeListener();
+    const setCallsBefore = chrome.storage.local.set.mock.calls.length;
+
+    emitStorageChange({
+      [STORAGE_KEYS.remoteConfig]: { newValue: undefined },
+    });
+
+    expect(chrome.storage.local.set.mock.calls.length).toBe(setCallsBefore);
+  });
+
+  it("re-entrant same-value event terminates without second write", () => {
+    bindStorageChangeListener();
+
+    // First event — sets remote with new data
+    emitStorageChange({
+      [STORAGE_KEYS.remoteConfig]: { newValue: { features: { test: true } } },
+    });
+
+    const setCallsAfterFirst = chrome.storage.local.set.mock.calls.length;
+
+    // Second event — same value. Must NOT cause another write.
+    emitStorageChange({
+      [STORAGE_KEYS.remoteConfig]: { newValue: { features: { test: true } } },
+    });
+
+    expect(chrome.storage.local.set.mock.calls.length).toBe(setCallsAfterFirst);
+  });
+
+  it("remote-config storage removal restores builtins and emits zero writes", () => {
+    bindStorageChangeListener();
+
+    const setCallsBefore = chrome.storage.local.set.mock.calls.length;
+
+    emitStorageChange({
+      [STORAGE_KEYS.remoteConfig]: { newValue: undefined },
+    });
+
+    // Removal must not write to storage
+    expect(chrome.storage.local.set.mock.calls.length).toBe(setCallsBefore);
+  });
+
+  it("relevant storage keys push page config once; irrelevant keys push zero times", () => {
+    bindStorageChangeListener();
+
+    // settings = relevant → should push
+    bridgeMocks.pushConfigToPage.mockClear();
+    emitStorageChange({
+      [STORAGE_KEYS.settings]: { newValue: { preferredLang: "FR" } },
+    });
+    expect(bridgeMocks.pushConfigToPage).toHaveBeenCalledOnce();
+
+    // skills = relevant
+    bridgeMocks.pushConfigToPage.mockClear();
+    emitStorageChange({
+      [STORAGE_KEYS.skills]: { newValue: [{ name: "S", content: "X" }] },
+    });
+    expect(bridgeMocks.pushConfigToPage).toHaveBeenCalledOnce();
+
+    // savedItems = irrelevant (not injected into page config)
+    bridgeMocks.pushConfigToPage.mockClear();
+    emitStorageChange({
+      [STORAGE_KEYS.savedItems]: { newValue: [{ id: "x", content: "y" }] },
+    });
+    expect(bridgeMocks.pushConfigToPage).not.toHaveBeenCalled();
+
+    // chatTags = irrelevant
+    bridgeMocks.pushConfigToPage.mockClear();
+    emitStorageChange({
+      [STORAGE_KEYS.chatTags]: { newValue: { s1: ["tag1"] } },
+    });
+    expect(bridgeMocks.pushConfigToPage).not.toHaveBeenCalled();
+
+    // remoteConfig = irrelevant (has dedicated notification path)
+    bridgeMocks.pushConfigToPage.mockClear();
+    emitStorageChange({
+      [STORAGE_KEYS.remoteConfig]: { newValue: { features: { test: true } } },
+    });
+    expect(bridgeMocks.pushConfigToPage).not.toHaveBeenCalled();
   });
 });

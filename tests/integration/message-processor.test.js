@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   isLatestAssistantMessage: vi.fn((node) => node.dataset.latest === "1"),
   isAbsoluteLastMessage: vi.fn((node) => node.dataset.absoluteLast === "1"),
   scheduleScan: vi.fn(),
+  scheduleMessageScan: vi.fn(),
   collectMessageNodes: vi.fn(() => []),
   extractMessageRawText: vi.fn((node) => node.dataset.rawText || ""),
   injectPythonRunButtons: vi.fn(),
@@ -43,6 +44,7 @@ vi.mock("../../src/content/scanner.js", () => ({
   isLatestAssistantMessage: mocks.isLatestAssistantMessage,
   isAbsoluteLastMessage: mocks.isAbsoluteLastMessage,
   scheduleScan: mocks.scheduleScan,
+  scheduleMessageScan: mocks.scheduleMessageScan,
   collectMessageNodes: mocks.collectMessageNodes,
 }));
 vi.mock("../../src/content/dom/message-text.js", async () => {

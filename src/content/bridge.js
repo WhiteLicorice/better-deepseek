@@ -166,6 +166,11 @@ function handleHistoryMessages(data) {
   const sessionId = bizData.chat_session?.id;
   if (!sessionId) return;
 
+  // Ignore history responses whose session ID no longer matches current URL
+  const match = String(location.href || "").match(/\/chat\/s\/([^/?#]+)/);
+  const currentSessionId = match ? match[1] : null;
+  if (currentSessionId && sessionId !== currentSessionId) return;
+
   const incomingMessages = bizData.chat_messages;
   if (!Array.isArray(incomingMessages) || incomingMessages.length === 0) return;
 
@@ -193,8 +198,11 @@ function handleHistoryMessages(data) {
     }));
   }
 
-  // Trigger page rescan to inject precise timestamps from API
-  scheduleScan();
+  // Trigger page rescan to inject precise timestamps from API — only when
+  // timestamp rendering is enabled, since that is the primary consumer.
+  if (state.settings.showTimestamps) {
+    scheduleScan();
+  }
 }
 
 /**

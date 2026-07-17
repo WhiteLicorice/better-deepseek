@@ -9,6 +9,7 @@ import {
   isLatestAssistantMessage,
   isAbsoluteLastMessage,
   scheduleScan,
+  scheduleMessageScan,
   collectMessageNodes
 } from "./scanner.js";
 import { extractMessageRawText } from "./dom/message-text.js";
@@ -40,6 +41,53 @@ const userMsgCleaned = new WeakSet();
 const readMessages = new WeakSet();
 const processedSearchResultCards = new WeakSet();
 
+/**
+ * Dispose a single message node: clear its timers, unmount its Svelte
+ * component, remove its registry entry, and clean up orphaned overlay hosts.
+ */
+export function disposeMessageNode(node) {
+  const stateData = nodeStates.get(node);
+  if (stateData) {
+    if (stateData.autoTimer) { clearTimeout(stateData.autoTimer); stateData.autoTimer = null; }
+    if (stateData.stallTimer) { clearTimeout(stateData.stallTimer); stateData.stallTimer = null; }
+    if (stateData.deepResearchTimer) { clearTimeout(stateData.deepResearchTimer); stateData.deepResearchTimer = null; }
+  }
+
+  const entry = messageOverlays.get(node);
+  if (entry) {
+    if (entry.component) {
+      try { unmount(entry.component); } catch (e) { /* already unmounted */ }
+    }
+    messageOverlays.delete(node);
+
+    // Remove orphaned overlay host/wrapper
+    if (entry.host) {
+      const wrapper = entry.host.closest?.(".bds-host-wrapper");
+      if (wrapper && !wrapper.querySelector(".bds-overlay-host, .bds-file-host, .bds-download-card")) {
+        wrapper.remove();
+      } else if (entry.host.parentNode) {
+        entry.host.remove();
+      }
+    }
+  }
+
+  readMessages.delete(node);
+  userMsgCleaned.delete(node);
+  processedSearchResultCards.delete(node);
+}
+
+/**
+ * Dispose overlays whose message nodes are no longer in the document.
+ * Safe to call during URL transitions — only removes truly detached nodes.
+ */
+export function disposeDetachedMessageOverlays() {
+  for (const [node] of messageOverlays) {
+    if (!document.contains(node)) {
+      disposeMessageNode(node);
+    }
+  }
+}
+
 function normalizeSearchKeyPart(value) {
   return String(value || "").replace(/\s+/g, " ").trim();
 }
@@ -65,8 +113,13 @@ function getNodeState(node) {
 
 /**
  * Process a single message node — the main per-node logic.
+ *
+ * @param {Element} node
+ * @param {number} [nodeIndex=-1]
+ * @param {Element[]|null} [nodes=null]
+ * @param {{latestAssistantNode?: Element|null, absoluteLastNode?: Element|null}} [context]
  */
-export function processMessageNode(node, nodeIndex = -1, nodes = null) {
+export function processMessageNode(node, nodeIndex = -1, nodes = null, context = null) {
   if (!node || node.closest("#bds-root")) {
     return;
   }
@@ -122,7 +175,7 @@ export function processMessageNode(node, nodeIndex = -1, nodes = null) {
           removeStaleMessageOverlays(host);
           const props = $state({ text: "", blocks: newBlocks, loading: false });
           const component = mount(MessageOverlay, { target: host, props });
-          messageOverlays.set(node, { component, props });
+          messageOverlays.set(node, { component, props, host });
         }
         syncVisibilityState(node, false, stateData, true);
       }
@@ -165,7 +218,7 @@ export function processMessageNode(node, nodeIndex = -1, nodes = null) {
             removeStaleMessageOverlays(host);
             const props = $state({ text: "", blocks: newBlocks, loading: false });
             const component = mount(MessageOverlay, { target: host, props });
-            messageOverlays.set(node, { component, props });
+            messageOverlays.set(node, { component, props, host });
           }
           syncVisibilityState(node, false, stateData, true);
         }
@@ -205,7 +258,9 @@ export function processMessageNode(node, nodeIndex = -1, nodes = null) {
     return;
   }
 
-  const isLatestAssistant = role === "assistant" && isLatestAssistantMessage(node);
+  const isLatestAssistant = role === "assistant" && (
+    context ? context.latestAssistantNode === node : isLatestAssistantMessage(node)
+  );
 
   const now = Date.now();
   if (stateData.lastRawText !== rawText) {
@@ -328,7 +383,7 @@ export function processMessageNode(node, nodeIndex = -1, nodes = null) {
     } else if (!stateData.autoTimer) {
       stateData.autoTimer = setTimeout(() => {
         stateData.autoTimer = null;
-        scheduleScan();
+        scheduleMessageScan(node);
       }, 3000);
     }
   }
@@ -337,7 +392,7 @@ export function processMessageNode(node, nodeIndex = -1, nodes = null) {
   if (!isStalled && parsed.isStreamingTool) {
     if (stateData.stallTimer) clearTimeout(stateData.stallTimer);
     stateData.stallTimer = setTimeout(() => {
-      scheduleScan();
+      scheduleMessageScan(node);
     }, 2600);
   }
 
@@ -354,7 +409,7 @@ export function processMessageNode(node, nodeIndex = -1, nodes = null) {
     } else if (!stateData.deepResearchTimer) {
       stateData.deepResearchTimer = setTimeout(() => {
         stateData.deepResearchTimer = null;
-        scheduleScan();
+        scheduleMessageScan(node);
       }, 3000);
     }
   }
@@ -482,7 +537,8 @@ export function processMessageNode(node, nodeIndex = -1, nodes = null) {
       }
     }
 
-    if (!state.activeQuestions && !isSystemGenerating() && parsed.askQuestions.length > 0 && isLatestAssistantMessage(node) && isAbsoluteLastMessage(node)) {
+    const isAbsLast = context ? context.absoluteLastNode === node : isAbsoluteLastMessage(node);
+    if (!state.activeQuestions && !isSystemGenerating() && parsed.askQuestions.length > 0 && isLatestAssistant && isAbsLast) {
       state.activeQuestions = parsed.askQuestions;
       window.dispatchEvent(new CustomEvent('bds-ask-questions', { 
         detail: { 

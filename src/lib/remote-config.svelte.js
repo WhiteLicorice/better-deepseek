@@ -72,27 +72,89 @@ class RemoteConfigManager {
     return resolvePath(this.raw, path.split("."));
   }
 
+  /**
+   * Accept an externally-sourced remote config value (from a storage change
+   * event). Replaces the internal #remote copy, notifies consumers only when
+   * the merged result actually differs, and NEVER writes back to storage.
+   *
+   * This is the ownership boundary: local/debug mutations own persistence;
+   * external syncs are read-only consumers.
+   */
+  syncFromStorage(value) {
+    const normalized = value && typeof value === "object" ? value : {};
+    const prevRaw = this.raw;
+    this.#remote = normalized;
+    const nextRaw = this.raw;
+    if (!this.#isStructurallyEqual(prevRaw, nextRaw)) {
+      this.#notify();
+    }
+  }
+
   applyRemote(partial) {
+    const prevRemote = structuredClone(this.#remote);
     deepMerge(this.#remote, partial);
-    this.#persist();
-    this.#notify();
+    if (!this.#isStructurallyEqual(prevRemote, this.#remote)) {
+      this.#persist();
+      this.#notify();
+    }
   }
 
   replaceRemote(full) {
-    this.#remote = full && typeof full === "object" ? full : {};
-    this.#persist();
-    this.#notify();
+    const next = full && typeof full === "object" ? full : {};
+    if (!this.#isStructurallyEqual(this.#remote, next)) {
+      this.#remote = next;
+      this.#persist();
+      this.#notify();
+    }
   }
 
   resetToBuiltin() {
-    this.#remote = {};
-    this.#clearStorage();
-    this.#notify();
+    if (!this.#isStructurallyEqual(this.#remote, {})) {
+      this.#remote = {};
+      this.#clearStorage();
+      this.#notify();
+    }
   }
 
   onChange(callback) {
     this.#callbacks.add(callback);
     return () => this.#callbacks.delete(callback);
+  }
+
+  /**
+   * Structural equality: arrays compare ordered, objects compare by key
+   * (key order ignored), primitives with SameValueZero. Used to suppress
+   * no-op persist + notify cycles.
+   */
+  #isStructurallyEqual(a, b) {
+    if (a === b) return true;
+    if (a == null || b == null) return a === b;
+    if (typeof a !== typeof b) return false;
+
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (!this.#isStructurallyEqual(a[i], b[i])) return false;
+      }
+      return true;
+    }
+
+    if (Array.isArray(a) || Array.isArray(b)) return false;
+
+    if (typeof a === "object") {
+      const keysA = Object.keys(a).sort();
+      const keysB = Object.keys(b).sort();
+      if (keysA.length !== keysB.length) return false;
+      for (let i = 0; i < keysA.length; i++) {
+        if (keysA[i] !== keysB[i]) return false;
+      }
+      for (const key of keysA) {
+        if (!this.#isStructurallyEqual(a[key], b[key])) return false;
+      }
+      return true;
+    }
+
+    return false;
   }
 
   #persist() {

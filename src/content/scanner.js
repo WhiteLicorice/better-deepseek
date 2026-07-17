@@ -5,7 +5,7 @@
 import state, { withObserverPaused } from "./state.js";
 import { LONG_WORK_STALE_MS } from "../lib/constants.js";
 import { devLog } from "../lib/dev-log.js";
-import { processMessageNode } from "./message-processor.svelte.js";
+import { processMessageNode, disposeMessageNode, disposeDetachedMessageOverlays } from "./message-processor.svelte.js";
 import { mount, unmount } from "svelte";
 import AttachMenu from "./ui/AttachMenu.svelte";
 import ExpandToggle from "./ui/ExpandToggle.svelte";
@@ -19,6 +19,12 @@ import { tryExecuteRawInput } from "./commands/executor.js";
 import { checkPendingHandoff } from "./commands/context-handoff.js";
 import Autocomplete from "./commands/Autocomplete.svelte";
 import CommandsHelp from "./commands/CommandsHelp.svelte";
+
+// ── Incremental scan state ──
+const dirtyNodes = new Set();
+let pendingFullScan = false;
+let previousLatestAssistant = null;
+let previousAbsoluteLast = null;
 
 /**
  * Collect all message nodes from the chat DOM.
@@ -102,7 +108,18 @@ export function isLatestAssistantMessage(node) {
 }
 
 /**
+ * Find the closest message ancestor for a given DOM node.
+ * Returns null if the node is not inside a message.
+ */
+function closestMessageNode(target) {
+  if (!target || target === document.body || target === document.documentElement) return null;
+  const msg = target.closest?.("div.ds-message");
+  return msg && !msg.closest("#bds-root") ? msg : null;
+}
+
+/**
  * Set up a MutationObserver on the document body.
+ * Collects dirty message nodes for incremental processing.
  */
 export function observeChatDom() {
   if (state.observer || !document.body) {
@@ -110,12 +127,59 @@ export function observeChatDom() {
   }
 
   state.observer = new MutationObserver((records) => {
+    let hasNonMessageMutation = false;
+
     for (const r of records) {
-      if (r.addedNodes.length || r.removedNodes.length) {
-        scheduleScan();
-        return;
+      // Check removed nodes for messages needing disposal
+      for (const removed of r.removedNodes) {
+        if (removed.nodeType !== Node.ELEMENT_NODE) continue;
+        // Collect removed message subtrees
+        const removedMessages = removed.classList?.contains("ds-message")
+          ? [removed]
+          : Array.from(removed.querySelectorAll?.("div.ds-message") || []);
+        for (const rm of removedMessages) {
+          if (!rm.closest?.("#bds-root")) {
+            dirtyNodes.add(rm);
+          }
+        }
+      }
+
+      // Check added nodes for new/modified messages
+      for (const added of r.addedNodes) {
+        if (added.nodeType !== Node.ELEMENT_NODE) continue;
+
+        if (added.classList?.contains("ds-message")) {
+          if (!added.closest?.("#bds-root")) {
+            dirtyNodes.add(added);
+          }
+          continue;
+        }
+
+        // Check descendant messages
+        const descendantMessages = added.querySelectorAll?.("div.ds-message");
+        if (descendantMessages?.length) {
+          for (const dm of descendantMessages) {
+            if (!dm.closest?.("#bds-root")) {
+              dirtyNodes.add(dm);
+            }
+          }
+        }
+      }
+
+      // For mutations without explicit message nodes (e.g. text changes),
+      // find the closest message ancestor
+      const target = r.target;
+      if (target && target !== document.body) {
+        const msg = closestMessageNode(target);
+        if (msg) {
+          dirtyNodes.add(msg);
+        } else if (!target.closest?.("#bds-root")) {
+          hasNonMessageMutation = true;
+        }
       }
     }
+
+    scheduleScan();
   });
 
   state.observer.observe(document.body, {
@@ -125,10 +189,28 @@ export function observeChatDom() {
 }
 
 /**
+ * Schedule targeted reprocessing of a single message node.
+ * Coalesced under the same debounce timer as full scans.
+ */
+export function scheduleMessageScan(node) {
+  if (node && !node.closest?.("#bds-root")) {
+    dirtyNodes.add(node);
+  }
+  scheduleScan();
+}
+
+/**
  * Debounced page scan scheduler. Trailing-edge: coalesces bursts into one
  * scan ~140ms after the LAST mutation.
+ *
+ * When called with pendingFullScan=true (default), targeted work is
+ * discarded in favor of a full scan.
  */
-export function scheduleScan() {
+export function scheduleScan(fullScan = true) {
+  if (fullScan) {
+    pendingFullScan = true;
+  }
+
   if (state.scanTimer) {
     clearTimeout(state.scanTimer);
   }
@@ -140,7 +222,7 @@ export function scheduleScan() {
 }
 
 /**
- * Full page scan — process all message nodes.
+ * Full page scan — process all or only dirty message nodes.
  */
 function scanPage() {
   withObserverPaused(() => {
@@ -156,16 +238,77 @@ function scanPage() {
       }
     }
 
-    const nodes = collectMessageNodes();
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      try {
-        processMessageNode(node, i, nodes);
-      } catch (err) {
-        console.error("[BDS] Error processing message node:", err, node);
+    const doFullScan = pendingFullScan;
+    pendingFullScan = false;
+
+    if (doFullScan) {
+      // Full scan: process all messages with shared context.
+      // First, dispose removed message overlays.
+      disposeDetachedMessageOverlays();
+      dirtyNodes.clear();
+      const nodes = collectMessageNodes();
+      const latestAssistant = findLatestAssistantMessageNode();
+      const absoluteLast = nodes[nodes.length - 1] || null;
+
+      for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        try {
+          processMessageNode(node, i, nodes, {
+            latestAssistantNode: latestAssistant,
+            absoluteLastNode: absoluteLast,
+          });
+        } catch (err) {
+          console.error("[BDS] Error processing message node:", err, node);
+        }
       }
+
+      previousLatestAssistant = latestAssistant;
+      previousAbsoluteLast = absoluteLast;
+    } else if (dirtyNodes.size > 0) {
+      // Incremental: process only dirty and state-transition nodes
+      const nodes = collectMessageNodes();
+      const nodeSet = new Set(nodes);
+      const latestAssistant = findLatestAssistantMessageNode();
+      const absoluteLast = nodes[nodes.length - 1] || null;
+
+      // Dispose dirty nodes that are no longer in the document (moved/removed)
+      for (const dn of dirtyNodes) {
+        if (!document.contains(dn)) {
+          disposeMessageNode(dn);
+        }
+      }
+
+      // Build process set: dirty nodes + previous/current transition nodes
+      const toProcess = new Set(dirtyNodes);
+      if (previousLatestAssistant && nodeSet.has(previousLatestAssistant)) {
+        toProcess.add(previousLatestAssistant);
+      }
+      if (previousAbsoluteLast && nodeSet.has(previousAbsoluteLast)) {
+        toProcess.add(previousAbsoluteLast);
+      }
+      if (latestAssistant) toProcess.add(latestAssistant);
+      if (absoluteLast) toProcess.add(absoluteLast);
+
+      dirtyNodes.clear();
+
+      for (let i = 0; i < nodes.length; i++) {
+        const node = nodes[i];
+        if (!toProcess.has(node)) continue;
+        try {
+          processMessageNode(node, i, nodes, {
+            latestAssistantNode: latestAssistant,
+            absoluteLastNode: absoluteLast,
+          });
+        } catch (err) {
+          console.error("[BDS] Error processing message node:", err, node);
+        }
+      }
+
+      previousLatestAssistant = latestAssistant;
+      previousAbsoluteLast = absoluteLast;
     }
 
+    // Page-wide enhancers always run (composer, sidebar, logo, etc.)
     linkifyLogo();
     linkifyNewChatButton();
     injectSearchInput();
@@ -173,6 +316,16 @@ function scanPage() {
     hideTagsInSidebar();
     hideTagsInHeader();
   });
+}
+
+/**
+ * Reset incremental state when conversation DOM is replaced (URL change).
+ */
+export function resetIncrementalState() {
+  dirtyNodes.clear();
+  pendingFullScan = false;
+  previousLatestAssistant = null;
+  previousAbsoluteLast = null;
 }
 
 /**
@@ -701,6 +854,7 @@ export function startUrlWatcher() {
     }
     const oldUrl = state.lastUrl;
     state.lastUrl = location.href;
+    resetIncrementalState();
     window.dispatchEvent(new CustomEvent("bds:urlChanged"));
 
     const isNewSessionTransition = (oldUrl === "https://chat.deepseek.com/" || oldUrl === "https://chat.deepseek.com") && state.lastUrl.includes("/chat/s/");
