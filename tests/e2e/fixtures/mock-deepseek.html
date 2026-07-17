@@ -460,6 +460,18 @@
             }
           });
 
+          function seedMessages(count) {
+            const fragment = document.createDocumentFragment();
+            for (let i = 0; i < count; i++) {
+              const role = i % 2 === 0 ? "user" : "assistant";
+              const node = createTextMessage(role, `Seed message ${i + 1}. `.repeat(8).trim());
+              fragment.appendChild(node);
+            }
+            const container = document.querySelector("#chat-messages");
+            container.appendChild(fragment);
+            return container.querySelectorAll(".ds-message").length;
+          }
+
           window.__mockDeepSeek = {
             addAssistantMessage(text) {
               return appendMessage(createTextMessage("assistant", text));
@@ -473,6 +485,7 @@
             updateLastAssistantMessage,
             getAttachedFiles,
             replaceFileInput,
+            seedMessages,
             getSendCount() {
               return sendCount;
             },

@@ -5,6 +5,7 @@
 - `Vitest` drives unit and integration coverage.
 - `jsdom` is used for DOM-bound module and Svelte component tests.
 - `Playwright` runs end-to-end tests against the built Chrome extension.
+- `Selenium WebDriver` with BiDi runs end-to-end tests against the built Firefox extension.
 - `Playwright` also runs Android WebView simulator parity tests against the built `dist-android/` bundle.
 - `Gradle` runs Kotlin unit tests and APK assembly checks for the Android shell.
 - Chrome extension APIs are mocked centrally in [tests/mocks/chrome.js](/d:/Creative%20Corner/Projects/Software/better-deepseek/tests/mocks/chrome.js).
@@ -13,9 +14,11 @@
 
 ```bash
 npm run build:chrome
+npm run build:firefox
 npm run build:android
 npm run test:unit
 npm run test:e2e
+npm run test:e2e:firefox
 npm run test:e2e:android
 npm run android:test
 npm run android:assemble:debug
@@ -30,7 +33,7 @@ Useful variants:
 - `npm run test:watch` runs Vitest in watch mode.
 - `npm run test:ui` opens the Vitest UI.
 - `npm run test:android` builds `dist-android/` and runs the Android simulator Playwright suite.
-- `npm run test:ci:web` mirrors the web GitHub Actions job.
+- `npm run test:ci:web` mirrors the web GitHub Actions job (Chrome + Firefox).
 - `npm run test:ci:android` mirrors the Android GitHub Actions job.
 - `npm run test:ci` runs both CI-equivalent jobs locally.
 
@@ -38,9 +41,11 @@ Useful variants:
 
 - Unit tests live next to the source file when the module is mostly pure.
 - Integration tests live under `tests/integration/`.
-- E2E tests live under `tests/e2e/`.
+- Chrome E2E tests live under `tests/e2e/`.
+- Firefox E2E tests live under `tests/e2e-firefox/`.
 - Android simulator E2E tests live under `tests/e2e-android/`.
 - Shared DOM helpers live under `tests/helpers/`.
+- Shared response payloads live in `tests/e2e/fixtures/payloads.js`.
 
 ## Vitest conventions
 
@@ -50,16 +55,31 @@ Useful variants:
 - For Svelte 5 components, mount via `mount()` through [tests/helpers/svelte.js](/d:/Creative%20Corner/Projects/Software/better-deepseek/tests/helpers/svelte.js).
 - If a test touches browser-extension APIs, extend the shared chrome mock instead of creating one-off mocks.
 
-## Playwright workflow
-
-### Chrome extension
+## Playwright workflow (Chrome)
 
 1. Build the extension first with `npm run build:chrome`.
 2. Playwright loads `dist-chrome/` as an unpacked Chromium extension.
 3. Requests to `https://chat.deepseek.com/*` are fulfilled with the local mock fixture at [tests/e2e/fixtures/mock-deepseek.html](/d:/Creative%20Corner/Projects/Software/better-deepseek/tests/e2e/fixtures/mock-deepseek.html).
 4. The E2E suite then drives the real content script, sidebar injectors, and UI overlay behavior.
 
-### Android simulator
+## Selenium WebDriver workflow (Firefox)
+
+1. Build both extensions with `npm run build`.
+2. Selenium Manager auto-provisions GeckoDriver. Set `FIREFOX_BIN` to override the Firefox binary.
+3. Firefox launches with BiDi enabled and the unsigned `dist-firefox/` extension installed temporarily via `installAddon(path, true)`.
+4. BiDi `network.addIntercept` + `network.continueResponse` serve the same deterministic fixture HTML and API payloads as the Chrome lane (shared `tests/e2e/fixtures/payloads.js`).
+5. `npm run test:e2e:firefox` invokes Vitest with `vitest.firefox.config.js`, running tests from `tests/e2e-firefox/`.
+6. In CI, Firefox runs headless. Selenium caches at `~/.cache/selenium` — cache this directory for faster runs.
+7. Test results are written to `test-results-firefox/` on failure.
+
+### Firefox contracts
+
+1. **Boot**: Extension boots on the mock fixture and exposes `#bds-toggle`, `.bds-plus-btn`.
+2. **Storage quiescence**: A unique `replaceRemote` produces exactly one `bds:remote-config-updated` event over 750 ms; repeating the identical replacement produces zero additional events. This validates the [#108](https://github.com/EdgeTypE/better-deepseek/issues/108) fix in Firefox.
+3. **2000-message processing**: After seeding 2,000 settled messages and appending one new message, the new message gains `data-bds-msg-id`, proving the built extension processes it. This validates the [#105](https://github.com/EdgeTypE/better-deepseek/issues/105) fix in Firefox.
+4. **Host wrapper box model**: The `bds-host-wrapper` has a nonzero box, is not `display: contents`, and sibling tool/unknown hosts survive when another host is removed.
+
+## Android simulator
 
 1. Build the Android bundle first with `npm run build:android`.
 2. Playwright loads the same mock DeepSeek fixture in a mobile Chromium context.
@@ -72,10 +92,11 @@ Useful variants:
 - For content-script modules with side effects, prefer integration tests under `tests/integration/` and mock the smallest stable boundary.
 - For new UI components, render them through the shared Svelte helper and assert only on public DOM behavior.
 - For new extension flows, add them to the mock DeepSeek fixture only if the real selector contract requires it.
+- For shared response payloads (pricing, GitHub ZIP, etc.), add them to `tests/e2e/fixtures/payloads.js` so both Chrome and Firefox lanes consume the same data.
 
 ## CI
 
 - GitHub Actions runs two jobs: a web lane and an Android lane.
-- The web lane builds `dist-chrome/`, runs `npm run test:unit`, then runs `npm run test:e2e`.
+- The web lane builds `dist-chrome/` and `dist-firefox/`, runs `npm run test:unit`, then runs `npm run test:e2e` (Chrome) and `npm run test:e2e:firefox`.
 - The Android lane builds `dist-android/`, assembles the debug APK, runs `npm run test:e2e:android`, then runs `npm run android:test`.
-- Coverage, Playwright reports, APKs, and Android unit-test artifacts are uploaded on every CI run.
+- Coverage, Playwright reports, Android artifacts, and Firefox `test-results-firefox/` are uploaded on every CI run.
