@@ -143,9 +143,13 @@ export function observeChatDom() {
   }
 
   state.observer = new MutationObserver((records) => {
+    let hasExternalMutation = false;
+
     for (const r of records) {
       // Ignore records wholly owned by #bds-root
       if (r.target.closest?.("#bds-root")) continue;
+
+      hasExternalMutation = true;
 
       // Collect removed message subtrees
       for (const removed of r.removedNodes) {
@@ -189,12 +193,16 @@ export function observeChatDom() {
         if (msg) {
           dirtyNodes.add(msg);
         }
-        // Non-message mutations don't trigger message processing —
-        // page-wide enhancers run unconditionally in scanPage().
+        // Non-message mutations still schedule page-wide enhancers
       }
     }
 
-    armScanTimer();
+    // Only arm the timer when at least one external mutation exists.
+    // A batch wholly inside #bds-root produces no external record and
+    // must not schedule a scan.
+    if (hasExternalMutation) {
+      armScanTimer();
+    }
   });
 
   state.observer.observe(document.body, {
@@ -348,14 +356,16 @@ function scanPage() {
 }
 
 /**
- * Reset incremental state when conversation DOM is replaced (URL change).
+ * Reset conversation-processing state when conversation DOM is replaced
+ * (URL change). Preserves the disconnected-removal queue so overlays from
+ * removed messages are disposed at the next flush even across navigation.
  */
 export function resetIncrementalState() {
   dirtyNodes.clear();
-  removedNodes.clear();
   pendingFullScan = false;
   previousLatestAssistant = null;
   previousAbsoluteLast = null;
+  // Do NOT clear removedNodes — disposal must survive navigation.
 }
 
 /**

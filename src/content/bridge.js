@@ -172,7 +172,11 @@ function handleHistoryMessages(data) {
   const currentSessionId = match ? match[1] : null;
   if (!currentSessionId || sessionId !== currentSessionId) return;
 
+  // Reject malformed payloads — only arrays (including empty) are valid.
+  // Non-array chat_messages cannot complete a request; a later valid
+  // response must still be accepted.
   const incomingMessages = bizData.chat_messages;
+  if (!Array.isArray(incomingMessages)) return;
 
   // Enforce current-session-only invariant before storing
   retainOnlyHistorySession(currentSessionId);
@@ -186,17 +190,15 @@ function handleHistoryMessages(data) {
   const existing = state.chatMessagesBySession.get(sessionId);
   const existingIds = new Set(existing.map(m => m.message_id));
 
-  if (Array.isArray(incomingMessages)) {
-    for (const msg of incomingMessages) {
-      if (!existingIds.has(msg.message_id)) {
-        existing.push(msg);
-        existingIds.add(msg.message_id);
-      }
+  for (const msg of incomingMessages) {
+    if (!existingIds.has(msg.message_id)) {
+      existing.push(msg);
+      existingIds.add(msg.message_id);
     }
   }
 
-  // Notify explicit full-history requests (including empty responses —
-  // treat as completed so waiters resolve promptly without timeout).
+  // Notify explicit full-history requests — including empty arrays so
+  // waiters resolve promptly without hitting the 10 s timeout.
   if (data.__bdsExplicit) {
     window.dispatchEvent(new CustomEvent("bds:history-msgs-loaded", {
       detail: JSON.stringify({ sessionId, count: existing.length })

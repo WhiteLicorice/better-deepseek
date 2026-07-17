@@ -342,7 +342,19 @@ describe("scanner scheduling", () => {
     resetIncrementalState();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    // Disconnect any observer and clear timers to prevent cross-test leaks
+    const state = (await import("../../src/content/state.js")).default;
+    if (state.observer) {
+      state.observer.disconnect();
+      state.observer = null;
+    }
+    if (state.scanTimer) {
+      clearTimeout(state.scanTimer);
+      state.scanTimer = 0;
+    }
+    const { resetIncrementalState } = await import("../../src/content/scanner.js");
+    resetIncrementalState();
     vi.useRealTimers();
   });
 

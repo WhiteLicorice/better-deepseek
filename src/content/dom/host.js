@@ -32,7 +32,6 @@ export function getOrCreateWrapper(node) {
     if (!wrapper) {
       wrapper = document.createElement("div");
       wrapper.className = "bds-host-wrapper";
-      wrapper.style.display = "contents";
       node.insertAdjacentElement("afterend", wrapper);
     }
     hostWrappers.set(node, wrapper);
@@ -58,14 +57,15 @@ export function getOrCreateHost(node, hostClass) {
 
 /**
  * Remove a specific feature host from a message wrapper.
- * Deletes the wrapper if it becomes empty.
+ * Deletes the wrapper only when childElementCount reaches zero.
+ * Unknown/sibling hosts (tool hosts, etc.) are preserved.
  */
 export function removeMessageHost(node, hostClass) {
   const wrapper = hostWrappers.get(node);
   if (!wrapper || !document.contains(wrapper)) return;
-  const host = wrapper.querySelector?.(`.${hostClass}`);
+  const host = wrapper.querySelector(`.${hostClass}`);
   if (host) host.remove();
-  if (!wrapper.querySelector(".bds-overlay-host, .bds-file-host, .bds-download-card")) {
+  if (wrapper.childElementCount === 0) {
     wrapper.remove();
     hostWrappers.delete(node);
   }

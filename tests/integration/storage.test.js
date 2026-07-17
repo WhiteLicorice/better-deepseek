@@ -195,11 +195,11 @@ describe("storage loop prevention", () => {
     expect(chrome.storage.local.set.mock.calls.length).toBe(setCallsBefore);
   });
 
-  it("remote-config storage removal restores builtins without storage write", () => {
-    // Seed remote so removal has an effect
-    import("../../src/lib/remote-config.svelte.js").then(m => {
-      m.remoteConfig.syncFromStorage({ features: { attachMenu: { enabled: false } } });
-    });
+  it("remote-config storage removal restores builtins without storage write", async () => {
+    // Seed remote so removal has an effect — await the import
+    const { remoteConfig } = await import("../../src/lib/remote-config.svelte.js");
+    remoteConfig.syncFromStorage({ features: { attachMenu: { enabled: false } } });
+    expect(remoteConfig.getFlag("features.attachMenu.enabled")).toBe(false);
 
     bindStorageChangeListener();
     const setCallsBefore = chrome.storage.local.set.mock.calls.length;
@@ -208,7 +208,10 @@ describe("storage loop prevention", () => {
       [STORAGE_KEYS.remoteConfig]: { newValue: undefined },
     });
 
+    // syncFromStorage never writes — zero new set calls
     expect(chrome.storage.local.set.mock.calls.length).toBe(setCallsBefore);
+    // Built-ins restored
+    expect(remoteConfig.getFlag("features.attachMenu.enabled")).toBe(true);
   });
 
   it("re-entrant same-value event terminates without second write", () => {

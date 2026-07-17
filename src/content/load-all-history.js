@@ -9,14 +9,12 @@
  */
 
 import state from "./state.js";
-import { scheduleScan } from "./scanner.js";
 
 const HISTORY_MSGS_TIMEOUT = 10000;
 
 /**
  * Per-session pending records: { promise, cancel }.
- * Cancel removes the event listener, clears the timeout, and resolves
- * the wait once with `false` so the load path can clean up.
+ * Cancel finalizes the promise with `false`, removes listeners, and clears timers.
  *
  * @type {Map<string, {promise: Promise<?Array>, cancel: () => void}>}
  */
@@ -24,13 +22,7 @@ const pendingBySession = new Map();
 const _fullHistoryLoaded = new Set();
 
 export function isLoadInProgress() {
-  // A session is "in progress" if it has an unresolved pending record
-  for (const [, rec] of pendingBySession) {
-    // We can't inspect promise state synchronously, but if the map is
-    // non-empty, at least one load hasn't been finally-cleaned yet.
-    return true;
-  }
-  return false;
+  return pendingBySession.size > 0;
 }
 
 /**
@@ -79,7 +71,7 @@ export function retainOnlyHistorySession(sessionId) {
 
 /**
  * Wait for the `bds:history-msgs-loaded` event.
- * Returns a promise and a cancel function.
+ * Routes success, timeout, and cancellation through one idempotent finalize.
  *
  * @param {string} sessionId
  * @returns {{promise: Promise<boolean>, cancel: () => void}}
@@ -87,36 +79,35 @@ export function retainOnlyHistorySession(sessionId) {
 function waitForHistoryData(sessionId) {
   let timeoutId;
   let handler;
+  let settled = false;
 
-  const promise = new Promise((resolve) => {
-    let settled = false;
-
-    const finalize = (value) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeoutId);
-      window.removeEventListener("bds:history-msgs-loaded", handler);
-      resolve(value);
-    };
-
-    handler = (event) => {
-      let detail = event.detail;
-      if (typeof detail === "string") {
-        try { detail = JSON.parse(detail); } catch { return; }
-      }
-      // Ignore responses for sessions other than the one we're waiting on
-      if (detail?.sessionId !== sessionId) return;
-      finalize(true);
-    };
-
-    window.addEventListener("bds:history-msgs-loaded", handler);
-    timeoutId = setTimeout(() => finalize(false), HISTORY_MSGS_TIMEOUT);
-  });
-
-  const cancel = () => {
+  const finalize = (value) => {
+    if (settled) return;
+    settled = true;
     clearTimeout(timeoutId);
     window.removeEventListener("bds:history-msgs-loaded", handler);
+    resolve(value);
   };
+
+  let resolve;
+  const promise = new Promise((res) => {
+    resolve = res;
+  });
+
+  handler = (event) => {
+    let detail = event.detail;
+    if (typeof detail === "string") {
+      try { detail = JSON.parse(detail); } catch { return; }
+    }
+    // Ignore responses for sessions other than the one we're waiting on
+    if (detail?.sessionId !== sessionId) return;
+    finalize(true);
+  };
+
+  window.addEventListener("bds:history-msgs-loaded", handler);
+  timeoutId = setTimeout(() => finalize(false), HISTORY_MSGS_TIMEOUT);
+
+  const cancel = () => finalize(false);
 
   return { promise, cancel };
 }

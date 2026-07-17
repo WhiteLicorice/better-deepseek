@@ -2,6 +2,15 @@ import { DEFAULT_REMOTE_CONFIG, STORAGE_KEYS } from "./constants.js";
 
 const EVENT_CONFIG_UPDATED = "bds:remote-config-updated";
 
+/**
+ * Normalize a remote-config root value. A root must be a non-array object;
+ * invalid roots (null, undefined, arrays, primitives) become {}.
+ * Nested arrays remain valid configuration values.
+ */
+function normalizeRoot(value) {
+  return (value && typeof value === "object" && !Array.isArray(value)) ? value : {};
+}
+
 function deepMerge(target, source) {
   for (const key of Object.keys(source)) {
     if (
@@ -53,9 +62,7 @@ class RemoteConfigManager {
       if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
         const result = await chrome.storage.local.get([STORAGE_KEYS.remoteConfig]);
         const stored = result[STORAGE_KEYS.remoteConfig];
-        if (stored && typeof stored === "object") {
-          this.#remote = stored;
-        }
+        this.#remote = normalizeRoot(stored);
       }
     } catch (e) {
       console.warn("[BDS] Failed to load remote config from storage:", e);
@@ -81,8 +88,7 @@ class RemoteConfigManager {
    * external syncs are read-only consumers.
    */
   syncFromStorage(value) {
-    // Normalize invalid roots (null, undefined, arrays, primitives) to {}
-    const normalized = (value && typeof value === "object" && !Array.isArray(value)) ? value : {};
+    const normalized = normalizeRoot(value);
     const prevRaw = this.raw;
     this.#remote = normalized;
     const nextRaw = this.raw;
@@ -92,8 +98,9 @@ class RemoteConfigManager {
   }
 
   applyRemote(partial) {
+    const normalized = normalizeRoot(partial);
     const prevRemote = structuredClone(this.#remote);
-    deepMerge(this.#remote, partial);
+    deepMerge(this.#remote, normalized);
     if (!this.#isStructurallyEqual(prevRemote, this.#remote)) {
       this.#persist();
       this.#notify();
@@ -101,7 +108,7 @@ class RemoteConfigManager {
   }
 
   replaceRemote(full) {
-    const next = full && typeof full === "object" ? full : {};
+    const next = normalizeRoot(full);
     if (!this.#isStructurallyEqual(this.#remote, next)) {
       this.#remote = next;
       this.#persist();
