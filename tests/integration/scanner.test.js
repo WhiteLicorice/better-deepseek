@@ -536,10 +536,12 @@ describe("scanner scheduling", () => {
   it("observer-driven append processes only new message plus transitions among 2000", async () => {
     const { observeChatDom } = await import("../../src/content/scanner.js");
 
-    // Seed 2000 messages
+    // Seed 2000 messages — capture all references for exact assertions
+    const allMsgs = [];
     for (let i = 0; i < 2000; i++) {
       const msg = makeMessage(i % 2 === 0 ? "user" : "assistant", `msg${i}`);
       document.body.appendChild(msg);
+      allMsgs.push(msg);
     }
     // Run a full scan first so all are processed and transition state is set
     const { scheduleScan } = await import("../../src/content/scanner.js");
@@ -557,22 +559,21 @@ describe("scanner scheduling", () => {
 
     vi.advanceTimersByTime(200);
 
-    // Previous full scan set latestAssistant=absoluteLast at msg index 1999.
+    // Previous full scan set latestAssistant=absoluteLast at msg index 1999 (0-based).
     // New assistant at index 2000 becomes new latestAssistant + absoluteLast.
     // Dirty: newMsg (idx 2000). Previous transition: messages[1999] (still in DOM).
-    // Current transition: newMsg itself (idx 2000). Total: exactly 2 unique nodes.
+    // Current transition: newMsg itself (idx 2000).
+    // Exactly 2 unique nodes, never all 2000, no historical re-enumeration.
     const calls = processMessageNodeMock.mock.calls;
     const processedIds = new Set(calls.map(c => c[0]));
-    // 2 unique nodes: the new message + the previous transition node
-    expect(processedIds.size).toBeGreaterThanOrEqual(1);
-    expect(processedIds.size).toBeLessThanOrEqual(3);
+    expect(processedIds.size).toBe(2);
     expect(processedIds.has(newMsg)).toBe(true);
+    expect(processedIds.has(allMsgs[1999])).toBe(true);
     expect(calls.filter(c => c[0] === newMsg)).toHaveLength(1);
-    // No unrelated historical message processed
+    expect(calls.filter(c => c[0] === allMsgs[1999])).toHaveLength(1);
+    // No unrelated historical message processed (indices 0..1997 untouched)
     for (const call of calls) {
-      // call[0] is the node, call[1] is the index
-      // The index should be near the end (1999 or 2000), not 0..1998
-      expect(call[1]).toBeGreaterThanOrEqual(1998);
+      expect(call[1]).toBeGreaterThanOrEqual(1999);
     }
   });
 

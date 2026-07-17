@@ -53,16 +53,22 @@ function scheduleNotification(changes) {
   if (!flushPromise) {
     const gen = flushGeneration;
     flushPromise = Promise.resolve().then(async () => {
-      // Abort if reset occurred since scheduling
-      if (gen !== flushGeneration) return;
-      // Drain queue one operation at a time
-      while (notificationQueue.length > 0) {
-        // Check generation before each batch
+      try {
+        // Abort if reset occurred since scheduling
         if (gen !== flushGeneration) return;
-        const batch = notificationQueue.shift();
-        await notifyListeners(batch, gen);
+        // Drain queue one operation at a time
+        while (notificationQueue.length > 0) {
+          // Check generation before each batch
+          if (gen !== flushGeneration) return;
+          const batch = notificationQueue.shift();
+          await notifyListeners(batch, gen);
+        }
+      } finally {
+        // Always clear so future notifications can schedule a new flush
+        if (flushPromise && gen === flushGeneration) {
+          flushPromise = null;
+        }
       }
-      flushPromise = null;
     });
   }
 }
@@ -90,7 +96,14 @@ async function notifyListeners(changes, generation) {
 
     // Recheck after the yield — a reset during await must not deliver
     if (generation !== flushGeneration) return;
-    listener(cloned, "local");
+
+    // Isolate listener exceptions — one throwing listener must not block
+    // later listeners or poison the notification queue.
+    try {
+      listener(cloned, "local");
+    } catch {
+      // Swallow: matches real chrome.storage.onChanged behavior
+    }
   }
 }
 
@@ -124,6 +137,9 @@ export const chromeMock = {
       }),
       removeListener: vi.fn((listener) => {
         listeners.delete(listener);
+      }),
+      hasListener: vi.fn((listener) => {
+        return listeners.has(listener);
       }),
     },
   },
@@ -192,6 +208,7 @@ export function resetChromeMock() {
   chromeMock.storage.local.clear.mockClear();
   chromeMock.storage.onChanged.addListener.mockClear();
   chromeMock.storage.onChanged.removeListener.mockClear();
+  chromeMock.storage.onChanged.hasListener.mockClear();
   chromeMock.runtime.sendMessage.mockClear();
   chromeMock.runtime.getURL.mockClear();
   chromeMock.runtime.onMessage.addListener.mockClear();

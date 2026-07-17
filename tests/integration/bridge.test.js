@@ -443,3 +443,55 @@ describe("handleHistoryMessages validation", () => {
     expect(state.chatMessagesBySession.has("test-session-1")).toBe(false);
   });
 });
+
+describe("setupBridgeEvents lifecycle", () => {
+  let setupBridgeEvents;
+
+  beforeAll(async () => {
+    ({ setupBridgeEvents } = await import("../../src/content/bridge.js"));
+  });
+
+  it("repeated setup returns same active cleanup", () => {
+    const c1 = setupBridgeEvents();
+    const c2 = setupBridgeEvents();
+    expect(c1).toBe(c2);
+    c1(); // cleanup
+  });
+
+  it("cleanup removes listeners so reinstall creates fresh handle", () => {
+    const c1 = setupBridgeEvents();
+    c1(); // cleanup gen 1
+
+    const c2 = setupBridgeEvents(); // gen 2
+    expect(c2).not.toBe(c1);
+    c2(); // cleanup
+  });
+
+  it("setup after cleanup installs exactly one fresh set", () => {
+    const c1 = setupBridgeEvents();
+    c1();
+
+    const c2 = setupBridgeEvents();
+    const c3 = setupBridgeEvents();
+    expect(c2).toBe(c3);
+    c2();
+  });
+
+  it("stale cleanup from gen 1 does not clear gen 2", () => {
+    const c1 = setupBridgeEvents();
+    c1(); // cleanup gen 1
+
+    const c2 = setupBridgeEvents(); // gen 2 active
+    c1(); // stale call — must NOT null gen 2
+    const c3 = setupBridgeEvents(); // still gen 2
+    expect(c3).toBe(c2);
+    c2();
+  });
+
+  it("repeated cleanup is harmless (no throw)", () => {
+    const c = setupBridgeEvents();
+    c();
+    c();
+    c();
+  });
+});

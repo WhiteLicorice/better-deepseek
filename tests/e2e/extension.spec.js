@@ -788,6 +788,11 @@ test("host wrapper: create_file download card in block-level nonzero wrapper", a
   const wrapper = page.locator(".bds-host-wrapper").first();
   await expect(wrapper).toBeVisible();
 
+  // Card must be inside the correct wrapper
+  const card = page.locator(".bds-download-card").first();
+  const isDescendant = await wrapper.evaluate((el, child) => el.contains(child), await card.elementHandle());
+  expect(isDescendant).toBe(true);
+
   const display = await wrapper.evaluate((el) => getComputedStyle(el).display);
   expect(display).not.toBe("contents");
 

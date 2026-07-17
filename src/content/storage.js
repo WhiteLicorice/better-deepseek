@@ -442,8 +442,31 @@ export function normalizeCssSnippets(raw) {
 
 // ── Storage change listener ──
 
+let _storageListenerRef = null;
+
+/**
+ * Bind the storage.onChanged listener. Idempotent — subsequent calls
+ * return the same cleanup handle. The returned cleanup function removes
+ * the listener and permits a later fresh bind.
+ *
+ * @returns {() => void}
+ */
 export function bindStorageChangeListener() {
-  chrome.storage.onChanged.addListener((changes, areaName) => {
+  // Re-register if previously cleared (e.g. mock reset)
+  if (_storageListenerRef) {
+    // Verify the listener is still registered; mock resets clear the Set
+    if (!chrome.storage.onChanged.hasListener(_storageListenerRef)) {
+      _storageListenerRef = null; // fall through to re-register
+    } else {
+      return () => {
+        chrome.storage.onChanged.removeListener(_storageListenerRef);
+        _storageListenerRef = null;
+      };
+    }
+  }
+
+  if (!_storageListenerRef) {
+    _storageListenerRef = (changes, areaName) => {
     if (areaName !== "local") {
       return;
     }
@@ -573,5 +596,13 @@ export function bindStorageChangeListener() {
     if (pageConfigChanged) {
       pushConfigToPage();
     }
-  });
+  };
+
+  chrome.storage.onChanged.addListener(_storageListenerRef);
+  }
+
+  return () => {
+    chrome.storage.onChanged.removeListener(_storageListenerRef);
+    _storageListenerRef = null;
+  };
 }

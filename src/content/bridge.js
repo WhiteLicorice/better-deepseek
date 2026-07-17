@@ -22,12 +22,14 @@ function getCurrentConversationIdForBudget() {
 }
 
 let _bridgeCleanup = null;
+let _bridgeGen = 0;
 
 /**
  * Set up listeners for bridge events from the injected script.
  * Idempotent — subsequent calls return the same cleanup handle.
  * Returns a cleanup function that removes all registered listeners
  * and permits a later fresh setup via another `setupBridgeEvents()` call.
+ * A stale cleanup from a prior generation does not clear the current one.
  *
  * @returns {() => void}
  */
@@ -123,7 +125,13 @@ export function setupBridgeEvents() {
   };
   window.addEventListener("bds:network-error", handlers["bds:network-error"]);
 
+  _bridgeGen += 1;
+  const gen = _bridgeGen;
+
   _bridgeCleanup = () => {
+    // Only clear if this is still the current generation.
+    // A stale cleanup from a prior install must not null the current one.
+    if (_bridgeGen !== gen) return;
     for (const [event, handler] of Object.entries(handlers)) {
       window.removeEventListener(event, handler);
     }

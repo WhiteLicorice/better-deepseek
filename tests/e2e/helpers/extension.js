@@ -2,115 +2,53 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test as base, chromium, expect } from "@playwright/test";
-import {
-  pricingHtml,
-  pricingJson,
-  githubZip,
-  githubCommits,
-  remoteConfigFixture,
-  remoteStatusFixture,
-  makeLocaleFixture,
-} from "../fixtures/payloads.js";
+import { resolveFixtureRequest, createRequestLedger } from "../fixtures/fixture-resolver.js";
 
 const projectRoot = process.cwd();
 const extensionPath = path.resolve(projectRoot, "dist-chrome");
 const manifestPath = path.join(extensionPath, "manifest.json");
-const fixtureHtml = fs.readFileSync(
-  path.resolve(projectRoot, "tests/e2e/fixtures/mock-deepseek.html"),
-  "utf8",
-);
+
+const fixtureLedger = createRequestLedger();
 
 async function routeFixtureRequests(context) {
-  await context.route("https://chat.deepseek.com/**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "text/html; charset=utf-8",
-      body: fixtureHtml,
-    });
+  // Catch-all: intercept every external request and resolve through shared resolver
+  await context.route("**/*", async (route) => {
+    const url = route.request().url();
+    // Skip browser-internal URLs
+    if (
+      url.startsWith("data:") ||
+      url.startsWith("about:") ||
+      url.startsWith("chrome-extension:") ||
+      url.startsWith("chrome:") ||
+      url.startsWith("blob:") ||
+      url.includes("://localhost")
+    ) {
+      return route.continue();
+    }
+
+    try {
+      const resolved = resolveFixtureRequest(url);
+      if (!resolved) {
+        // Internal URL — continue without interception
+        return route.continue();
+      }
+      fixtureLedger.record(url, resolved.routeName, resolved.statusCode);
+      await route.fulfill({
+        status: resolved.statusCode,
+        contentType: resolved.mediaType,
+        body: resolved.binary ? undefined : resolved.body,
+        ...(resolved.binary ? { body: resolved.body } : {}),
+      });
+    } catch (err) {
+      fixtureLedger.record(url, "unmatched", 500, err.message);
+      console.error(err.message);
+      await route.fulfill({
+        status: 500,
+        contentType: "text/plain",
+        body: err.message,
+      });
+    }
   });
-
-  await context.route("https://api-docs.deepseek.com/**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "text/html; charset=utf-8",
-      body: pricingHtml,
-    });
-  });
-
-  await context.route(
-    "https://raw.githubusercontent.com/EdgeTypE/better-deepseek/main/extension/pricing.json",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json; charset=utf-8",
-        body: pricingJson,
-      });
-    },
-  );
-
-  await context.route(
-    "https://codeload.github.com/octocat/Hello-World/zip/refs/heads/*",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        headers: {
-          "content-type": "application/zip",
-          "content-length": String(githubZip.length),
-        },
-        body: githubZip,
-      });
-    },
-  );
-
-  await context.route(
-    "https://api.github.com/repos/octocat/Hello-World/commits**",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json; charset=utf-8",
-        body: JSON.stringify(githubCommits),
-      });
-    },
-  );
-
-  // ── Background updater routes (#108 fix) ──
-
-  await context.route(
-    "https://raw.githubusercontent.com/EdgeTypE/better-deepseek/main/extension/remote-config.json**",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json; charset=utf-8",
-        body: JSON.stringify(remoteConfigFixture),
-      });
-    },
-  );
-
-  await context.route(
-    "https://raw.githubusercontent.com/EdgeTypE/better-deepseek/main/extension/status.json**",
-    async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json; charset=utf-8",
-        body: JSON.stringify(remoteStatusFixture),
-      });
-    },
-  );
-
-  // Locale files — en, tr, ru, zh-cn
-  const localeCodes = ["en", "tr", "ru", "zh-cn"];
-  for (const code of localeCodes) {
-    await context.route(
-      `https://raw.githubusercontent.com/EdgeTypE/better-deepseek/main/src/locales/${code}.json**`,
-      async (route) => {
-        await route.fulfill({
-          status: 200,
-          contentType: "application/json; charset=utf-8",
-          body: JSON.stringify(makeLocaleFixture(code)),
-        });
-      },
-    );
-  }
 }
 
 async function createExtensionContext() {
@@ -118,18 +56,33 @@ async function createExtensionContext() {
     throw new Error("Missing dist-chrome build. Run `npm run build:chrome` before Playwright.");
   }
 
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "bds-playwright-"));
-  const context = await chromium.launchPersistentContext(userDataDir, {
-    channel: "chromium",
-    headless: !!process.env.CI,
-    viewport: { width: 1440, height: 1100 },
-    args: [
-      `--disable-extensions-except=${extensionPath}`,
-      `--load-extension=${extensionPath}`,
-    ],
-  });
+  fixtureLedger.reset();
 
-  await routeFixtureRequests(context);
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "bds-playwright-"));
+  let context;
+  try {
+    context = await chromium.launchPersistentContext(userDataDir, {
+      channel: "chromium",
+      headless: !!process.env.CI,
+      viewport: { width: 1440, height: 1100 },
+      args: [
+        `--disable-extensions-except=${extensionPath}`,
+        `--load-extension=${extensionPath}`,
+      ],
+    });
+  } catch (e) {
+    // Cleanup on launch failure
+    try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch {}
+    throw e;
+  }
+
+  try {
+    await routeFixtureRequests(context);
+  } catch (e) {
+    try { await context.close(); } catch {}
+    try { fs.rmSync(userDataDir, { recursive: true, force: true }); } catch {}
+    throw e;
+  }
 
   return { context, userDataDir };
 }
@@ -142,11 +95,18 @@ export const test = base.extend({
     } finally {
       try {
         await context.close();
-      } catch {
-        // On Windows, a race in libuv's async-handle cleanup can cause the
-        // browser process to exit before context.close() resolves, surfacing
-        // "Target page, context or browser has been closed". This is a
-        // Playwright/Chromium Windows-only issue unrelated to test correctness.
+      } catch (e) {
+        // Suppress only known already-closed errors on Windows
+        const msg = e?.message || "";
+        if (
+          msg.includes("Target page, context or browser has been closed") ||
+          msg.includes("Browser has been closed") ||
+          msg.includes("Connection closed")
+        ) {
+          // Expected teardown race on Windows — safe to ignore
+        } else {
+          throw e;
+        }
       }
       // Retry removal on Windows where file locks may persist briefly
       const maxRetries = 5;
@@ -155,8 +115,8 @@ export const test = base.extend({
         try {
           fs.rmSync(userDataDir, { recursive: true, force: true });
           break;
-        } catch (e) {
-          if (attempt === maxRetries - 1) throw e;
+        } catch {
+          if (attempt === maxRetries - 1) throw new Error(`Failed to remove temp dir: ${userDataDir}`);
           await new Promise((r) => setTimeout(r, retryDelay));
         }
       }
@@ -175,4 +135,4 @@ export const test = base.extend({
   },
 });
 
-export { expect };
+export { expect, fixtureLedger };

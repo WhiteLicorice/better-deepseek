@@ -54,7 +54,7 @@ function computeDiff(stored, incoming) {
  * @param {{ now?: number }} [opts]
  * @returns {Promise<PersistResult>}
  */
-export async function persistRemoteConfig(deps, { now } = { now: Date.now() }) {
+export async function persistRemoteConfig(deps, { now = Date.now() } = {}) {
   try {
     const response = await deps.fetch(`${REMOTE_CONFIG_URL}?t=${now}`, {
       cache: "no-store",
@@ -100,7 +100,7 @@ export async function persistRemoteConfig(deps, { now } = { now: Date.now() }) {
  * @param {{ now?: number }} [opts]
  * @returns {Promise<PersistResult>}
  */
-export async function persistRemoteStatus(deps, { now } = { now: Date.now() }) {
+export async function persistRemoteStatus(deps, { now = Date.now() } = {}) {
   try {
     const response = await deps.fetch(`${REMOTE_STATUS_URL}?t=${now}`, {
       cache: "no-store",
@@ -144,7 +144,7 @@ export async function persistRemoteStatus(deps, { now } = { now: Date.now() }) {
  * @param {{ now?: number }} [opts]
  * @returns {Promise<PersistResult>}
  */
-export async function persistLocales(deps, localeCodes, { now } = { now: Date.now() }) {
+export async function persistLocales(deps, localeCodes, { now = Date.now() } = {}) {
   try {
     const results = await Promise.allSettled(
       localeCodes.map((code) =>
@@ -173,11 +173,19 @@ export async function persistLocales(deps, localeCodes, { now } = { now: Date.no
       STORAGE_KEY_LOCALES,
       STORAGE_KEY_LOCALE_CHECKED,
     ]);
-    const storedLocales = stored[STORAGE_KEY_LOCALES] || {};
+    // Normalize: stored root must be a non-array object
+    const raw = stored[STORAGE_KEY_LOCALES];
+    const storedLocales =
+      raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
 
-    // Merge: start from stored, overwrite with freshly fetched successes.
-    // Codes that failed to fetch keep their previous value.
-    const merged = { ...storedLocales, ...fetched };
+    // Merge: start from fresh successes. For each REQUESTED code that failed,
+    // preserve its previous stored value. Do NOT retain unrequested stale codes.
+    const merged = { ...fetched };
+    for (const code of localeCodes) {
+      if (!(code in fetched) && storedLocales[code]) {
+        merged[code] = storedLocales[code];
+      }
+    }
 
     const lastChecked = new Date(now).toLocaleDateString();
 

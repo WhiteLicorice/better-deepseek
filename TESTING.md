@@ -59,29 +59,30 @@ Useful variants:
 
 1. Build the extension first with `npm run build:chrome`.
 2. Playwright loads `dist-chrome/` as an unpacked Chromium extension.
-3. Requests to `https://chat.deepseek.com/*` are fulfilled with the local mock fixture at [tests/e2e/fixtures/mock-deepseek.html](/d:/Creative%20Corner/Projects/Software/better-deepseek/tests/e2e/fixtures/mock-deepseek.html).
+3. All HTTP(S) requests are intercepted via a catch-all route and resolved through the shared `tests/e2e/fixtures/fixture-resolver.js`. Unmatched external URLs receive a terminal 500 response and fail the test.
 4. The E2E suite then drives the real content script, sidebar injectors, and UI overlay behavior.
 
 ## Selenium WebDriver workflow (Firefox)
 
 1. Build both extensions with `npm run build`.
-2. Selenium Manager auto-provisions GeckoDriver. Set `FIREFOX_BIN` to override the Firefox binary.
+2. Selenium Manager auto-provisions GeckoDriver. Set `FIREFOX_BIN` to an **absolute path** to override. Relative paths or command names (e.g. `firefox`) are rejected with an actionable error before driver construction.
 3. Firefox launches with BiDi enabled and the unsigned `dist-firefox/` extension installed temporarily via `installAddon(path, true)`.
-4. BiDi `network.addIntercept` + `network.provideResponse` serve the same deterministic fixture HTML and API payloads as the Chrome lane (shared `tests/e2e/fixtures/payloads.js`).
-5. `npm run test:e2e:firefox` invokes Vitest with `vitest.firefox.config.js`, running tests from `tests/e2e-firefox/`.
-6. In CI, Firefox runs headless. Selenium caches at `~/.cache/selenium` — cache this directory for faster runs.
-7. Test results are written to `test-results-firefox/` on failure.
+4. BiDi `network.addIntercept` + `network.provideResponse` resolve every external request through the same shared `tests/e2e/fixtures/fixture-resolver.js` as Chrome. Unknown external URLs receive a terminal 500 response and mark the fixture failed.
+5. Extension bootstrap is verified via WebDriver waits for `#bds-toggle` and `.bds-plus-btn` (no fixed sleeps).
+6. `npm run test:e2e:firefox` invokes Vitest with `vitest.firefox.config.js`, running tests from `tests/e2e-firefox/`.
+7. In CI, Firefox runs headless. Selenium caches at `~/.cache/selenium` — cache this directory for faster runs. The CI job uses `${{ steps.setup-firefox.outputs.firefox-path }}` for the absolute binary path.
+8. Test results are written to `test-results-firefox/` on failure.
 
 ### Firefox contracts
 
-1. **Boot**: Extension boots on the mock fixture and exposes `#bds-toggle`, `.bds-plus-btn`.
-2. **Storage quiescence (#108)**: A unique `replaceRemote` produces exactly one `bds:remote-config-updated` event and exactly one `chrome.storage.onChanged` event for the remoteConfig key. Repeating the identical replacement produces zero additional events or storage writes. A 500 ms idle window shows stable counts. Verified via extension-realm storage probe (`startStorageProbe`/`getStorageProbe`/`stopStorageProbe` debug API methods).
-3. **Performance (#105)**: 200-message baseline and 2000-message scale. All five samples at each scale must complete; each append under 2,000 ms. Median ratio ≤ 2.5×, absolute median increase ≤ 750 ms. Uses observable `waitForAllMessagesProcessed` and `appendAndMeasureProcessing` helpers (no fixed sleeps).
-4. **Host wrapper box model**: `create_file` message produces `.bds-download-card` inside `.bds-host-wrapper`. Wrapper `display` is not `contents`; both `width` and `height` are greater than zero.
+1. **Boot**: Extension boots and exposes `#bds-toggle`, `.bds-plus-btn`. Driver health checked before each test.
+2. **Storage quiescence (#108)**: Correlated `debugRequest` helper awaits every operation. Storage probe started in `try`, stopped in `finally`. One unique `replaceRemote` → `total === 1`, `remoteConfig === 1`. Reordered identical config → zero additional events. Idle window → stable counts.
+3. **Performance (#105)**: 200/2000 message baselines with `waitForAllMessagesProcessed`. All 5 samples at each scale required via `appendAndMeasureProcessing`. Each < 2000ms, median ratio ≤ 2.5×, absolute increase ≤ 750ms.
+4. **Host wrapper**: `.bds-download-card` is a descendant of `.bds-host-wrapper` (`wrapper.contains(card)`). Wrapper has nonzero width and height, display is not `contents`.
 
 ### Chrome contracts (matching)
 
-The Chrome Playwright lane runs the identical performance (#105), storage (#108), and host-wrapper contracts using the same shared mock fixture helpers (`waitForAllMessagesProcessed`, `appendAndMeasureProcessing`, debug API storage probe).
+The Chrome Playwright lane runs the identical performance (#105), storage (#108 with correlation-ID-based debugRequest + try/finally), and host-wrapper (`wrapper.contains(card)`) contracts using the same shared mock fixture resolver and helpers.
 
 ## Android simulator
 

@@ -27,6 +27,14 @@ let pendingFullScan = false;
 let previousLatestAssistant = null;
 let previousAbsoluteLast = null;
 
+/**
+ * Ordered registry of known connected message nodes, seeded by full scans
+ * and updated incrementally by observer additions/removals/reparents.
+ * Avoids O(N) `collectMessageNodes()` DOM walks on every incremental flush.
+ * @type {Element[]}
+ */
+let knownNodes = [];
+
 // ── Internal: arm the shared debounce timer ──
 function armScanTimer() {
   if (state.scanTimer) {
@@ -177,6 +185,8 @@ export function observeChatDom() {
 
         if (added.classList?.contains("ds-message")) {
           dirtyNodes.add(added);
+          if (knownNodes.length === 0) knownNodes = collectMessageNodes();
+          else if (!knownNodes.includes(added)) knownNodes.push(added);
           continue;
         }
 
@@ -185,6 +195,8 @@ export function observeChatDom() {
           for (const dm of descendantMessages) {
             if (!dm.closest?.("#bds-root")) {
               dirtyNodes.add(dm);
+              if (knownNodes.length === 0) knownNodes = collectMessageNodes();
+              else if (!knownNodes.includes(dm)) knownNodes.push(dm);
             }
           }
         }
@@ -236,6 +248,12 @@ export function scheduleMessageScan(node) {
     return;
   }
   dirtyNodes.add(node);
+  // Seed the ordered registry from DOM if this is the first operation
+  if (knownNodes.length === 0) {
+    knownNodes = collectMessageNodes();
+  } else if (!knownNodes.includes(node)) {
+    knownNodes.push(node);
+  }
   armScanTimer();
 }
 
@@ -278,11 +296,12 @@ function scanPage() {
     }
 
     if (doFullScan) {
-      // Full scan: process all messages with shared context
+      // Full scan: rebuild knownNodes from DOM, process all
       disposeDetachedMessageOverlays();
       dirtyNodes.clear();
 
       const nodes = collectMessageNodes();
+      knownNodes = nodes; // seed incremental registry
       const latestAssistant = findLatestAssistantMessageNode(nodes);
       const absoluteLast = nodes[nodes.length - 1] || null;
       const systemGenerating = isSystemGenerating();
@@ -304,31 +323,44 @@ function scanPage() {
       previousLatestAssistant = latestAssistant;
       previousAbsoluteLast = absoluteLast;
     } else if (dirtyNodes.size > 0 || toDispose.size > 0) {
-      // Incremental: process only dirty and state-transition nodes
-      const nodes = collectMessageNodes();
-      const nodeSet = new Set(nodes);
-      const latestAssistant = findLatestAssistantMessageNode(nodes);
-      const absoluteLast = nodes[nodes.length - 1] || null;
-      const systemGenerating = isSystemGenerating();
+      // Incremental: use cached knownNodes — no O(N) DOM walk after initial seed.
+      // Seed with one full collection if the registry is empty (first run after nav).
+      if (knownNodes.length === 0) {
+        knownNodes = collectMessageNodes();
+      }
+      // Prune disconnected entries from knownNodes (removed by observer)
+      knownNodes = knownNodes.filter(n => document.contains(n));
 
-      // Dispose remaining dirty nodes disconnected at flush time (skip reparented)
+      // Also splice out nodes that were disposed
+      for (const rn of toDispose) {
+        const idx = knownNodes.indexOf(rn);
+        if (idx !== -1) knownNodes.splice(idx, 1);
+      }
+
+      // Dispose remaining dirty nodes disconnected at flush time
       for (const dn of dirtyNodes) {
         if (!document.contains(dn)) {
           disposeMessageNode(dn);
+          const idx = knownNodes.indexOf(dn);
+          if (idx !== -1) knownNodes.splice(idx, 1);
         }
       }
 
-      // Build process set: still-connected dirty nodes + transition nodes
+      const latestAssistant = findLatestAssistantMessageNode(knownNodes);
+      const absoluteLast = knownNodes[knownNodes.length - 1] || null;
+      const systemGenerating = isSystemGenerating();
+
+      // Build process set from dirty + transition nodes
       const toProcess = new Set();
       for (const dn of dirtyNodes) {
         if (document.contains(dn)) {
           toProcess.add(dn);
         }
       }
-      if (previousLatestAssistant && nodeSet.has(previousLatestAssistant)) {
+      if (previousLatestAssistant && document.contains(previousLatestAssistant)) {
         toProcess.add(previousLatestAssistant);
       }
-      if (previousAbsoluteLast && nodeSet.has(previousAbsoluteLast)) {
+      if (previousAbsoluteLast && document.contains(previousAbsoluteLast)) {
         toProcess.add(previousAbsoluteLast);
       }
       if (latestAssistant) toProcess.add(latestAssistant);
@@ -342,17 +374,12 @@ function scanPage() {
         systemGenerating,
       };
 
-      // Build node-to-index map for efficient iteration
-      const indexMap = new Map();
-      for (let i = 0; i < nodes.length; i++) {
-        indexMap.set(nodes[i], i);
-      }
-
+      // Use knownNodes for index lookups (no rebuild)
       for (const node of toProcess) {
-        const idx = indexMap.get(node);
-        if (idx === undefined) continue;
+        const idx = knownNodes.indexOf(node);
+        if (idx === -1) continue;
         try {
-          processMessageNode(node, idx, nodes, context);
+          processMessageNode(node, idx, knownNodes, context);
         } catch (err) {
           console.error("[BDS] Error processing message node:", err, node);
         }
@@ -382,6 +409,7 @@ export function resetIncrementalState() {
   pendingFullScan = false;
   previousLatestAssistant = null;
   previousAbsoluteLast = null;
+  knownNodes = [];
   // Do NOT clear removedNodes — disposal must survive navigation.
 }
 
