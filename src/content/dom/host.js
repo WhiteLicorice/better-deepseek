@@ -21,6 +21,28 @@ function adoptWrapper(wrapper, node) {
 }
 
 /**
+ * Reconcile an existing wrapper with its message without creating a new one.
+ */
+export function reconcileMessageHost(node) {
+  const wrapper = hostWrappers.get(node);
+  if (!wrapper || wrapperOwner.get(wrapper) !== node) return null;
+
+  if (!document.contains(node)) {
+    if (document.contains(wrapper)) wrapper.remove();
+    return wrapper;
+  }
+
+  if (
+    !document.contains(wrapper) ||
+    wrapper.parentElement !== node.parentElement ||
+    wrapper.previousElementSibling !== node
+  ) {
+    node.insertAdjacentElement("afterend", wrapper);
+  }
+  return wrapper;
+}
+
+/**
  * Get or create the bds-host-wrapper for a message node.
  * A cached wrapper that is still in the document and adjacent to the message
  * is reused as-is. If the message has moved, the wrapper is reinserted

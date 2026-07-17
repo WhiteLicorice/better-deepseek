@@ -93,6 +93,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === "BDS_WAIT_FOR_STARTUP") {
+    startupRemoteDataPromise
+      .then((result) => sendResponse(result))
+      .catch((error) => sendResponse({ success: false, error: error.message }));
+    return true;
+  }
+
   if (message.type === "BDS_RESET_LANGUAGES") {
     handleLanguageReset()
       .then((res) => sendResponse(res))
@@ -449,13 +456,24 @@ const storageAdapter = {
   get: (key) => chrome.storage.local.get(key),
   set: (values) => chrome.storage.local.set(values),
 };
+const fetchAdapter = (...args) => globalThis.fetch(...args);
 
 // Run once on startup — log failures but don't reject
-persistRemoteStatus({ fetch, storage: storageAdapter }).then((r) => {
-  if (!r.success) console.warn("[BDS] Startup status fetch failed:", r.error);
-});
-persistRemoteConfig({ fetch, storage: storageAdapter }).then((r) => {
-  if (!r.success) console.warn("[BDS] Startup config fetch failed:", r.error);
+const startupRemoteDataPromise = Promise.all([
+  persistRemoteStatus({ fetch: fetchAdapter, storage: storageAdapter }),
+  persistRemoteConfig({ fetch: fetchAdapter, storage: storageAdapter }),
+]).then(([remoteStatus, remoteConfig]) => {
+  if (!remoteStatus.success) {
+    console.warn("[BDS] Startup status fetch failed:", remoteStatus.error);
+  }
+  if (!remoteConfig.success) {
+    console.warn("[BDS] Startup config fetch failed:", remoteConfig.error);
+  }
+  return {
+    success: remoteStatus.success && remoteConfig.success,
+    remoteStatus,
+    remoteConfig,
+  };
 });
 
 const localeMods = import.meta.glob("../locales/*.json", { eager: true });
@@ -464,7 +482,7 @@ const localeCodes = Object.keys(localeMods)
   .filter(Boolean);
 
 async function handleLanguageUpdate() {
-  return persistLocales({ fetch, storage: storageAdapter }, localeCodes);
+  return persistLocales({ fetch: fetchAdapter, storage: storageAdapter }, localeCodes);
 }
 
 async function handleLanguageReset() {

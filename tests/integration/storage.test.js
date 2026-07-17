@@ -307,8 +307,10 @@ describe("storage mock contracts (#108)", () => {
     remoteConfig.resetToBuiltin();
     chrome.storage.local.set.mockClear();
 
-    remoteConfig.replaceRemote({ features: { attachMenu: { enabled: false } } });
+    const persisted = remoteConfig.replaceRemote({ features: { attachMenu: { enabled: false } } });
 
+    expect(persisted).toBeInstanceOf(Promise);
+    await persisted;
     expect(chrome.storage.local.set).toHaveBeenCalledTimes(1);
   });
 
@@ -641,6 +643,57 @@ describe("storage mock contracts", () => {
     const { setStorageMockMode } = await import("../mocks/chrome.js");
     expect(() => setStorageMockMode("webkit")).toThrow(/Invalid storage mock mode/);
     expect(() => setStorageMockMode("")).toThrow(/Invalid storage mock mode/);
+  });
+
+  it("isolates a throwing listener and continues future FIFO deliveries", async () => {
+    const { flushStorageChanges } = await import("../mocks/chrome.js");
+    const delivered = [];
+    chrome.storage.onChanged.addListener(() => {
+      delivered.push("throws");
+      throw new Error("listener failure");
+    });
+    chrome.storage.onChanged.addListener((changes) => {
+      delivered.push(changes.value.newValue);
+    });
+
+    await chrome.storage.local.set({ value: 1 });
+    await flushStorageChanges();
+    await chrome.storage.local.set({ value: 2 });
+    await flushStorageChanges();
+
+    expect(delivered).toEqual(["throws", 1, "throws", 2]);
+  });
+});
+
+describe("storage listener lifecycle", () => {
+  beforeEach(() => {
+    resetChromeMock();
+    installChromeMock();
+    resetAppState();
+  });
+
+  it("returns one idempotent cleanup handle for an active binding", () => {
+    const first = bindStorageChangeListener();
+    const second = bindStorageChangeListener();
+
+    expect(second).toBe(first);
+    first();
+  });
+
+  it("a stale cleanup cannot remove a later binding", async () => {
+    const { flushStorageChanges } = await import("../mocks/chrome.js");
+    const first = bindStorageChangeListener();
+    first();
+    const current = bindStorageChangeListener();
+
+    first();
+    await chrome.storage.local.set({
+      [STORAGE_KEYS.settings]: { tokenPriceDisplay: true },
+    });
+    await flushStorageChanges();
+
+    expect(state.settings.tokenPriceDisplay).toBe(true);
+    current();
   });
 });
 

@@ -43,6 +43,10 @@ function computeDiff(stored, incoming) {
   return hasChanges ? diff : null;
 }
 
+function isObjectRoot(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 /**
  * @typedef {{ success: boolean, writtenKeys: string[], error?: string }} PersistResult
  */
@@ -65,7 +69,7 @@ export async function persistRemoteConfig(deps, { now = Date.now() } = {}) {
 
     const config = await response.json();
     // Accept only non-array plain objects as remote-config roots.
-    if (!config || typeof config !== "object" || Array.isArray(config)) {
+    if (!isObjectRoot(config)) {
       return { success: false, writtenKeys: [], error: "Invalid config root" };
     }
 
@@ -151,7 +155,11 @@ export async function persistLocales(deps, localeCodes, { now = Date.now() } = {
         deps
           .fetch(`${LOCALE_BASE_URL}/${code}.json?t=${now}`, { cache: "no-store" })
           .then((r) => (r.ok ? r.json() : null))
-          .then((data) => (data?.messages ? { code, data } : null)),
+          .then((data) => (
+            isObjectRoot(data) && isObjectRoot(data.messages)
+              ? { code, data }
+              : null
+          )),
       ),
     );
 

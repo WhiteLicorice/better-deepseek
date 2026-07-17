@@ -156,6 +156,15 @@ const ROUTES = [
       body: '{"status":"ok"}',
     }),
   },
+  {
+    name: "google-fonts-css",
+    match: (url) => url.startsWith("https://fonts.googleapis.com/"),
+    response: () => ({
+      statusCode: 200,
+      mediaType: "text/css; charset=utf-8",
+      body: "",
+    }),
+  },
 ];
 
 /**
@@ -210,6 +219,9 @@ export function resolveFixtureRequest(url) {
   );
   if (localeMatch) {
     const code = localeMatch[1];
+    if (!getLocaleCodes().includes(code)) {
+      throw new Error(`[Fixture] Unknown locale code: ${code}`);
+    }
     return {
       statusCode: 200,
       mediaType: "application/json; charset=utf-8",

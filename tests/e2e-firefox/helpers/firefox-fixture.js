@@ -112,12 +112,8 @@ export async function createFirefoxFixture() {
       params: {
         phases: ["beforeRequestSent"],
         urlPatterns: [
-          { type: "pattern", hostname: "chat.deepseek.com" },
-          { type: "pattern", hostname: "api-docs.deepseek.com" },
-          { type: "pattern", hostname: "status.deepseek.com" },
-          { type: "pattern", hostname: "raw.githubusercontent.com" },
-          { type: "pattern", hostname: "codeload.github.com" },
-          { type: "pattern", hostname: "api.github.com" },
+          { type: "pattern", protocol: "http" },
+          { type: "pattern", protocol: "https" },
         ],
       },
     });
@@ -138,7 +134,13 @@ export async function createFirefoxFixture() {
 
       try {
         const resolved = resolveFixtureRequest(url);
-        if (!resolved) return; // internal URL
+        if (!resolved) {
+          await bidi.send({
+            method: "network.continueRequest",
+            params: { request: event.request.request },
+          });
+          return;
+        }
 
         fixtureLedger.record(url, resolved.routeName, resolved.statusCode);
 

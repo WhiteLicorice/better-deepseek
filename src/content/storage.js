@@ -443,6 +443,7 @@ export function normalizeCssSnippets(raw) {
 // ── Storage change listener ──
 
 let _storageListenerRef = null;
+let _storageCleanupRef = null;
 
 /**
  * Bind the storage.onChanged listener. Idempotent — subsequent calls
@@ -456,12 +457,10 @@ export function bindStorageChangeListener() {
   if (_storageListenerRef) {
     // Verify the listener is still registered; mock resets clear the Set
     if (!chrome.storage.onChanged.hasListener(_storageListenerRef)) {
-      _storageListenerRef = null; // fall through to re-register
+      _storageListenerRef = null;
+      _storageCleanupRef = null;
     } else {
-      return () => {
-        chrome.storage.onChanged.removeListener(_storageListenerRef);
-        _storageListenerRef = null;
-      };
+      return _storageCleanupRef;
     }
   }
 
@@ -599,10 +598,15 @@ export function bindStorageChangeListener() {
   };
 
   chrome.storage.onChanged.addListener(_storageListenerRef);
+  const listener = _storageListenerRef;
+  _storageCleanupRef = () => {
+    chrome.storage.onChanged.removeListener(listener);
+    if (_storageListenerRef === listener) {
+      _storageListenerRef = null;
+      _storageCleanupRef = null;
+    }
+  };
   }
 
-  return () => {
-    chrome.storage.onChanged.removeListener(_storageListenerRef);
-    _storageListenerRef = null;
-  };
+  return _storageCleanupRef;
 }

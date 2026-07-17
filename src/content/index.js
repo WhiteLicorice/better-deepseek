@@ -58,9 +58,12 @@ async function init() {
   i18n.init(state.settings.syncLocale ? null : state.settings.locale);
 
   // Silently check for language updates on startup
-  if (typeof chrome !== "undefined" && chrome.runtime?.sendMessage) {
-    chrome.runtime.sendMessage({ type: "BDS_UPDATE_LANGUAGES" });
-  }
+  const languageUpdatePromise =
+    typeof chrome !== "undefined" && chrome.runtime?.sendMessage
+      ? chrome.runtime
+          .sendMessage({ type: "BDS_UPDATE_LANGUAGES" })
+          .catch((error) => ({ success: false, error: error.message }))
+      : Promise.resolve({ success: true });
 
   injectHookScript();
   setupBridgeEvents();
@@ -145,7 +148,7 @@ async function init() {
   }
 
   // Debug API — listen for requests from MAIN-world injected script
-  window.addEventListener("bds:debug-api-request", (e) => {
+  window.addEventListener("bds:debug-api-request", async (e) => {
     let detail = e.detail;
     if (typeof detail === "string") { try { detail = JSON.parse(detail); } catch { return; } }
     const { id, method, args } = detail || {};
@@ -155,9 +158,9 @@ async function init() {
         case "getRaw":   result = remoteConfig.raw; break;
         case "getFlag":  result = remoteConfig.getFlag(args?.[0]); break;
         case "getConfig": result = remoteConfig.getConfig(args?.[0]); break;
-        case "applyRemote":   remoteConfig.applyRemote(args?.[0]); result = remoteConfig.raw; break;
-        case "replaceRemote": remoteConfig.replaceRemote(args?.[0]); result = remoteConfig.raw; break;
-        case "resetToBuiltin": remoteConfig.resetToBuiltin(); result = remoteConfig.raw; break;
+        case "applyRemote":   await remoteConfig.applyRemote(args?.[0]); result = remoteConfig.raw; break;
+        case "replaceRemote": await remoteConfig.replaceRemote(args?.[0]); result = remoteConfig.raw; break;
+        case "resetToBuiltin": await remoteConfig.resetToBuiltin(); result = remoteConfig.raw; break;
         case "detectModel": result = detectModelType() || "instant"; break;
         case "toggleDebugPanel":
           window.dispatchEvent(new CustomEvent("bds:toggle-debug-panel"));
@@ -174,6 +177,18 @@ async function init() {
           stopStorageProbe();
           result = true;
           break;
+        case "waitForStartup": {
+          const [background, locales] = await Promise.all([
+            chrome.runtime.sendMessage({ type: "BDS_WAIT_FOR_STARTUP" }),
+            languageUpdatePromise,
+          ]);
+          result = {
+            success: Boolean(background?.success && locales?.success),
+            background,
+            locales,
+          };
+          break;
+        }
       }
     } catch (err) { result = { __error: err.message }; }
     window.dispatchEvent(new CustomEvent("bds:debug-api-response", {

@@ -13,6 +13,7 @@ const processMessageNodeMock = vi.hoisted(() => vi.fn());
 const disposeMessageNodeMock = vi.hoisted(() => vi.fn());
 const disposeDetachedMessageOverlaysMock = vi.hoisted(() => vi.fn());
 const isSystemGeneratingMock = vi.hoisted(() => vi.fn(() => false));
+const resetMessagePricingMock = vi.hoisted(() => vi.fn());
 
 vi.mock("svelte", () => ({
   mount: mountMock,
@@ -23,6 +24,7 @@ vi.mock("../../src/content/message-processor.svelte.js", () => ({
   disposeMessageNode: disposeMessageNodeMock,
   disposeDetachedMessageOverlays: disposeDetachedMessageOverlaysMock,
   isSystemGenerating: isSystemGeneratingMock,
+  resetMessagePricing: resetMessagePricingMock,
 }));
 
 vi.mock("../../src/content/ui/AttachMenu.svelte", () => ({
@@ -549,6 +551,8 @@ describe("scanner scheduling", () => {
     vi.advanceTimersByTime(200);
     processMessageNodeMock.mockClear();
 
+    const querySelectorAllSpy = vi.spyOn(document, "querySelectorAll");
+
     // Now set up the observer and append one new message
     observeChatDom();
     await Promise.resolve();
@@ -575,6 +579,38 @@ describe("scanner scheduling", () => {
     for (const call of calls) {
       expect(call[1]).toBeGreaterThanOrEqual(1999);
     }
+
+    const messageEnumerations = querySelectorAllSpy.mock.calls.filter(
+      ([selector]) => selector === "div.ds-message._63c77b1" || selector === "div.ds-message",
+    );
+    expect(messageEnumerations).toHaveLength(0);
+    querySelectorAllSpy.mockRestore();
+  });
+
+  it("reparents a known message without disposing or losing it from the ordered registry", async () => {
+    const { observeChatDom, scheduleScan } = await import("../../src/content/scanner.js");
+    const first = makeMessage("user", "first");
+    const moved = makeMessage("assistant", "moved");
+    const last = makeMessage("assistant", "last");
+    document.body.append(first, moved, last);
+
+    scheduleScan();
+    vi.advanceTimersByTime(200);
+    processMessageNodeMock.mockClear();
+    disposeMessageNodeMock.mockClear();
+
+    observeChatDom();
+    const newParent = document.createElement("section");
+    document.body.appendChild(newParent);
+    newParent.appendChild(moved);
+    await Promise.resolve();
+    vi.advanceTimersByTime(200);
+
+    expect(disposeMessageNodeMock).not.toHaveBeenCalledWith(moved);
+    const movedCall = processMessageNodeMock.mock.calls.find(([node]) => node === moved);
+    expect(movedCall).toBeTruthy();
+    expect(movedCall[1]).toBe(2);
+    expect(movedCall[2][2]).toBe(moved);
   });
 
   it("scheduleMessageScan ignores null", async () => {

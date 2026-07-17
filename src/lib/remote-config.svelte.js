@@ -98,35 +98,40 @@ class RemoteConfigManager {
     }
   }
 
-  applyRemote(partial) {
+  async applyRemote(partial) {
     const normalized = normalizeRoot(partial);
     const prevRemote = structuredClone(this.#remote);
     deepMerge(this.#remote, normalized);
     if (!deepEqual(prevRemote, this.#remote)) {
-      this.#persist();
+      const persisted = this.#persist();
       this.#notify();
+      return persisted;
     }
+    return false;
   }
 
-  replaceRemote(full) {
+  async replaceRemote(full) {
     const next = normalizeRoot(full);
     if (!deepEqual(this.#remote, next)) {
       this.#remote = next;
-      this.#persist();
+      const persisted = this.#persist();
       this.#notify();
+      return persisted;
     }
+    return false;
   }
 
-  resetToBuiltin() {
+  async resetToBuiltin() {
     const hadOverrides = !deepEqual(this.#remote, {});
     this.#remote = {};
     // Always clear persisted config + metadata, even when in-memory override
     // is already empty — storage hygiene is unconditional.
-    this.#clearStorage();
+    const cleared = this.#clearStorage();
     // Suppress notification only when logical configuration did not change.
     if (hadOverrides) {
       this.#notify();
     }
+    return cleared;
   }
 
   onChange(callback) {
@@ -137,21 +142,33 @@ class RemoteConfigManager {
   #persist() {
     try {
       if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.set({ [STORAGE_KEYS.remoteConfig]: this.#remote }).catch(() => {});
+        return chrome.storage.local
+          .set({ [STORAGE_KEYS.remoteConfig]: this.#remote })
+          .then(() => true, (error) => {
+            console.warn("[BDS] Failed to persist remote config:", error);
+            return false;
+          });
       }
     } catch (e) {
       console.warn("[BDS] Failed to persist remote config:", e);
     }
+    return Promise.resolve(false);
   }
 
   #clearStorage() {
     try {
       if (typeof chrome !== "undefined" && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.remove([STORAGE_KEYS.remoteConfig, STORAGE_KEYS.remoteConfigMeta]).catch(() => {});
+        return chrome.storage.local
+          .remove([STORAGE_KEYS.remoteConfig, STORAGE_KEYS.remoteConfigMeta])
+          .then(() => true, (error) => {
+            console.warn("[BDS] Failed to clear remote config:", error);
+            return false;
+          });
       }
     } catch (e) {
       console.warn("[BDS] Failed to clear remote config:", e);
     }
+    return Promise.resolve(false);
   }
 
   #notify() {

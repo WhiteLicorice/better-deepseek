@@ -701,17 +701,34 @@ test("storage #108: single write, zero on repeat, idle stability", async ({ page
     return result;
   }
 
-  // Wait for fixture startup quiescence: no storage events for 500ms.
-  // Seed a unique value first so we have a baseline.
-  const startupToken = `startup-${Date.now()}`;
-  await debugRequest("quiesce-seed", "replaceRemote", [{ features: { startupToken } }]);
-  await page.waitForTimeout(500);
-  await debugRequest("quiesce-start", "startStorageProbe");
-  await page.waitForTimeout(750);
-  const startupProbe = await debugRequest("quiesce-check", "getStorageProbe");
-  // Startup probe should show 0 events after seeding (the seed was before probe start)
-  // If startup background fetches are still arriving, we'll see them here
-  await debugRequest("quiesce-stop", "stopStorageProbe");
+  async function waitForStorageQuiet(label, quietMs = 250, timeoutMs = 5000) {
+    const startedAt = Date.now();
+    let last = await debugRequest(`${label}-initial`, "getStorageProbe");
+    let stableSince = Date.now();
+    while (Date.now() - startedAt < timeoutMs) {
+      await page.waitForTimeout(50);
+      const current = await debugRequest(`${label}-${Date.now()}`, "getStorageProbe");
+      if (
+        current.total !== last.total ||
+        current.remoteConfig !== last.remoteConfig ||
+        current.events.length !== last.events.length
+      ) {
+        last = current;
+        stableSince = Date.now();
+      } else if (Date.now() - stableSince >= quietMs) {
+        return current;
+      }
+    }
+    throw new Error(`Storage did not become quiet within ${timeoutMs}ms`);
+  }
+
+  const startup = await debugRequest("startup-ready", "waitForStartup");
+  expect(startup, JSON.stringify(startup)).toMatchObject({ success: true });
+  await debugRequest("startup-probe-start", "startStorageProbe");
+  const startupProbe = await waitForStorageQuiet("startup-quiet");
+  expect(startupProbe.total).toBe(0);
+  expect(startupProbe.remoteConfig).toBe(0);
+  await debugRequest("startup-probe-stop", "stopStorageProbe");
 
   // ── Actual #108 contract ──
   try {
@@ -720,10 +737,9 @@ test("storage #108: single write, zero on repeat, idle stability", async ({ page
 
     // Start page-level event counter
     await page.evaluate(() => {
-      window.__bdsTestEvents = { remoteConfigUpdated: 0 };
-      window.addEventListener("bds:remote-config-updated", () => {
-        window.__bdsTestEvents.remoteConfigUpdated++;
-      });
+      const listener = () => { window.__bdsTestEvents.remoteConfigUpdated += 1; };
+      window.__bdsTestEvents = { remoteConfigUpdated: 0, listener };
+      window.addEventListener("bds:remote-config-updated", listener);
     });
 
     const ts = Date.now();
@@ -731,36 +747,33 @@ test("storage #108: single write, zero on repeat, idle stability", async ({ page
 
     // Apply unique remote config and await correlated response
     await debugRequest("cr-1", "replaceRemote", [uniqueConfig]);
-
-    // Allow a short flush window for storage events
-    await page.waitForTimeout(300);
+    const probeAfterFirst = await waitForStorageQuiet("first-write");
 
     const eventsAfterFirst = await page.evaluate(() => window.__bdsTestEvents.remoteConfigUpdated);
     expect(eventsAfterFirst).toBe(1);
 
     // Get probe — total events must be exactly 1
-    const probeAfterFirst = await debugRequest("probe-get-1", "getStorageProbe");
     expect(probeAfterFirst).toBeTruthy();
     expect(probeAfterFirst.total).toBe(1);
     expect(probeAfterFirst.remoteConfig).toBe(1);
 
     // Idle window — counts must remain stable
-    await page.waitForTimeout(500);
+    const idleProbe = await waitForStorageQuiet("idle-stability");
+    expect(idleProbe).toEqual(probeAfterFirst);
     const eventsAfterIdle = await page.evaluate(() => window.__bdsTestEvents.remoteConfigUpdated);
     expect(eventsAfterIdle).toBe(1);
 
     // Reapply structurally identical config (with reordered keys)
     const identicalConfig = { features: { ts, testChrome: true } };
     await debugRequest("cr-2", "replaceRemote", [identicalConfig]);
-
-    await page.waitForTimeout(500);
+    const probeAfterRepeat = await waitForStorageQuiet("identical-repeat");
 
     // Zero additional events or writes
     const eventsAfterRepeat = await page.evaluate(() => window.__bdsTestEvents.remoteConfigUpdated);
     expect(eventsAfterRepeat).toBe(1);
 
-    const probeAfterRepeat = await debugRequest("probe-get-2", "getStorageProbe");
     expect(probeAfterRepeat.total).toBe(1);
+    expect(probeAfterRepeat.remoteConfig).toBe(1);
 
     // Verify stored data is correct via debug API
     const storedConfig = await debugRequest("probe-get-raw", "getRaw");
@@ -771,7 +784,12 @@ test("storage #108: single write, zero on repeat, idle stability", async ({ page
     // Always stop the probe
     await debugRequest("probe-stop", "stopStorageProbe");
     // Clean up event counter
-    await page.evaluate(() => { window.__bdsTestEvents = null; });
+    await page.evaluate(() => {
+      if (window.__bdsTestEvents?.listener) {
+        window.removeEventListener("bds:remote-config-updated", window.__bdsTestEvents.listener);
+      }
+      window.__bdsTestEvents = null;
+    });
   }
 });
 
@@ -785,20 +803,24 @@ test("host wrapper: create_file download card in block-level nonzero wrapper", a
   // Await the download card observably instead of sleeping
   await expect(page.locator(".bds-download-card")).toBeVisible({ timeout: 10000 });
 
-  const wrapper = page.locator(".bds-host-wrapper").first();
-  await expect(wrapper).toBeVisible();
-
-  // Card must be inside the correct wrapper
   const card = page.locator(".bds-download-card").first();
-  const isDescendant = await wrapper.evaluate((el, child) => el.contains(child), await card.elementHandle());
-  expect(isDescendant).toBe(true);
-
-  const display = await wrapper.evaluate((el) => getComputedStyle(el).display);
-  expect(display).not.toBe("contents");
-
-  const rect = await wrapper.evaluate((el) => {
-    const r = el.getBoundingClientRect(); return { w: r.width, h: r.height };
+  const hostContract = await card.evaluate((element) => {
+    const wrapper = element.closest(".bds-host-wrapper");
+    const message = wrapper?.previousElementSibling;
+    const rect = wrapper?.getBoundingClientRect();
+    return {
+      hasWrapper: Boolean(wrapper),
+      adjacentToMessage: Boolean(message?.classList.contains("ds-message")),
+      ownsExpectedMessage: Boolean(message?.textContent.includes("Hello Chrome E2E")),
+      display: wrapper ? getComputedStyle(wrapper).display : null,
+      w: rect?.width || 0,
+      h: rect?.height || 0,
+    };
   });
-  expect(rect.w).toBeGreaterThan(0);
-  expect(rect.h).toBeGreaterThan(0);
+  expect(hostContract.hasWrapper).toBe(true);
+  expect(hostContract.adjacentToMessage).toBe(true);
+  expect(hostContract.ownsExpectedMessage).toBe(true);
+  expect(hostContract.display).not.toBe("contents");
+  expect(hostContract.w).toBeGreaterThan(0);
+  expect(hostContract.h).toBeGreaterThan(0);
 });

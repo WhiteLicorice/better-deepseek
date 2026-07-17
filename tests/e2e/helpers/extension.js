@@ -93,6 +93,7 @@ export const test = base.extend({
     try {
       await use(context);
     } finally {
+      const teardownErrors = [];
       try {
         await context.close();
       } catch (e) {
@@ -104,9 +105,7 @@ export const test = base.extend({
           msg.includes("Connection closed")
         ) {
           // Expected teardown race on Windows — safe to ignore
-        } else {
-          throw e;
-        }
+        } else teardownErrors.push(e);
       }
       // Retry removal on Windows where file locks may persist briefly
       const maxRetries = 5;
@@ -116,9 +115,22 @@ export const test = base.extend({
           fs.rmSync(userDataDir, { recursive: true, force: true });
           break;
         } catch {
-          if (attempt === maxRetries - 1) throw new Error(`Failed to remove temp dir: ${userDataDir}`);
+          if (attempt === maxRetries - 1) {
+            teardownErrors.push(new Error(`Failed to remove temp dir: ${userDataDir}`));
+          }
           await new Promise((r) => setTimeout(r, retryDelay));
         }
+      }
+
+      const unmatched = fixtureLedger.entries().filter((entry) => entry.statusCode >= 500);
+      if (unmatched.length > 0) {
+        teardownErrors.push(new Error(
+          `[Fixture] ${unmatched.length} unmatched external request(s):\n` +
+          unmatched.map((entry) => `${entry.url}: ${entry.error || entry.statusCode}`).join("\n"),
+        ));
+      }
+      if (teardownErrors.length > 0) {
+        throw new AggregateError(teardownErrors, "Extension fixture teardown failed");
       }
     }
   },

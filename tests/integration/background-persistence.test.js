@@ -327,4 +327,22 @@ describe("persistLocales", () => {
     expect(r.error).toBe("No valid locale files fetched");
     expect(chrome.storage.local.set).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["array", []],
+    ["string", "translations"],
+    ["number", 42],
+  ])("rejects a %s messages root", async (_label, messages) => {
+    mockLocaleFetch("en", { messages });
+    chrome.storage.local.set.mockClear();
+
+    const result = await persistLocales(deps, ["en"]);
+
+    expect(result).toEqual({
+      success: false,
+      writtenKeys: [],
+      error: "No valid locale files fetched",
+    });
+    expect(chrome.storage.local.set).not.toHaveBeenCalled();
+  });
 });

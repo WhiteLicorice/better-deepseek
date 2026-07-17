@@ -23,7 +23,12 @@ import { upsertCharacters } from "./parser/character-parser.js";
 import { upsertSkills } from "./parser/skill-parser.js";
 import { collectLongWorkFiles, finalizeLongWork, emitZipForFiles } from "./files/long-work.js";
 import { emitStandaloneFiles } from "./files/standalone.js";
-import { getOrCreateHost, removeAllMessageHosts, removeMessageHost } from "./dom/host.js";
+import {
+  getOrCreateHost,
+  reconcileMessageHost,
+  removeAllMessageHosts,
+  removeMessageHost,
+} from "./dom/host.js";
 import { handleAutoWebFetch, handleAutoGitHubFetch, handleAutoTwitterFetch, handleAutoYouTubeFetch, handleAutoSearch, handleAutoSearchForRun } from "./auto.js";
 import { handleManagedAutoContinuation, isManagedRunActive, trySynthesizeReport } from "./deep-research.js";
 
@@ -40,6 +45,39 @@ const nodeStates = new WeakMap();
 const userMsgCleaned = new WeakSet();
 const readMessages = new WeakSet();
 const processedSearchResultCards = new WeakSet();
+const pricingContributions = new Map();
+
+function removePricingContribution(node) {
+  const previous = pricingContributions.get(node);
+  if (!previous) return;
+  pricingContributions.delete(node);
+  if (previous.role === "user") {
+    state.pricing.sessionInputTokens -= previous.tokens;
+  } else {
+    state.pricing.sessionOutputTokens -= previous.tokens;
+  }
+  state.pricing.sessionTotals.totalCost -= previous.cost;
+}
+
+function setPricingContribution(node, stateData, role, tokens, cost) {
+  removePricingContribution(node);
+  pricingContributions.set(node, { role, tokens, cost });
+  if (role === "user") state.pricing.sessionInputTokens += tokens;
+  else state.pricing.sessionOutputTokens += tokens;
+  state.pricing.sessionTotals.totalCost += cost;
+  stateData.role = role;
+  stateData.tokens = tokens;
+  stateData.cost = cost;
+  refreshSessionTotalDisplayInline();
+}
+
+export function resetMessagePricing() {
+  pricingContributions.clear();
+  state.pricing.sessionInputTokens = 0;
+  state.pricing.sessionOutputTokens = 0;
+  state.pricing.sessionTotals = { inputCost: 0, outputCost: 0, totalCost: 0 };
+  document.querySelector(".bds-session-total")?.remove();
+}
 
 /**
  * Dispose a single message node: clear its timers, unmount its Svelte
@@ -66,6 +104,8 @@ export function disposeMessageNode(node) {
   userMsgCleaned.delete(node);
   processedSearchResultCards.delete(node);
   nodeStates.delete(node);
+  removePricingContribution(node);
+  refreshSessionTotalDisplayInline();
 
   // Remove all associated hosts and wrapper
   removeAllMessageHosts(node);
@@ -118,6 +158,8 @@ export function processMessageNode(node, nodeIndex = -1, nodes = null, context =
   if (!node || node.closest("#bds-root")) {
     return;
   }
+
+  reconcileMessageHost(node);
 
   if (nodeIndex === -1 || !nodes) {
     const collected = collectMessageNodes();
@@ -245,12 +287,8 @@ export function processMessageNode(node, nodeIndex = -1, nodes = null, context =
       const cacheHitTokens = 0; // We will handle cache hit logic differently or just ignore for user display
       const { inputCost } = calcCostInline(newInputTokens, 0, modelName);
       
-      stateData.tokens = newInputTokens;
-      stateData.cost = inputCost;
-      stateData.role = "user";
-      
       injectPriceUser(node, newInputTokens, inputCost);
-      refreshSessionTotalDisplayInline();
+      setPricingContribution(node, stateData, "user", newInputTokens, inputCost);
       stateData.priceInjected = true;
     }
     handleUserMessageCollapse(node);
@@ -874,12 +912,8 @@ function syncVisibilityState(node, isLatestAssistant, stateData, isSettled) {
     const outputTokens = estimateTokensInline(totalText);
     const { outputCost } = calcCostInline(0, outputTokens, modelName);
     
-    stateData.tokens = outputTokens;
-    stateData.cost = outputCost;
-    stateData.role = "assistant";
-    
     injectPriceAssistant(node, outputTokens, outputCost);
-    refreshSessionTotalDisplayInline();
+    setPricingContribution(node, stateData, "assistant", outputTokens, outputCost);
   }
 }
 
@@ -1237,28 +1271,10 @@ function formatCostDisplay(cost) {
 
 function refreshSessionTotalDisplayInline() {
   if (!state.settings.tokenPriceDisplay) return;
-  
-  const nodes = collectMessageNodes();
-  let totalInputTokens = 0;
-  let totalOutputTokens = 0;
-  let totalCost = 0;
 
-  for (const node of nodes) {
-    const sd = nodeStates.get(node);
-    if (sd && sd.tokens) {
-      if (sd.role === "user") {
-        totalInputTokens += sd.tokens;
-      } else {
-        totalOutputTokens += sd.tokens;
-      }
-      totalCost += sd.cost || 0;
-    }
-  }
-
-  // Update global state for other components that might read it
-  state.pricing.sessionInputTokens = totalInputTokens;
-  state.pricing.sessionOutputTokens = totalOutputTokens;
-  state.pricing.sessionTotals.totalCost = totalCost;
+  const totalInputTokens = state.pricing.sessionInputTokens;
+  const totalOutputTokens = state.pricing.sessionOutputTokens;
+  const totalCost = state.pricing.sessionTotals.totalCost;
 
   let el = document.querySelector(".bds-session-total");
   if (!el) {

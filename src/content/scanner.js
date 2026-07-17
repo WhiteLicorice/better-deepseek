@@ -5,7 +5,13 @@
 import state, { withObserverPaused } from "./state.js";
 import { LONG_WORK_STALE_MS } from "../lib/constants.js";
 import { devLog } from "../lib/dev-log.js";
-import { processMessageNode, disposeMessageNode, disposeDetachedMessageOverlays, isSystemGenerating } from "./message-processor.svelte.js";
+import {
+  processMessageNode,
+  disposeMessageNode,
+  disposeDetachedMessageOverlays,
+  isSystemGenerating,
+  resetMessagePricing,
+} from "./message-processor.svelte.js";
 import { mount, unmount } from "svelte";
 import AttachMenu from "./ui/AttachMenu.svelte";
 import ExpandToggle from "./ui/ExpandToggle.svelte";
@@ -34,6 +40,82 @@ let previousAbsoluteLast = null;
  * @type {Element[]}
  */
 let knownNodes = [];
+let knownNodesInitialized = false;
+let knownNodeIndexes = new WeakMap();
+let knownLatestAssistant = null;
+
+function rebuildKnownNodes(nodes) {
+  knownNodes = nodes;
+  knownNodesInitialized = true;
+  knownNodeIndexes = new WeakMap();
+  for (let index = 0; index < knownNodes.length; index += 1) {
+    knownNodeIndexes.set(knownNodes[index], index);
+  }
+  knownLatestAssistant = findLatestAssistantMessageNode(knownNodes);
+}
+
+function updateKnownIndexes(startIndex) {
+  for (let index = startIndex; index < knownNodes.length; index += 1) {
+    knownNodeIndexes.set(knownNodes[index], index);
+  }
+}
+
+function recomputeKnownLatestAssistant() {
+  knownLatestAssistant = findLatestAssistantMessageNode(knownNodes);
+}
+
+function removeKnownNode(node) {
+  let index = knownNodeIndexes.get(node);
+  if (index === undefined) return false;
+  if (knownNodes[index] !== node) {
+    index = knownNodes.indexOf(node);
+  }
+  if (index === -1) return false;
+
+  knownNodes.splice(index, 1);
+  knownNodeIndexes.delete(node);
+  updateKnownIndexes(index);
+  if (knownLatestAssistant === node) recomputeKnownLatestAssistant();
+  return true;
+}
+
+function findKnownInsertIndex(node) {
+  let low = 0;
+  let high = knownNodes.length;
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    const position = knownNodes[middle].compareDocumentPosition(node);
+    if (position & Node.DOCUMENT_POSITION_FOLLOWING) low = middle + 1;
+    else high = middle;
+  }
+  return low;
+}
+
+function registerKnownNode(node) {
+  if (!knownNodesInitialized || !document.contains(node)) return;
+
+  const wasKnown = removeKnownNode(node);
+  let index;
+  const last = knownNodes[knownNodes.length - 1];
+  if (!last || (last.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) {
+    index = knownNodes.length;
+    knownNodes.push(node);
+    knownNodeIndexes.set(node, index);
+  } else {
+    index = findKnownInsertIndex(node);
+    knownNodes.splice(index, 0, node);
+    updateKnownIndexes(index);
+  }
+
+  if (wasKnown) {
+    recomputeKnownLatestAssistant();
+  } else if (
+    detectMessageRole(node) === "assistant" &&
+    (!knownLatestAssistant || index > (knownNodeIndexes.get(knownLatestAssistant) ?? -1))
+  ) {
+    knownLatestAssistant = node;
+  }
+}
 
 // ── Internal: arm the shared debounce timer ──
 function armScanTimer() {
@@ -185,8 +267,7 @@ export function observeChatDom() {
 
         if (added.classList?.contains("ds-message")) {
           dirtyNodes.add(added);
-          if (knownNodes.length === 0) knownNodes = collectMessageNodes();
-          else if (!knownNodes.includes(added)) knownNodes.push(added);
+          registerKnownNode(added);
           continue;
         }
 
@@ -195,8 +276,7 @@ export function observeChatDom() {
           for (const dm of descendantMessages) {
             if (!dm.closest?.("#bds-root")) {
               dirtyNodes.add(dm);
-              if (knownNodes.length === 0) knownNodes = collectMessageNodes();
-              else if (!knownNodes.includes(dm)) knownNodes.push(dm);
+              registerKnownNode(dm);
             }
           }
         }
@@ -248,12 +328,8 @@ export function scheduleMessageScan(node) {
     return;
   }
   dirtyNodes.add(node);
-  // Seed the ordered registry from DOM if this is the first operation
-  if (knownNodes.length === 0) {
-    knownNodes = collectMessageNodes();
-  } else if (!knownNodes.includes(node)) {
-    knownNodes.push(node);
-  }
+  if (!knownNodesInitialized) rebuildKnownNodes(collectMessageNodes());
+  registerKnownNode(node);
   armScanTimer();
 }
 
@@ -291,7 +367,10 @@ function scanPage() {
     removedNodes.clear();
     for (const rn of toDispose) {
       if (!document.contains(rn)) {
+        removeKnownNode(rn);
         disposeMessageNode(rn);
+      } else {
+        registerKnownNode(rn);
       }
     }
 
@@ -301,8 +380,8 @@ function scanPage() {
       dirtyNodes.clear();
 
       const nodes = collectMessageNodes();
-      knownNodes = nodes; // seed incremental registry
-      const latestAssistant = findLatestAssistantMessageNode(nodes);
+      rebuildKnownNodes(nodes);
+      const latestAssistant = knownLatestAssistant;
       const absoluteLast = nodes[nodes.length - 1] || null;
       const systemGenerating = isSystemGenerating();
       const context = {
@@ -325,28 +404,17 @@ function scanPage() {
     } else if (dirtyNodes.size > 0 || toDispose.size > 0) {
       // Incremental: use cached knownNodes — no O(N) DOM walk after initial seed.
       // Seed with one full collection if the registry is empty (first run after nav).
-      if (knownNodes.length === 0) {
-        knownNodes = collectMessageNodes();
-      }
-      // Prune disconnected entries from knownNodes (removed by observer)
-      knownNodes = knownNodes.filter(n => document.contains(n));
-
-      // Also splice out nodes that were disposed
-      for (const rn of toDispose) {
-        const idx = knownNodes.indexOf(rn);
-        if (idx !== -1) knownNodes.splice(idx, 1);
-      }
+      if (!knownNodesInitialized) rebuildKnownNodes(collectMessageNodes());
 
       // Dispose remaining dirty nodes disconnected at flush time
       for (const dn of dirtyNodes) {
         if (!document.contains(dn)) {
           disposeMessageNode(dn);
-          const idx = knownNodes.indexOf(dn);
-          if (idx !== -1) knownNodes.splice(idx, 1);
+          removeKnownNode(dn);
         }
       }
 
-      const latestAssistant = findLatestAssistantMessageNode(knownNodes);
+      const latestAssistant = knownLatestAssistant;
       const absoluteLast = knownNodes[knownNodes.length - 1] || null;
       const systemGenerating = isSystemGenerating();
 
@@ -376,8 +444,8 @@ function scanPage() {
 
       // Use knownNodes for index lookups (no rebuild)
       for (const node of toProcess) {
-        const idx = knownNodes.indexOf(node);
-        if (idx === -1) continue;
+        const idx = knownNodeIndexes.get(node);
+        if (idx === undefined) continue;
         try {
           processMessageNode(node, idx, knownNodes, context);
         } catch (err) {
@@ -410,6 +478,9 @@ export function resetIncrementalState() {
   previousLatestAssistant = null;
   previousAbsoluteLast = null;
   knownNodes = [];
+  knownNodesInitialized = false;
+  knownNodeIndexes = new WeakMap();
+  knownLatestAssistant = null;
   // Do NOT clear removedNodes — disposal must survive navigation.
 }
 
@@ -953,9 +1024,7 @@ export function startUrlWatcher() {
     
     // Only reset session pricing if it's NOT the first message transition
     if (!isNewSessionTransition) {
-      state.pricing.sessionTotals = { inputCost: 0, outputCost: 0, totalCost: 0 };
-      state.pricing.sessionInputTokens = 0;
-      state.pricing.sessionOutputTokens = 0;
+      resetMessagePricing();
       state.pricing.pendingInjections.clear();
     } else {
       // Migrate "default" pending injection to the new real ID
